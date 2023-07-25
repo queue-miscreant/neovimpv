@@ -31,15 +31,6 @@ def try_json(arg):
     except:
         return arg
 
-# convert hash to upper/lowercase alphabetical string
-def hash_name(name):
-    i = abs(hash(name))
-    out = ""
-    while i > 0:
-        out += chr(i % 26 + 65) if i % 52 > 26 else chr(i % 26 + 97)
-        i //= 52
-    return out
-
 def sexagesimalize(number):
     '''Convert a number to decimal-coded sexagesimal (i.e., clock format)'''
     seconds = int(number)
@@ -267,7 +258,7 @@ class MpvInstance:
     #TODO: heuristic timeout (longer for urls)
     async def _spawn(self, arg, timeout_duration, has_markdown):
         '''Backend for `spawn`'''
-        ipc_path = os.path.join(self.plugin.MPV_SOCKET_DIR, hash_name(arg))
+        ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")
         process = await asyncio.create_subprocess_exec(
             *self.MPV_ARGS,
             f"--input-ipc-server={ipc_path}",
@@ -350,12 +341,17 @@ class MpvInstance:
 
 @pynvim.plugin
 class NeoviMPV:
-    # TODO windows
-    MPV_SOCKET_DIR = f"/tmp/nvim.{os.environ.get('USER')}/{hash_name(__qualname__)}"
-
     def __init__(self, nvim):
         self.nvim = nvim
         self._plugin_namespace = nvim.api.create_namespace(self.__class__.__name__)
+
+        # setup temp dir
+        tempname = nvim.call("tempname")
+        self.mpv_socket_dir = os.path.join(
+            os.path.dirname(tempname),
+            self.__class__.__name__.lower()
+        )
+        os.makedirs(self.mpv_socket_dir)
 
         self._mpv_instances = {}
         # nvim.exec_lua("_export = require('bufchange')")
@@ -382,11 +378,6 @@ class NeoviMPV:
             end
             '''
         )
-
-        os.makedirs(self.MPV_SOCKET_DIR)
-
-    def __del__(self):
-        os.rmdir(self.MPV_SOCKET_DIR)
 
     def get_mpv_by_line(self, line, show_error=True):
         '''Get the MPV instance on the current line of the buffer, if such an instance exists.'''
