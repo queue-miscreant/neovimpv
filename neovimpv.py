@@ -400,9 +400,10 @@ class NeoviMPV:
             instance.id,
         )
 
-    @pynvim.command("MpvOpen", nargs="*", range="")
-    def open_in_mpv(self, args, range):
+    @pynvim.command("MpvOpen", nargs=0, range="")
+    def open_in_mpv(self, range):
         '''Open current line as a file in MPV. '''
+        # TODO: nargs=? to put the line in the buffer first
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line, show_error=False)):
             self.show_error("Mpv is already open on this line!")
@@ -423,28 +424,30 @@ class NeoviMPV:
         )
         self._mpv_instances[target.id] = target
 
-    @pynvim.command("MpvPause", nargs="*", range="")
+    @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
         '''Pause/unpause the MPV instance on the current line'''
+        #TODO: optional argument for "all" instances
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line)):
             target.toggle_pause()
 
-    @pynvim.command("MpvClose", nargs="*", range="")
+    @pynvim.command("MpvClose", nargs="?", range="")
     def close_mpv(self, args, range):
         '''Close MPV instance on the current line'''
+        #TODO: optional argument for "all" instances
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line)):
             target.protocol.send_command("quit")
 
-    @pynvim.command("MpvSetProperty", nargs="*", range="")
+    @pynvim.command("MpvSetProperty", nargs="+", range="")
     def mpv_set_property(self, args, range):
         '''Send commands to the MPV instance on the current line'''
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line)):
             target.protocol.set_property(*[try_json(i) for i in args])
 
-    @pynvim.command("MpvSend", nargs="*", range="")
+    @pynvim.command("MpvSend", nargs="+", range="")
     def send_mpv_command(self, args, range):
         '''Send commands to the MPV instance on the current line'''
         line = range[0] - 1
