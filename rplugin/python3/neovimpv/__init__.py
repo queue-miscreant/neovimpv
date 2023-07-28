@@ -223,47 +223,29 @@ class NeoviMPV:
         os.makedirs(self.mpv_socket_dir)
 
         self._mpv_instances = {}
-        # nvim.exec_lua("_export = require('bufchange')")
+        nvim.exec_lua("_mpv = require('neovimpv')")
 
         self._virtual_text_locked = False
-        nvim.exec_lua(
-            '''
-            function extmark_on_line(buffer, namespace, extmark_ids, target_line)
-                for i = 1, #extmark_ids do
-                    id = extmark_ids[i]
-                    local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, id, {})
-                    if loc[1] == target_line then
-                        return id
-                    end
-                end
-                return nil
-            end
-
-            function update_extmark(buffer, namespace, extmark_id, content)
-                loc = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, extmark_id, {})
-                if loc ~= nil then
-                    vim.api.nvim_buf_set_extmark(buffer, namespace, loc[1], loc[2], content)
-                end
-            end
-            '''
-        )
 
     def get_mpv_by_line(self, line, show_error=True):
         '''Get the MPV instance on the current line of the buffer, if such an instance exists.'''
-        extmark_id = self.nvim.lua.extmark_on_line(
-            self.nvim.current.buffer,
+        extmark_ids = self.nvim.current.buffer.api.get_extmarks(
             self._plugin_namespace,
-            list(self._mpv_instances.keys()),
-            line
+            [line, 0],
+            [line, 0],
+            {}
         )
-        if extmark_id is None:
+        if not extmark_ids:
             if show_error:
                 self.show_error("No MPV found running on that line")
             return None
-        return self._mpv_instances[extmark_id]
+        # first 0 for "first extmark", second for extmark id
+        extmark_id = extmark_ids[0][0]
+
+        return self._mpv_instances[(self.nvim.current.buffer.number, extmark_id)]
 
     def remove_mpv_instance(self, instance):
-        del self._mpv_instances[instance.id]
+        del self._mpv_instances[(instance.buffer.number, instance.id)]
         instance.buffer.api.del_extmark(
             self._plugin_namespace,
             instance.id,
@@ -291,7 +273,7 @@ class NeoviMPV:
         asyncio.create_task(
             target.spawn(link, has_markdown=bool(unmarkdown))
         )
-        self._mpv_instances[target.id] = target
+        self._mpv_instances[(target.buffer.number, target.id)] = target
 
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
@@ -345,7 +327,7 @@ class NeoviMPV:
                 content
             )
             return extmark_id
-        self.nvim.lua.update_extmark(buffer, self._plugin_namespace, extmark_id, content)
+        self.nvim.lua.neovimpv.update_extmark(buffer, self._plugin_namespace, extmark_id, content)
 
     def write_line_of_extmark(self, buffer, extmark_id, content):
         '''Write `content` to the line of an extmark with `nvim_buf_set_lines`'''
