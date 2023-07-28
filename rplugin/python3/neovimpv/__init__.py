@@ -114,46 +114,6 @@ class MpvInstance:
             [f"[{media_title.replace('[', '(').replace(']',')')}]({arg})"],
         )
 
-    #TODO: heuristic timeout (longer for urls)
-    async def _spawn(self, arg, timeout_duration, has_markdown):
-        '''Backend for `spawn`'''
-        process = await asyncio.create_subprocess_exec(
-            *self.MPV_ARGS,
-            f"--input-ipc-server={ipc_path}",
-            "--idle=once",
-            stdout=PIPE,
-        )
-
-        # timeout a read from the subprocess's stdout (for errors)
-        read_task = asyncio.create_task(process.stdout.read())
-        done, pending = await asyncio.wait(
-            [read_task],
-            timeout=timeout_duration
-        )
-        if done:
-            error = read_task.result()
-            log.debug(error)
-            self.plugin.show_error(error)
-            return False
-        else:
-            read_task.cancel()
-            try:
-                await read_task
-            except asyncio.CancelledError:
-                pass
-
-        try:
-            _, protocol = await self.plugin.nvim.loop.create_unix_connection(
-                MpvProtocol,
-                path=ipc_path,
-            )
-        except ConnectionRefusedError:
-            self.plugin.show_error("Could not connect to MPV!")
-            return False
-
-
-        return True
-
     async def spawn(self, arg, timeout_duration=1, has_markdown=True):
         '''
         Spawn subprocess and wait `timeout_duration` seconds for error output.
@@ -333,20 +293,11 @@ class NeoviMPV:
         '''Write `content` to the line of an extmark with `nvim_buf_set_lines`'''
         line, _ = buffer.api.get_extmark_by_id(self._plugin_namespace, extmark_id, {})
 
-        if line == len(buffer) - 1:
-            # hack that I don't like for the last line of the buffer
-            buffer.api.set_text(
-                line,
-                0,
-                line,
-                len(buffer[line]),
-                content,
-            )
-            return
-
-        buffer.api.set_lines(
+        # hack that I don't like so that the extmark doesn't get written to the wrong line
+        buffer.api.set_text(
             line,
-            line+1,
-            False,
+            0,
+            line,
+            len(buffer[line]),
             content,
         )
