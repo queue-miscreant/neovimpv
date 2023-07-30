@@ -2,28 +2,6 @@ import os.path
 
 from neovimpv.protocol import create_mpv, MpvError
 
-# Relevant highlights:
-# "NonText" (dark comments)
-# "LineNr"     (comments)
-# "Title"      (functions)
-# "Directory"  (functions)
-# "Conceal"    (self)
-
-EXTMARK_LOADING = {
-    "virt_text": [["[ ... ]", "Whitespace"]],
-    "virt_text_pos": "eol",
-}
-
-def sexagesimalize(number):
-    '''Convert a number to decimal-coded sexagesimal (i.e., clock format)'''
-    seconds = int(number)
-    minutes = seconds // 60
-    hours = minutes // 60
-    if hours:
-        return f"{(hours % 60):0{2}}:{(minutes % 60):0{2}}:{(seconds % 60):0{2}}"
-    else:
-        return f"{(minutes % 60):0{2}}:{(seconds % 60):0{2}}"
-
 class MpvInstance:
     '''
     An instance of MPV which is aware of the nvim plugin.
@@ -36,29 +14,14 @@ class MpvInstance:
 
         self.plugin = plugin
         self.buffer = buffer
-        self.id = plugin.live_extmark(buffer, EXTMARK_LOADING, line)
-
-    # TODO this should be configurable
-    def format_data(self):
-        paused = [" || ", "Conceal"] if self.protocol.data.get("pause") \
-            else [" |> ", "Title"]
-        position = sexagesimalize(self.protocol.data.get("playback-time", 0))
-        duration = sexagesimalize(self.protocol.data.get("duration", 0))
-        show_loop = ""
-        if (loop := self.protocol.data.get("loop")) == "inf":
-            show_loop = "∞"
-        elif loop:
-            show_loop = str(loop)
-
-        return [i for i in [
-            ["[", "LineNr"],
-            paused,
-            [f"{position} ", "Conceal"],
-            ["/ ", "LineNr"],
-            [f"{duration} ", "Conceal"],
-            [f"({show_loop}) ", "LineNr"] if show_loop else None,
-            ["]", "LineNr"],
-        ] if i]
+        self.id = plugin.live_extmark(
+            buffer,
+            {
+                "virt_text": [self.plugin.formatter.loading],
+                "virt_text_pos": "eol",
+            },
+            line
+        )
 
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
@@ -66,7 +29,7 @@ class MpvInstance:
     def draw_update(self):
         display = {
             "id": self.id,
-            "virt_text": self.format_data(),
+            "virt_text": self.plugin.formatter.format(self.protocol.data),
             "virt_text_pos": "eol",
         }
 
@@ -134,10 +97,8 @@ class MpvInstance:
             self.plugin.show_error(f"File ended: {error}")
 
     def preamble(self):
-        self.protocol.observe_property("playback-time")
-        self.protocol.observe_property("pause")
-        self.protocol.observe_property("loop")
-        self.protocol.get_property("duration")
+        for i in self.plugin.formatter.groups:
+            self.protocol.observe_property(i)
         self.protocol.get_property("filename")
         self.protocol.get_property("media-title")
 

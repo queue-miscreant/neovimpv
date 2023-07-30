@@ -4,29 +4,23 @@
 import os
 import os.path
 import asyncio
-import json
 import re
 import logging
 
 import pynvim
 from neovimpv.mpv import MpvInstance
+from neovimpv.format import try_json, Formatter
 
 log = logging.getLogger(__name__)
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
 
-def try_json(arg):
-    '''Attempt to read arg as a JSON object. Return the string on failure'''
-    try:
-        return json.loads(arg)
-    except:
-        return arg
-
 @pynvim.plugin
 class NeoviMPV:
     def __init__(self, nvim):
         self.nvim = nvim
+        self.formatter = Formatter(nvim)
         self._plugin_namespace = nvim.api.create_namespace(self.__class__.__name__)
 
         # setup temp dir
