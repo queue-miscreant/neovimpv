@@ -9,6 +9,7 @@ from neovimpv.format import Formatter, try_json
 from neovimpv.mpv import MpvInstance
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 @pynvim.plugin
 class Neovimpv:
@@ -85,7 +86,12 @@ class Neovimpv:
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
         '''Pause/unpause the mpv instance on the current line'''
-        #TODO: optional argument for "all" instances
+        if args[0] == "all":
+            targets = self.get_mpvs_in_current_buffer()
+            for target in targets:
+                target.protocol.set_property("pause", True)
+            return
+
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line)):
             target.toggle_pause()
@@ -93,7 +99,12 @@ class Neovimpv:
     @pynvim.command("MpvClose", nargs="?", range="")
     def close_mpv(self, args, range):
         '''Close mpv instance on the current line'''
-        #TODO: optional argument for "all" instances
+        if args[0] == "all":
+            targets = self.get_mpvs_in_current_buffer()
+            for target in targets:
+                target.protocol.send_command("quit")
+            return
+
         line = range[0] - 1
         if (target := self.get_mpv_by_line(line)):
             target.protocol.send_command("quit")
@@ -148,3 +159,15 @@ class Neovimpv:
             len(buffer[line]),
             content,
         )
+
+    def get_mpvs_in_current_buffer(self):
+        extmark_ids = self.nvim.current.buffer.api.get_extmarks(
+            self._plugin_namespace,
+            [0, 0],
+            [-1, -1],
+            {}
+        )
+        return [
+            self._mpv_instances[(self.nvim.current.buffer.number, extmark_id)]
+            for extmark_id, _, _ in extmark_ids
+        ]

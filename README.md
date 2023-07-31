@@ -34,9 +34,11 @@ arguments. This can be used to override `--no-video`, for example, by
 calling `:MpvOpen --video=auto`
 
 
-### `:MpvClose`
+### `:MpvClose [all]`
 
 Close an mpv instance displayed on the current line.
+
+If `all` is specified, every mpv instance bound to the current buffer is closed.
 
 
 ### `:MpvSend {command-name} [{...command-args}]`
@@ -70,9 +72,10 @@ Some useful example properties:
 This command is equivalent to using MpvSend with first argument `set_property`.
 
 
-### `:MpvPause`
+### `:MpvPause [all]`
 
-Toggle the pause status of the mpv instance running on the current line. 
+Toggle the pause status of the mpv instance running on the current line. If `all` is
+specified, every mpv instance bound to the current buffer is paused (NOT toggled).
 
 This command is equivalent to `:MpvSend set_property pause <not pause state>`
 
