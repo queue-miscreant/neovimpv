@@ -25,8 +25,13 @@ Commands
 
 ### `:MpvOpen`
 
-Open an mpv instance using the contents of the current line. URLs may be used
-if youtube-dl or yt-dlp has been set up.
+Open an mpv instance using the string on the current line, as if invoking `mpv`
+from the command line with the `--no-video` flag. URLs may be used if youtube-dl
+or yt-dlp has been set up.
+
+Optionally {mpv-args} may be given, which are passed as command line
+arguments. This can be used to override `--no-video`, for example, by
+calling `:MpvOpen --video=auto`
 
 
 ### `:MpvClose`
@@ -78,6 +83,7 @@ Configuration
 The following global variables may be placed in your vim init script. If they
 are changed while neovim is running, they will NOT take effect.
 
+
 ### `g:mpv_default_highlight`
 
 Name of highlight to be used by default when drawing text for the mpv
@@ -85,12 +91,14 @@ instance.
 
 The default value is `"LineNr"`.
 
+
 ### `g:mpv_loading`
 
 String to be displayed while an mpv instance is still loading. Uses
 the default highlight defined in `g:mpv_default_highlight`.
 
 The default value is `"[ ... ]"`
+
 
 ### `g:mpv_format`
 
@@ -109,6 +117,7 @@ Some formats are drawn internally to the plugin:
 
 The default value is `"[ {pause} {playback-time} / {duration} {loop} ]"`
 
+
 ### `g:mpv_style`
 
 Style to use when drawing pictographic fields. Possible values are
@@ -116,6 +125,7 @@ Style to use when drawing pictographic fields. Possible values are
 Currently, the only pictographic field is "pause".
 
 The default value is `"unicode"`
+
 
 ### `g:mpv_highlights`
 
@@ -129,3 +139,19 @@ values should be valid highlight names.
 To use a different highlight for properties with a certain (discrete)
 value, you may also specify a key as `{mpv-property}@value`. The value
 will be evaluated as a JSON before being compared to its actual value.
+
+
+### `g:mpv_markdown_writable`
+
+List of |filetype|s which, when a line is opened using `:MpvOpen`,
+will format the line into markdown, if it isn't already. The format
+used is `[{mpv-title}]({original-link})`.
+
+This option is best used in files which support syntax that hides link contents.
+
+
+### `g:mpv_default_args`
+
+List of arguments to be supplied to mpv when an instance is opened
+with |:MpvOpen|. Note that `--no-video` is always implied, unless it
+is overridden by `--video=auto`.

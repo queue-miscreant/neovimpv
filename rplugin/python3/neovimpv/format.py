@@ -1,10 +1,9 @@
-import json
 import copy
 import itertools
+import json
 import logging
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 NVIM_VAR_LOADING = "mpv_loading"
 NVIM_VAR_FORMAT = "mpv_format"
@@ -118,7 +117,7 @@ class Formatter:
     def parse_highlights(self, highlights):
         '''Parse @-separated dict entries into further dicts'''
         fields = copy.deepcopy(self.HIGHLIGHT_DEFAULTS)
-        # parse field@value 
+        # parse field@value
         for field, highlight in itertools.chain(highlights.items()):
             try_split = field.split("@")
             if len(try_split) == 2:
@@ -150,7 +149,7 @@ class Formatter:
                         self._highlight_fields.get(group, self._default_highlight)
                     ))
                     groups.add(group)
-        except ValueError as e:
+        except ValueError:
             pass
 
         self._pre_formatted = pre_formatted

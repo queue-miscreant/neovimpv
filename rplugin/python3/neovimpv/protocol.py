@@ -1,7 +1,7 @@
-from subprocess import PIPE
 import asyncio
 import json
 import logging
+from subprocess import PIPE
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class MpvProtocol(asyncio.Protocol):
 
     def add_event(self, event_name, func):
         '''
-        Add event handler. All MPV event names are valid, as are "connected", "close", and "error"
+        Add event handler. All mpv event names are valid, as are "connected", "close", and "error"
         '''
         if event_name not in self._event_handlers:
             self._event_handlers[event_name] = []
@@ -79,7 +79,9 @@ class MpvProtocol(asyncio.Protocol):
                 self.data[property_name] = datum.get("data")
                 log.debug(f"Got property {property_name}: {datum}")
             elif request_id is not None and request_id in self._waiting_properties:
+                # we received a message about something we're waiting for
                 type, property_name, future = self._waiting_properties[request_id]
+
                 if type == self.GET:
                     self.data[property_name] = datum.get("data")
                     log.debug(f"Got awaited property {property_name}: {datum}")
@@ -88,7 +90,7 @@ class MpvProtocol(asyncio.Protocol):
                     self.data[property_name] = future
                     log.debug(f"Successfully set {property_name} to {datum}")
             else:
-                log.debug(f"Unknown data received from MPV: {datum}")
+                log.debug(f"Unknown data received from mpv: {datum}")
 
     def connection_lost(self, exc):
         '''Process communication closed. Call close event.'''
@@ -105,7 +107,7 @@ class MpvProtocol(asyncio.Protocol):
 
     def get_property(self, property_name, request_id=None):
         '''
-        Send a command to retrieve a property from the MPV instance.
+        Send a command to retrieve a property from the mpv instance.
         Note that this does NOT return the property!
         '''
         if request_id is None:
@@ -117,7 +119,7 @@ class MpvProtocol(asyncio.Protocol):
         )
 
     def set_property(self, property_name, value, update=True):
-        '''Send a command to set a property on the MPV instance.'''
+        '''Send a command to set a property on the mpv instance.'''
         if not update:
             self.send_command("set_property", property_name, value)
             return
@@ -136,7 +138,7 @@ class MpvProtocol(asyncio.Protocol):
 
     def observe_property(self, property_name):
         '''
-        Send a command to observe a property from the MPV instance.
+        Send a command to observe a property from the mpv instance.
         The value in self.data will be updated on "property-change" events.
         '''
         self.send_command(
@@ -146,7 +148,7 @@ class MpvProtocol(asyncio.Protocol):
         )
 
     def _property_change(self, json_data):
-        '''Handler for MPV "property-change" events.'''
+        '''Handler for mpv "property-change" events.'''
         property_name = self._reverse_properties.get(json_data.get("id"))
         data = json_data.get("data")
         if property_name is not None and data is not None:
@@ -171,7 +173,7 @@ async def create_mpv(mpv_args, ipc_path, read_timeout=1, loop=None):
 
     # timeout a read from the subprocess's stdout (for errors)
     read_task = asyncio.create_task(process.stdout.read())
-    done, pending = await asyncio.wait(
+    done, _ = await asyncio.wait(
         [read_task],
         timeout=read_timeout
     )
@@ -192,4 +194,4 @@ async def create_mpv(mpv_args, ipc_path, read_timeout=1, loop=None):
         )
         return process, protocol
     except ConnectionRefusedError as e:
-        raise MpvError("Could not connect to MPV!") from e
+        raise MpvError("Could not connect to mpv!") from e

@@ -25,12 +25,15 @@ mpv instance is closed, the extmark will be destroyed.
 --------------------------------------------------------------------------------
 COMMANDS                                                *neovimpv-command*
 
-:MpvOpen
+:MpvOpen [{mpv-args}]
 
         Open an mpv instance using the string on the current line, as if
-        invoking `mpv` from the command line. URLs may be used if youtube-dl
-        or yt-dlp has been set up.
+        invoking `mpv` from the command line with the `--no-video` flag. URLs
+        may be used if youtube-dl or yt-dlp has been set up.
 
+        Optionally {mpv-args} may be given, which are passed as command line
+        arguments. This can be used to override `--no-video`, for example, by
+        calling `:MpvOpen --video=auto`
 
 :MpvClose
 
@@ -130,6 +133,21 @@ g:mpv_highlights                                        *g:mpv_highlights*
         To use a different highlight for properties with a certain (discrete)
         value, you may also specify a key as `{mpv-property}@value`. The value
         will be evaluated as a JSON before being compared to its actual value.
+
+g:mpv_markdown_writable                                 *g:mpv_markdown_writable*
+
+        List of |filetype|s which, when a line is opened using |:MpvOpen|,
+        will format the line into markdown, if it isn't already. The format
+        used is `[{mpv-title}]({original-link})`.
+
+        This option is best used in files which support syntax that hides link
+        contents.
+
+g:mpv_default_args                                      *g:mpv_markdown_writable*
+
+        List of arguments to be supplied to mpv when an instance is opened
+        with |:MpvOpen|. Note that `--no-video` is always implied, unless it
+        is overridden by `--video=auto`.
 
 ================================================================================
 vim:tw=80:nosta:ft=help:fen:
