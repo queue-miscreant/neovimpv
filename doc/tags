@@ -1,0 +1,11 @@
+neovimpv	neovimpv.txt	/*neovimpv-introduction*
+:MpvOpen	neovimpv.txt	/^:MpvOpen
+:MpvClose	neovimpv.txt	/^:MpvClose
+:MpvSend	neovimpv.txt	/^:MpvSend
+:MpvSetProperty	neovimpv.txt	/^:MpvSetProperty
+:MpvPause	neovimpv.txt	/^:MpvPause
+g:mpv_default_highlight	neovimpv.txt	/*g:mpv_default_highlight*
+g:mpv_loading	neovimpv.txt	/*g:mpv_loading*
+g:mpv_format	neovimpv.txt	/*g:mpv_format*
+g:mpv_style	neovimpv.txt	/*g:mpv_style*
+g:mpv_highlights	neovimpv.txt	/*g:mpv_highlights*
