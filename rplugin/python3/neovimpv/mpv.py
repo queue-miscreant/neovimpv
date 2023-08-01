@@ -34,10 +34,11 @@ class MpvInstance:
         write_markdown = False
         # if we've allowed the current buffer to read/edit things into markdown
         if plugin.nvim.current.buffer.api.get_option("filetype") in plugin.do_markdowns:
-            write_markdown = True
             unmarkdown = MARKDOWN_LINK.search(link)
             if unmarkdown:
                 link = unmarkdown.group(2)
+            else:
+                write_markdown = True
 
         asyncio.create_task(self.spawn(link, mpv_args, write_markdown=write_markdown))
 
@@ -100,6 +101,7 @@ class MpvInstance:
             protocol.add_event("close", lambda _, __: self.close())
         except MpvError as e:
             self.plugin.show_error(e.args[0])
+            log.error("mpv encountered error", exc_info=True)
             if self.id is not None:
                 self.close()
 

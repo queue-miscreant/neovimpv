@@ -86,7 +86,7 @@ class Neovimpv:
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
         '''Pause/unpause the mpv instance on the current line'''
-        if args[0] == "all":
+        if args and args[0] == "all":
             targets = self.get_mpvs_in_current_buffer()
             for target in targets:
                 target.protocol.set_property("pause", True)
@@ -99,7 +99,7 @@ class Neovimpv:
     @pynvim.command("MpvClose", nargs="?", range="")
     def close_mpv(self, args, range):
         '''Close mpv instance on the current line'''
-        if args[0] == "all":
+        if args and args[0] == "all":
             targets = self.get_mpvs_in_current_buffer()
             for target in targets:
                 target.protocol.send_command("quit")
