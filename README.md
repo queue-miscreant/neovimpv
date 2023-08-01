@@ -158,3 +158,10 @@ This option is best used in files which support syntax that hides link contents.
 List of arguments to be supplied to mpv when an instance is opened
 with |:MpvOpen|. Note that `--no-video` is always implied, unless it
 is overridden by `--video=auto`.
+
+
+TODOs
+-----
+
+- Youtube search support
+- Document sending keys

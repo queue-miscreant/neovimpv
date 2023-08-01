@@ -21,3 +21,12 @@ let g:mpv_markdown_writable = get(g:, "mpv_markdown_writable", [])
 
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])
+
+function! NeovimpvCapture(...)
+  echom "[mpv]"
+  let temp = getcharstr()
+  call MpvSendKeypress(line("."), temp, a:0)
+  call inputsave()
+  call feedkeys(":", "nx")
+  call inputrestore()
+endfunction
