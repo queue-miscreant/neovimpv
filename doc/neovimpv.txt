@@ -38,6 +38,10 @@ COMMANDS                                                *neovimpv-command*
         arguments. This can be used to override `--no-video`, for example, by
         calling `:MpvOpen --video=auto`
 
+        If {mpv-args} overrides the default `--no-video` flag (i.e., if a
+        window is anticipated to open), the media data will NOT be rendered in
+        an extmark.
+
 :MpvClose [all]                                         *MpvClose*
 
         Close an mpv instance displayed on the current line.

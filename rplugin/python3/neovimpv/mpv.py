@@ -9,6 +9,16 @@ log = logging.getLogger(__name__)
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
+DEFAULT_MPV_ARGS = ["--no-video"]
+
+def args_open_window(args):
+    '''Determine whether a list of arguments will open an mpv window'''
+    for arg in reversed(args):
+        if arg in ("--vid=no", "--video=no", "--no-video"):
+            return False
+        if arg in ("--vid=auto", "--video=auto"):
+            return True
+    return False
 
 class MpvInstance:
     '''
@@ -16,7 +26,12 @@ class MpvInstance:
     instantiated when nvim is available for communication.
     Automatically creates a task for launching the mpv instance.
     '''
-    MPV_ARGS = ["--no-video"]
+    MPV_ARGS = None
+    @classmethod
+    def setDefaultArgs(cls, new_args):
+        '''Set the default arguments to be used by new mpv instances'''
+        cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
+
     def __init__(self, plugin, buffer, line, link, mpv_args):
         self.protocol = None
 
@@ -98,10 +113,12 @@ class MpvInstance:
             return
 
         ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")
+        args = self.MPV_ARGS + mpv_args
+        has_video = args_open_window(args)
 
         try:
             _, protocol = await create_mpv(
-                self.MPV_ARGS + mpv_args,
+                args,
                 ipc_path,
                 read_timeout=timeout_duration,
                 loop=self.plugin.nvim.loop
@@ -110,10 +127,9 @@ class MpvInstance:
 
             protocol.send_command("loadfile", link)
             # default event handling
-            protocol.add_event("property-change", lambda _, __: self.draw_update())
             protocol.add_event("error", lambda _, err: self._show_error(err))
-            protocol.add_event("end-file", lambda _, link: self._on_end_file(link))
-            protocol.add_event("file-loaded", lambda _, __: self.preamble(link, write_markdown))
+            protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
+            protocol.add_event("file-loaded", lambda _, __: self.preamble(link, write_markdown, has_video))
             protocol.add_event("close", lambda _, __: self.close())
         except MpvError as e:
             self.plugin.show_error(e.args[0])
@@ -136,15 +152,27 @@ class MpvInstance:
         if arg.get("reason") == "error" and (error := arg.get("file_error")):
             self.plugin.show_error(f"File ended: {error}")
 
-    def preamble(self, arg, write_markdown):
+    def preamble(self, arg, write_markdown, has_video):
         '''Subscribe to necessary properties on the mpv IPC.'''
+        if write_markdown:
+            self.plugin.nvim.loop.create_task(self.update_markdown(arg))
+        if has_video:
+            self.plugin.nvim.async_call(
+                self.plugin.live_extmark,
+                self.buffer.number,
+                {
+                    "id": self.id,
+                    "virt_text": [self.plugin.formatter.external],
+                    "virt_text_pos": "eol",
+                }
+            )
+            return
         # ALWAYS observe this so we can toggle pause
         self.protocol.observe_property("pause")
         # observe everything we need to draw the format string
         for i in self.plugin.formatter.groups:
             self.protocol.observe_property(i)
-        if write_markdown:
-            self.plugin.nvim.loop.create_task(self.update_markdown(arg))
+        self.protocol.add_event("property-change", lambda _, __: self.draw_update())
 
     def close(self):
         '''Defer to the plugin to remove the extmark'''

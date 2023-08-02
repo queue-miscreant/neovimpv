@@ -9,7 +9,6 @@ from neovimpv.format import Formatter, try_json
 from neovimpv.mpv import MpvInstance
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 KEYPRESS_LOOKUP = {
     "kl": "left",
@@ -37,7 +36,7 @@ class Neovimpv:
         # options
         self.formatter = Formatter(nvim)
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
-        MpvInstance.MPV_ARGS.extend(nvim.api.get_var("mpv_default_args"))
+        MpvInstance.setDefaultArgs(nvim.api.get_var("mpv_default_args"))
 
         # setup temp dir
         tempname = nvim.call("tempname")

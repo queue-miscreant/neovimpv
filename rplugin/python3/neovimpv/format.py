@@ -105,6 +105,7 @@ class Formatter:
 
         self._default_highlight = nvim.api.get_var(NVIM_VAR_DEFAULT_HIGHLIGHT)
         self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), self._default_highlight]
+        self.external = ["[ Window ]", self._default_highlight]
         CURRENT_SCHEME = DISPLAY_STYLES.get(scheme, CURRENT_SCHEME)
 
         self.groups = []

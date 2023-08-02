@@ -49,6 +49,10 @@ Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
 calling `:MpvOpen --video=auto`
 
+If {mpv-args} overrides the default `--no-video` flag (i.e., if a
+window is anticipated to open), the media data will NOT be rendered in
+an extmark.
+
 
 ### `:MpvClose [all]`
 
@@ -107,6 +111,7 @@ the mpv instance identified by `extmark_id`.
 The plugin is able to translate SOME of these into mpv equivalents,
 but not all. You should not rely on proper handling of modifier keys
 (Ctrl, Alt, Shift, Super).
+
 
 ### `NeovimpvOmni(start_mpv)`
 
