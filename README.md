@@ -20,16 +20,32 @@ Plugin 'queue-miscreant/neovimpv', {'do', ':UpdateRemotePlugins'}
 Make sure the file is sourced and run `:PluginInstall`.
 
 
+Suggested Use
+-------------
+
+For the least amount of setup possible, create a keybind in your `init.vim` to
+call the omni-function. This allows you to open an mpv instance the first time
+the sequence is pressed. Pressing the same sequence again (without moving to
+another line) will attempt to capture a keypress to send to mpv.
+
+```vim
+nnoremap <silent> <leader>\ :call NeovimpvOmni(1)<cr>
+```
+
+
 Commands
 --------
 
-### `:MpvOpen`
+### `:MpvOpen [mpv-args]`
 
 Open an mpv instance using the string on the current line, as if invoking `mpv`
 from the command line with the `--no-video` flag. URLs may be used if youtube-dl
 or yt-dlp has been set up.
 
-Optionally {mpv-args} may be given, which are passed as command line
+To decrease reliance on IPC, some rudimentary checks are performed to ensure that
+the file exists or is a URL. 
+
+Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
 calling `:MpvOpen --video=auto`
 
@@ -41,7 +57,7 @@ Close an mpv instance displayed on the current line.
 If `all` is specified, every mpv instance bound to the current buffer is closed.
 
 
-### `:MpvSend {command-name} [{...command-args}]`
+### `:MpvSend command-name [...command-args]`
 
 Send a command to the mpv instance running on the current line. See
 [this](https://mpv.io/manual/stable/#json-ipc) part of the mpv
@@ -50,7 +66,7 @@ documentation for more information about commands.
 Some example commands include `seek {seconds}` and `quit`.
 
 
-### `:MpvSetProperty {property-name} {property-value}`
+### `:MpvSetProperty property-name property-value`
         
 Set a property on the mpv instance running on the current line. See
 [this](https://mpv.io/manual/stable/#property-list) part of the mpv
@@ -78,6 +94,26 @@ Toggle the pause status of the mpv instance running on the current line. If `all
 specified, every mpv instance bound to the current buffer is paused (NOT toggled).
 
 This command is equivalent to `:MpvSend set_property pause <not pause state>`
+
+
+Functions
+---------
+
+### `MpvSendNvimKeys(extmark_id, keypress_string)`
+
+Send `keypress_string`, a string signifying a nvim keypress event, to
+the mpv instance identified by `extmark_id`.
+
+The plugin is able to translate SOME of these into mpv equivalents,
+but not all. You should not rely on proper handling of modifier keys
+(Ctrl, Alt, Shift, Super).
+
+### `NeovimpvOmni(start_mpv)`
+
+Attempt to capture a keypress and send it to the mpv instance running
+on the current line. If no instance is found, then `start_mpv` decides
+whether or not to call `:MpvOpen` or report that no instance was
+found.
 
 
 Configuration
@@ -146,7 +182,7 @@ will be evaluated as a JSON before being compared to its actual value.
 
 ### `g:mpv_markdown_writable`
 
-List of |filetype|s which, when a line is opened using `:MpvOpen`,
+List of filetypes which, when a line is opened using `:MpvOpen`,
 will format the line into markdown, if it isn't already. The format
 used is `[{mpv-title}]({original-link})`.
 
@@ -156,7 +192,7 @@ This option is best used in files which support syntax that hides link contents.
 ### `g:mpv_default_args`
 
 List of arguments to be supplied to mpv when an instance is opened
-with |:MpvOpen|. Note that `--no-video` is always implied, unless it
+with `:MpvOpen`. Note that `--no-video` is always implied, unless it
 is overridden by `--video=auto`.
 
 
@@ -164,4 +200,4 @@ TODOs
 -----
 
 - Youtube search support
-- Document sending keys
+- Improve sending keys

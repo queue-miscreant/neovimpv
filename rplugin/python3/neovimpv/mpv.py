@@ -45,7 +45,13 @@ class MpvInstance:
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
+    def fetch_properties(self):
+        '''Fetch all properties being displayed, in case we got desynced'''
+        for i in self.plugin.formatter.groups:
+            self.protocol.get_property(i, ignore_error=True)
+
     def draw_update(self):
+        '''Rerender the extmark that this mpv instance corresponds to'''
         display = {
             "id": self.id,
             "virt_text": self.plugin.formatter.format(self.protocol.data),
@@ -81,6 +87,16 @@ class MpvInstance:
         If the connection is successful, the instance's `protocol` member will be set
         to an MpvProtocol for IPC.
         '''
+        # don't try to open non-files
+        if os.path.exists(file_link := os.path.expanduser(link)):
+            link = file_link
+        # protocols are 5 characters long at max
+        elif len(link.split("://")[0]) <= 5:
+            pass
+        else:
+            self.plugin.show_error("Line does not contain a file path or valid URL")
+            return
+
         ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")
 
         try:
@@ -92,7 +108,7 @@ class MpvInstance:
             )
             self.protocol = protocol
 
-            protocol.send_command("loadfile", os.path.expanduser(link))
+            protocol.send_command("loadfile", link)
             # default event handling
             protocol.add_event("property-change", lambda _, __: self.draw_update())
             protocol.add_event("error", lambda _, err: self._show_error(err))

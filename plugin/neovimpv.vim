@@ -22,10 +22,29 @@ let g:mpv_markdown_writable = get(g:, "mpv_markdown_writable", [])
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])
 
-function! NeovimpvCapture(...)
-  echom "[mpv]"
-  let temp = getcharstr()
-  call MpvSendKeypress(line("."), temp, a:0)
+" Omni-function for sending keys to mpv
+function! NeovimpvOmni(...)
+  " Try to find mpv on the line
+  let plugin = get(nvim_get_namespaces(), "Neovimpv", v:false)
+  let mpv_instances = []
+  if plugin
+    let cline = line(".")
+    let mpv_instances = nvim_buf_get_extmarks(0, plugin, [cline - 1, 0], [cline - 1, -1], {})
+  endif
+  if len(mpv_instances) == 0
+    " no mpv found, trying to open
+    if a:0
+      execute ":MpvOpen"
+    else
+      nvim_notify("No mpv found running on that line", 4, {})
+    endif
+  else
+    " mpv found, get key to send
+    echom "[mpv]"
+    let temp = getcharstr()
+    call MpvSendNvimKeys(mpv_instances[0][0], temp)
+  endif
+  " clear status line
   call inputsave()
   call feedkeys(":", "nx")
   call inputrestore()

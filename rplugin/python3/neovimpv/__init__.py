@@ -9,6 +9,7 @@ from neovimpv.format import Formatter, try_json
 from neovimpv.mpv import MpvInstance
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 KEYPRESS_LOOKUP = {
     "kl": "left",
@@ -139,26 +140,22 @@ class Neovimpv:
         if (target := self.get_mpv_by_line(line)):
             target.protocol.send_command(*[try_json(i) for i in args])
 
-    @pynvim.function("MpvSendKeypress", sync=True)
+    @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
-        '''Send keypress to the mpv instance on a line'''
-        start_if_no_instance = False
+        '''Send keypress to the mpv instance'''
         if len(args) == 2:
-            line, key = args
-        elif len(args) == 3:
-            line, key, start = args
-            start_if_no_instance = bool(start)
+            extmark_id, key = args
         else:
-            raise TypeError(f"Expected 2 or 3 arguments, got {len(args)}")
-        if (target := self.get_mpv_by_line(line - 1, show_error=False)):
+            raise TypeError(f"Expected 2 arguments, got {len(args)}")
+        if (target := self._mpv_instances.get(
+            (self.nvim.current.buffer.number, extmark_id)
+        )):
             if (real_key := translate_keypress(key)):
                 target.protocol.send_command("keypress", real_key)
-        elif start_if_no_instance:
-            self.open_in_mpv([], [line])
-        else:
-            self.show_error("No mpv found running on that line")
+                target.fetch_properties()
 
     def show_error(self, error):
+        '''Show an error to nvim'''
         self.nvim.async_call(
             self.nvim.api.notify,
             error,
