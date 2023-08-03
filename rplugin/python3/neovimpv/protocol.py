@@ -79,7 +79,6 @@ class MpvProtocol(asyncio.Protocol):
             # handle response
             if datum.get("error") not in ("success", None):
                 if consumed_error:
-                    self._ignore_errors.remove(request_id)
                     log.debug(f"Ignoring errorful response {datum}")
                     continue
                 # reverse lookup the property name for convenience

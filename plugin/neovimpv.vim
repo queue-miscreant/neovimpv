@@ -40,12 +40,13 @@ function! NeovimpvOmni(...)
     endif
   else
     " mpv found, get key to send
-    echom "[mpv]"
+    let new_extmark = nvim_buf_set_extmark(0, plugin, cline - 1, 0, {
+          \ "virt_text": [["[ getting input... ]", g:mpv_default_highlight]],
+          \ "virt_text_pos": "eol"
+          \ } )
+    redraw
     let temp = getcharstr()
     call MpvSendNvimKeys(mpv_instances[0][0], temp)
+    call nvim_buf_del_extmark(0, plugin, new_extmark)
   endif
-  " clear status line
-  call inputsave()
-  call feedkeys(":", "nx")
-  call inputrestore()
 endfunction
