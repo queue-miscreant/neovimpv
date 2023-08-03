@@ -60,11 +60,6 @@ class MpvInstance:
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
-    def fetch_properties(self):
-        '''Fetch all properties being displayed, in case we got desynced'''
-        for i in self.plugin.formatter.groups:
-            self.protocol.get_property(i, ignore_error=True)
-
     def draw_update(self):
         '''Rerender the extmark that this mpv instance corresponds to'''
         display = {
@@ -110,6 +105,7 @@ class MpvInstance:
             pass
         else:
             self.plugin.show_error("Line does not contain a file path or valid URL")
+            self.close()
             return
 
         ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")

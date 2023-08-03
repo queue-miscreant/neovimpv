@@ -5,6 +5,9 @@ from subprocess import PIPE
 
 log = logging.getLogger(__name__)
 
+# delay between sending a keypress to mpv and rerequesting properties
+KEYPRESS_DELAY = 0.05
+
 class MpvError(Exception):
     pass
 
@@ -135,6 +138,23 @@ class MpvProtocol(asyncio.Protocol):
             ignore_error=ignore_error
         )
 
+    async def wait_property(self, property_name, ignore_error=False):
+        future = asyncio.get_event_loop().create_future()
+        self._waiting_properties[self._last_property] = (self.GET, property_name, future)
+
+        self.get_property(
+            property_name,
+            request_id=self._last_property,
+            ignore_error=ignore_error
+        )
+        self._last_property += 1
+        return await future
+
+    def fetch_subscribed(self):
+        '''Fetch all properties we've sent a request for, if we've gotten desynced'''
+        for prop in self._properties:
+            self.get_property(prop, ignore_error=True)
+
     def set_property(self, property_name, value, update=True, ignore_error=False):
         '''Send a command to set a property on the mpv instance.'''
         if not update:
@@ -156,18 +176,6 @@ class MpvProtocol(asyncio.Protocol):
         )
         self._last_property += 1
 
-    async def wait_property(self, property_name, ignore_error=False):
-        future = asyncio.get_event_loop().create_future()
-        self._waiting_properties[self._last_property] = (self.GET, property_name, future)
-
-        self.get_property(
-            property_name,
-            request_id=self._last_property,
-            ignore_error=ignore_error
-        )
-        self._last_property += 1
-        return await future
-
     def observe_property(self, property_name, ignore_error=False):
         '''
         Send a command to observe a property from the mpv instance.
@@ -179,6 +187,13 @@ class MpvProtocol(asyncio.Protocol):
             property_name,
             ignore_error=ignore_error
         )
+
+    async def send_keypress(self, keypress, ignore_error=False):
+        '''Send a keypress and wait for properties to be updated '''
+        self.send_command("keypress", keypress, ignore_error=ignore_error)
+        # some delay is necessary for the keypress to take effect
+        await asyncio.sleep(KEYPRESS_DELAY)
+        self.fetch_subscribed()
 
     def _property_change(self, json_data):
         '''Handler for mpv "property-change" events.'''

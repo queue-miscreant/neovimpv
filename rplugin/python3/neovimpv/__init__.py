@@ -150,8 +150,7 @@ class Neovimpv:
             (self.nvim.current.buffer.number, extmark_id)
         )):
             if (real_key := translate_keypress(key)):
-                target.protocol.send_command("keypress", real_key)
-                target.fetch_properties()
+                self.nvim.loop.create_task(target.protocol.send_keypress(real_key))
 
     def show_error(self, error):
         '''Show an error to nvim'''
@@ -164,9 +163,9 @@ class Neovimpv:
 
     def live_extmark(self, buffer, content, row=0, col=0):
         '''
-        For some nefarious reason, nvim does not support updating an extmark after one
-        has been created. Rather than running the get/set in the plugin (which is slow)
-        defer this to Lua.
+        For some nefarious reason, nvim does not support updating only an extmark's
+        content after has been created. Rather than running the get/set in the plugin
+        (which could be slow) defer this to Lua.
         '''
         if (extmark_id := content.get("id")) is None:
             extmark_id = buffer.api.set_extmark(
