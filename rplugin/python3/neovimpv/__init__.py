@@ -7,6 +7,7 @@ import os.path
 import pynvim
 from neovimpv.format import Formatter, try_json
 from neovimpv.mpv import MpvInstance
+from neovimpv.youtube import open_mpv_buffer
 
 log = logging.getLogger(__name__)
 
@@ -139,6 +140,12 @@ class Neovimpv:
         if (target := self.get_mpv_by_line(line)):
             target.protocol.send_command(*[try_json(i) for i in args])
 
+    @pynvim.command("MpvYoutubeSearch", nargs="?", range="")
+    def mpv_youtube_search(self, args, range):
+        self.nvim.loop.create_task(
+            open_mpv_buffer(self.nvim, args[0])
+        )
+
     @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
         '''Send keypress to the mpv instance'''
@@ -151,6 +158,43 @@ class Neovimpv:
         )):
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key))
+
+    # @pynvim.function("MpvYoutubeResult", sync=True)
+    # def mpv_youtube_result(self, args):
+    #     '''Send keypress to the mpv instance'''
+    #     if len(args) == 2:
+    #         window_id, value = args
+    #     else:
+    #         raise TypeError(f"Expected 2 arguments, got {len(args)}")
+    #     row, _ = self.nvim.api.win_get_cursor(window_id)
+    #     buffer_id = self.nvim.api.win_get_buf(window_id)
+    #
+    #     lines = self.nvim.api.buf_get_lines(buffer_id, row-1, row, False)
+    #     log.debug("%s %s", lines, row)
+    #     if not lines:
+    #         return
+    #
+    #     # line is already blank
+    #     if not lines[0].strip():
+    #         self.nvim.api.buf_set_text(
+    #             buffer_id,
+    #             row-1,
+    #             0,
+    #             row-1,
+    #             0,
+    #             [f"ytdl://{value['video_id']}"]
+    #         )
+    #         self.nvim.command("MpvOpen")
+    #     else:
+    #         self.nvim.api.buf_set_lines(
+    #             buffer_id,
+    #             row,
+    #             row,
+    #             False,
+    #             [f"ytdl://{value['video_id']}"]
+    #         )
+    #         self.nvim.api.win_set_cursor(window_id, [row, 0])
+    #         self.nvim.command("MpvOpen")
 
     def show_error(self, error):
         '''Show an error to nvim'''

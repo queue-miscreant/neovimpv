@@ -101,7 +101,7 @@ class MpvInstance:
         if os.path.exists(file_link := os.path.expanduser(link)):
             link = file_link
         # protocols are 5 characters long at max
-        elif len(link.split("://")[0]) <= 5:
+        elif 0 <= link.find("://") <= 5:
             pass
         else:
             self.plugin.show_error("Line does not contain a file path or valid URL")

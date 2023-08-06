@@ -36,7 +36,7 @@ function! NeovimpvOmni(...)
     if a:0
       execute ":MpvOpen"
     else
-      nvim_notify("No mpv found running on that line", 4, {})
+      call nvim_notify("No mpv found running on that line", 4, {})
     endif
   else
     " mpv found, get key to send
@@ -48,5 +48,59 @@ function! NeovimpvOmni(...)
     let temp = getcharstr()
     call MpvSendNvimKeys(mpv_instances[0][0], temp)
     call nvim_buf_del_extmark(0, plugin, new_extmark)
+  endif
+endfunction
+
+function! MpvYoutubeSearchPrompt()
+  let query = input("YouTube Search: ")
+  if len(query) != 0
+    execute ":MpvYoutubeSearch " . query
+  endif
+endfunction
+
+" paste the result of a youtube buffer selection into window_id
+function! s:mpv_youtube_paste(window_id, value)
+  let row = nvim_win_get_cursor(a:window_id)[0]
+  let buffer_id = nvim_win_get_buf(a:window_id)
+  let lines = nvim_buf_get_lines(buffer_id, row-1, row, v:false)
+  if len(lines) == 0
+    return v:false
+  endif
+
+  if len(trim(lines[0])) == 0
+    call nvim_buf_set_text(
+          \ buffer_id,
+          \ row-1,
+          \ 0,
+          \ row-1,
+          \ 0,
+          \ ["ytdl://" . a:value["video_id"]]
+          \ )
+    quit
+  else
+    call nvim_buf_set_lines(
+          \ buffer_id,
+          \ row,
+          \ row,
+          \ v:false,
+          \ ["ytdl://" . a:value["video_id"]]
+          \ )
+    call nvim_win_set_cursor(window_id, [row, 0])
+    quit
+  endif
+  return v:true
+endfunction
+
+" Callback for youtube results buffers
+function! MpvYoutubeResult(window_id, value)
+  if s:mpv_youtube_paste(a:window_id, a:value)
+    execute ":MpvOpen"
+  endif
+endfunction
+
+" Callback for youtube results buffers
+function! MpvYoutubeResultVideo(window_id, value)
+  if s:mpv_youtube_paste(a:window_id, a:value)
+    execute ":MpvOpen --video=auto"
   endif
 endfunction
