@@ -104,20 +104,12 @@ async def open_mpv_buffer(nvim, youtube_query):
     if results is None:
         return
 
-    videos = [[format_youtube_result(i), i] for i in results.videos]
+    videos = [[i["title"], i] for i in results.videos]
 
-    nvim.async_call(
-        nvim.lua.neovimpv.open_select_split,
+    # nvim.async_call(
+        # nvim.lua.neovimpv.open_select_split,
+    nvim.lua.neovimpv.open_select_split(
         videos,
-        [
-            ["<cr>", "MpvYoutubeResult"],
-            ["<s-enter>", "MpvYoutubeResultVideo"],
-            # ["yl", "MpvYoutubeYank"] # TODO
-        ],
-        {
-            "filetype": "youtube_results"
-        }
+        "youtube_results",
+        5
     )
-
-def format_youtube_result(ytresult):
-    return "{title} ({length}, {views}) :: Uploaded by {channel_name}".format(**ytresult)
