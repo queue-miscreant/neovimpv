@@ -204,5 +204,5 @@ is overridden by `--video=auto`.
 TODOs
 -----
 
-- Youtube search support
+- Mpv playlists
 - Improve sending keys

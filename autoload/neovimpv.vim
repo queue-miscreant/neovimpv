@@ -45,13 +45,6 @@ function s:mpv_youtube_paste(window_id, value)
   endif
 
   quit
-
-  let restore_noro = v:false
-  if nvim_buf_get_option(buffer_id, "readonly")
-    let restore_noro = v:true
-    call nvim_buf_set_option(buffer_id, "readonly", v:false)
-  endif
-
   if len(trim(lines[0])) == 0
     call nvim_buf_set_text(
           \ buffer_id,
@@ -70,10 +63,6 @@ function s:mpv_youtube_paste(window_id, value)
           \ ["ytdl://" . a:value["video_id"]]
           \ )
     call nvim_win_set_cursor(a:window_id, [row, 0])
-  endif
-
-  if restore_noro
-    call nvim_buf_set_option(buffer_id, "readonly", v:true)
   endif
 
   return v:true

@@ -24,10 +24,19 @@ function s:set_youtube_extmark()
         \ })
 endfunction
 
+function s:yank_youtube_link(event)
+  if !( len(a:event["regcontents"]) == 1 || a:event["operator"] == "y" )
+    return
+  endif
+
+  let current = b:selection[line(".") - 1]
+  call setreg(a:event["regname"], current["link"])
+endfunction
+
 nnoremap <buffer> <silent> <cr> :call
       \ neovimpv#youtube_callback("")<cr>
 nnoremap <buffer> <silent> <s-enter> :call
       \ neovimpv#youtube_callback("--video=auto")<cr>
 
-
 autocmd CursorMoved <buffer> call s:set_youtube_extmark()
+autocmd TextYankPost <buffer> call s:yank_youtube_link(v:event)
