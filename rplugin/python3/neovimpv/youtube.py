@@ -1,11 +1,15 @@
-import sys
 import html
 import json
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-import lxml.html.soupparser
+WARN_LXML = False
+try:
+    import lxml.html
+except ImportError:
+    WARN_LXML = True
 
 YOUTUBE_RENDERER_PATHS = {
     "thumbnail": ["thumbnail", "thumbnails", 0, "url"],
@@ -75,7 +79,7 @@ class YoutubeResults:
     @classmethod
     def _extract_youtube_response(cls, response):
         '''Extract JSON from curl of YouTube results page'''
-        parsed = lxml.html.soupparser.parse(response)
+        parsed = lxml.html.parse(response)
         for tag in parsed.iter("script"):
             content = tag.text_content()
             if not isinstance(content, str) or not content.startswith(cls.SCRIPT_SENTINEL):

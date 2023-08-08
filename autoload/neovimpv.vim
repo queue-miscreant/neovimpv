@@ -27,7 +27,7 @@ function neovimpv#omnikey()
   endif
 endfunction
 
-" Callback for youtube results buffers
+" Open search prompt
 function neovimpv#youtube_search_prompt()
   let query = input("YouTube Search: ")
   if len(query) != 0

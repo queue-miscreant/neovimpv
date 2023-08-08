@@ -5,7 +5,17 @@ neovimpv
 
 A plugin for opening mpv instances based on buffer contents. Simply type a file
 path into a buffer and type `:MpvOpen` to open the file in mpv as if you had
-invoked it from the command line.
+invoked it from the command line. The plugin also features the ability to open
+content from YouTube searches.
+
+
+Requirements
+------------
+
+- mpv (other media players not supported, nor planned to be supported)
+- pynvim
+- (Optional) youtube-dl or yt-dlp
+- (Optional) lxml, for YouTube results
 
 
 Installation
@@ -24,12 +34,12 @@ Suggested Use
 -------------
 
 For the least amount of setup possible, create a keybind in your `init.vim` to
-call the omni-function. This allows you to open an mpv instance the first time
-the sequence is pressed. Pressing the same sequence again (without moving to
-another line) will attempt to capture a keypress to send to mpv.
+omnikey. This allows you to open an mpv instance the first time the sequence is
+pressed. Pressing the same sequence again (without moving to another line) will
+attempt to capture a keypress to send to mpv.
 
 ```vim
-nnoremap <silent> <leader>\ :call NeovimpvOmni(1)<cr>
+nnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
 ```
 
 
@@ -99,6 +109,11 @@ specified, every mpv instance bound to the current buffer is paused (NOT toggled
 
 This command is equivalent to `:MpvSend set_property pause <not pause state>`
 
+### `:MpvYoutubeSearch {query}`
+
+Do a YouTube search for {query}, then open a split containing the
+results. See YouTube splits below for info.
+
 
 Functions
 ---------
@@ -113,12 +128,55 @@ but not all. You should not rely on proper handling of modifier keys
 (Ctrl, Alt, Shift, Super).
 
 
-### `NeovimpvOmni(start_mpv)`
+Keys
+----
 
-Attempt to capture a keypress and send it to the mpv instance running
-on the current line. If no instance is found, then `start_mpv` decides
-whether or not to call `:MpvOpen` or report that no instance was
-found.
+### `<Plug>(mpv_omnikey)`
+
+Capture a keypress and send it to the mpv instance running on the
+current line. If there is no instance, `g:mpv_omni_open_new_if_empty`
+decides whether or not to call `:MpvOpen` or report an error.
+
+### `<Plug>(mpv_youtube_prompt)`
+
+Open a prompt for a YouTube search. This is equivalent to using the
+command `:MpvYoutubeSearch` with the on the contents of the prompt.
+See also `neovimpv-youtube-splits`.
+
+
+YouTube Results
+---------------
+
+While specifying content with 'ytdl://ytsearch:' is possible, the results you
+get are more or less a guessing game. Worse still, getting video attributes
+(like description, title, view count) with `youtube-dl` (and its forks) is
+generally very slow with multiple prompts.
+
+To alleviate these problems, the plugin includes YouTube searching built-in.
+The command `:MpvYoutubeSearch` and the key `<Plug>(mpv_youtube_prompt)` allow
+you to open a split which contains the results of a YouTube search.
+
+The name of the YouTube video is displayed on each line, with additional video
+information available by moving the cursor to that line.
+
+                                                        *neovimpv-youtube-keys*
+The keys available in YouTube splits are:
+
+### `<enter>`
+
+Copy the video URL into the buffer the split was originally opened from and open
+the video using `MpvOpen`.
+
+### `<s-enter>`, `v`
+
+Same as `<enter>`, but calls `:MpvOpen` with `--video=auto` instead, which opens
+the result with video rather than audio only.
+
+### {yank-motion}
+
+If the yank motion is a single line, then the result's video URL is pasted into
+the register that was used. For example, to copy the result into the system
+clipboard, using `"+yy` will grab the URL, rather than the line content.
 
 
 Configuration
@@ -199,6 +257,13 @@ This option is best used in files which support syntax that hides link contents.
 List of arguments to be supplied to mpv when an instance is opened
 with `:MpvOpen`. Note that `--no-video` is always implied, unless it
 is overridden by `--video=auto`.
+
+
+### `g:mpv_youtube_highlights`
+
+Dictionary of highlights to use in YouTube splits when drawing
+extmarks. Only the keys `"views"`, `"channel_name"`, and `"length"` are
+supported.
 
 
 TODOs
