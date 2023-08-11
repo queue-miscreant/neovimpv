@@ -1,4 +1,3 @@
-import html
 import json
 import sys
 import urllib.error
@@ -111,9 +110,8 @@ async def open_mpv_buffer(nvim, youtube_query):
 
     videos = [[i["title"], i] for i in results.videos]
 
-    # nvim.async_call(
-        # nvim.lua.neovimpv.open_select_split,
-    nvim.lua.neovimpv.open_select_split(
+    nvim.async_call(
+        nvim.lua.neovimpv.open_select_split,
         videos,
         "youtube_results",
         5

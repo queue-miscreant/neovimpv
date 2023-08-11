@@ -1,5 +1,7 @@
 " check that we have callbacks
-if !exists("b:selection") || !exists("b:calling_window")
+if !exists("b:selection") ||
+      \ !exists("b:calling_window") ||
+      \ len(b:selection) == 0
   finish
 endif
 
@@ -25,7 +27,7 @@ function s:set_youtube_extmark()
 endfunction
 
 function s:yank_youtube_link(event)
-  if !( len(a:event["regcontents"]) == 1 || a:event["operator"] == "y" )
+  if !( len(a:event["regcontents"]) == 1 && a:event["operator"] == "y" )
     return
   endif
 
@@ -35,8 +37,15 @@ endfunction
 
 nnoremap <buffer> <silent> <cr> :call
       \ neovimpv#youtube_callback("")<cr>
+
 nnoremap <buffer> <silent> <s-enter> :call
       \ neovimpv#youtube_callback("--video=auto")<cr>
+
+nnoremap <buffer> <silent> v :call
+      \ neovimpv#youtube_callback("--video=auto")<cr>
+
+nnoremap <buffer> <silent> i :call
+      \ neovimpv#youtube_thumbnail()<cr>
 
 autocmd CursorMoved <buffer> call s:set_youtube_extmark()
 autocmd TextYankPost <buffer> call s:yank_youtube_link(v:event)

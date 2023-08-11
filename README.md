@@ -167,10 +167,17 @@ The keys available in YouTube splits are:
 Copy the video URL into the buffer the split was originally opened from and open
 the video using `MpvOpen`.
 
+
 ### `<s-enter>`, `v`
 
 Same as `<enter>`, but calls `:MpvOpen` with `--video=auto` instead, which opens
 the result with video rather than audio only.
+
+
+### `i`
+
+Download the thumbnail of the video and display it with the default system viewer
+
 
 ### {yank-motion}
 

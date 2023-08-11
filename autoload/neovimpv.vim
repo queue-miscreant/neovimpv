@@ -75,3 +75,14 @@ function neovimpv#youtube_callback(extra)
     execute ":MpvOpen " . a:extra
   endif
 endfunction
+
+" Callback for youtube results buffers
+function neovimpv#youtube_thumbnail()
+  let current = b:selection[line(".") - 1]
+  call system(
+        \ 'read -r url; ' .
+        \ 'temp=`mktemp`; ' .
+        \ 'curl -L "$url" > "$temp" 2>/dev/null; ' .
+        \ 'xdg-open "$temp"',
+        \ current["thumbnail"])
+endfunction
