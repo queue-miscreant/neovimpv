@@ -152,15 +152,15 @@ class Neovimpv:
     @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
         '''Send keypress to the mpv instance'''
-        if len(args) == 2:
-            extmark_id, key = args
+        if len(args) == 3:
+            extmark_id, key, count = args
         else:
-            raise TypeError(f"Expected 2 arguments, got {len(args)}")
+            raise TypeError(f"Expected 3 arguments, got {len(args)}")
         if (target := self._mpv_instances.get(
             (self.nvim.current.buffer.number, extmark_id)
         )):
             if (real_key := translate_keypress(key)):
-                self.nvim.loop.create_task(target.protocol.send_keypress(real_key))
+                self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
     def show_error(self, error):
         '''Show an error to nvim'''

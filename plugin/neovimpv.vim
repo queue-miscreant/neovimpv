@@ -29,5 +29,5 @@ for i in ["views", "channel_name", "length"]
 endfor
 let g:mpv_youtube_highlights = s:mpv_youtube_highlights
 
-nnoremap <silent> <Plug>(mpv_omnikey) :call neovimpv#omnikey()<cr>
-nnoremap <silent> <Plug>(mpv_youtube_prompt) :call neovimpv#youtube_search_prompt()<cr>
+nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey()<cr>
+nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt()<cr>

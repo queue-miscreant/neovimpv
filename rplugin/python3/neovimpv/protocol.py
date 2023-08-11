@@ -187,9 +187,10 @@ class MpvProtocol(asyncio.Protocol):
             ignore_error=ignore_error
         )
 
-    async def send_keypress(self, keypress, ignore_error=False):
+    async def send_keypress(self, keypress, ignore_error=False, count=1):
         '''Send a keypress and wait for properties to be updated '''
-        self.send_command("keypress", keypress, ignore_error=ignore_error)
+        for _ in range(count):
+            self.send_command("keypress", keypress, ignore_error=ignore_error)
         # some delay is necessary for the keypress to take effect
         await asyncio.sleep(KEYPRESS_DELAY)
         self.fetch_subscribed()

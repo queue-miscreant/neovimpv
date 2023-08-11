@@ -22,7 +22,7 @@ function neovimpv#omnikey()
           \ } )
     redraw
     let temp = getcharstr()
-    call MpvSendNvimKeys(mpv_instances[0][0], temp)
+    call MpvSendNvimKeys(mpv_instances[0][0], temp, v:count)
     call nvim_buf_del_extmark(0, plugin, new_extmark)
   endif
 endfunction
