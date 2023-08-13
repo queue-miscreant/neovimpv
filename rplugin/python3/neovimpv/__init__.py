@@ -6,11 +6,10 @@ import os.path
 
 import pynvim
 from neovimpv.format import Formatter, try_json
-from neovimpv.mpv import MpvInstance
+from neovimpv.mpv import MpvInstance, MpvPlaylistInstance
 from neovimpv.youtube import open_mpv_buffer, WARN_LXML
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 KEYPRESS_LOOKUP = {
     "kl": "left",
@@ -87,15 +86,29 @@ class Neovimpv:
     @pynvim.command("MpvOpen", nargs="*", range="")
     def open_in_mpv(self, args, range):
         '''Open current line as a file in mpv. '''
-        line = range[0] - 1
-        if (target := self.get_mpv_by_line(line, show_error=False)):
+        start, end = range[0] - 1, range[1] - 1
+        if start != end:
+            # TODO
+            # warn the user about mpvs currently open in that range
+            lines = self.nvim.current.buffer[start:end]
+            target = MpvPlaylistInstance(
+                self,
+                self.nvim.current.buffer,
+                [start, end],
+                lines,
+                args
+            )
+            self._mpv_instances[(target.buffer.number, target.id)] = target
+            return
+
+        if (target := self.get_mpv_by_line(start, show_error=False)):
             self.show_error("Mpv is already open on this line!")
             return
 
         target = MpvInstance(
             self,
             self.nvim.current.buffer,
-            line,
+            start,
             self.nvim.current.line,
             args
         )
@@ -172,7 +185,7 @@ class Neovimpv:
             {}
         )
 
-    def live_extmark(self, buffer, content, row=0, col=0):
+    def live_extmark(self, buffer, content, row=-1, col=-1):
         '''
         For some nefarious reason, nvim does not support updating only an extmark's
         content after has been created. Rather than running the get/set in the plugin
@@ -186,7 +199,14 @@ class Neovimpv:
                 content
             )
             return extmark_id
-        self.nvim.lua.neovimpv.update_extmark(buffer, self._plugin_namespace, extmark_id, content)
+        self.nvim.lua.neovimpv.update_extmark(
+            buffer,
+            self._plugin_namespace,
+            extmark_id,
+            content,
+            row,
+            col
+        )
 
     def write_line_of_extmark(self, buffer, extmark_id, content):
         '''Write `content` to the line of an extmark with `nvim_buf_set_lines`'''

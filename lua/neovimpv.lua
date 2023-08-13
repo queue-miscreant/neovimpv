@@ -1,8 +1,16 @@
 -- Update an extmark's content without changing its row or column
-local function update_extmark(buffer, namespace, extmark_id, content)
+local function update_extmark(buffer, namespace, extmark_id, content, row, col)
   loc = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, extmark_id, {})
   if loc ~= nil then
-    pcall(function() vim.api.nvim_buf_set_extmark(buffer, namespace, loc[1], loc[2], content) end)
+    if row ~= nil and row >= 0 then
+      loc[1] = row
+    end
+    if col ~= nil and col >= 0 then
+      loc[2] = col
+    end
+    pcall(function()
+      vim.api.nvim_buf_set_extmark(buffer, namespace, loc[1], loc[2], content)
+    end)
   end
 end
 
