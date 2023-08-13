@@ -9,6 +9,7 @@ setlocal nowrap
 setlocal cursorline
 setlocal nohidden
 
+" Additional video data as extmarks
 function s:set_youtube_extmark()
   let current = b:selection[line(".") - 1]
   call nvim_buf_set_extmark(
@@ -17,15 +18,16 @@ function s:set_youtube_extmark()
         \ line(".") - 1,
         \ 0,
         \ { "id": 1,
-        \   "virt_text": [[current["length"], g:mpv_youtube_highlights["length"]]],
+        \   "virt_text": [[current["length"], "MpvYoutubeLength"]],
         \   "virt_text_pos": "eol",
         \   "virt_lines": [
-        \     [[current["channel_name"], g:mpv_youtube_highlights["channel_name"]]],
-        \     [[current["views"], g:mpv_youtube_highlights["views"]]]
+        \     [[current["channel_name"], "MpvYoutubeChannelName"]],
+        \     [[current["views"], "MpvYoutubeViews"]]
         \   ]
         \ })
 endfunction
 
+" Replace yank contents with URL
 function s:yank_youtube_link(event)
   if !( len(a:event["regcontents"]) == 1 && a:event["operator"] == "y" )
     return
@@ -46,6 +48,8 @@ nnoremap <buffer> <silent> v :call
 
 nnoremap <buffer> <silent> i :call
       \ neovimpv#youtube_thumbnail()<cr>
+
+nnoremap <buffer> <silent> q :q<cr>
 
 autocmd CursorMoved <buffer> call s:set_youtube_extmark()
 autocmd TextYankPost <buffer> call s:yank_youtube_link(v:event)

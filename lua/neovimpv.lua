@@ -55,7 +55,14 @@ local function open_select_split(input, filetype, height)
   vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 end
 
+local function bind_default_highlights(froms, to)
+  for _, from in pairs(froms) do
+    vim.cmd("highlight default link " .. from .. " " .. to)
+  end
+end
+
 neovimpv = {
   update_extmark=update_extmark,
-  open_select_split=open_select_split
+  open_select_split=open_select_split,
+  bind_default_highlights=bind_default_highlights
 }

@@ -17,7 +17,7 @@ function neovimpv#omnikey()
   else
     " mpv found, get key to send
     let new_extmark = nvim_buf_set_extmark(0, plugin, cline - 1, 0, {
-          \ "virt_text": [["[ getting input... ]", g:mpv_default_highlight]],
+          \ "virt_text": [["[ getting input... ]", "MpvDefault"]],
           \ "virt_text_pos": "eol"
           \ } )
     redraw
@@ -57,12 +57,12 @@ function s:mpv_youtube_paste(window_id, value)
   else
     call nvim_buf_set_lines(
           \ buffer_id,
-          \ row-1,
-          \ row-1,
+          \ row,
+          \ row,
           \ v:false,
           \ ["ytdl://" . a:value["video_id"]]
           \ )
-    call nvim_win_set_cursor(a:window_id, [row, 0])
+    call nvim_win_set_cursor(a:window_id, [row + 1, 0])
   endif
 
   return v:true

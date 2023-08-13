@@ -8,27 +8,30 @@ log = logging.getLogger(__name__)
 NVIM_VAR_LOADING = "mpv_loading"
 NVIM_VAR_FORMAT = "mpv_format"
 NVIM_CHARACTER_STYLE = "mpv_style"
-NVIM_VAR_DEFAULT_HIGHLIGHT = "mpv_default_highlight"
-NVIM_VAR_HIGHLIGHTS = "mpv_highlights"
+NVIM_VAR_DEFAULTED_HIGHLIGHTS = "mpv_defaulted_highlights"
+NVIM_VAR_THRESHOLDS = "mpv_property_thresholds"
 
 DISPLAY_STYLES = {
     "ligature": {
-        "pause": {
-            False: "|>",
-            True: "||",
-        },
+        "MpvPauseFalse": "|>",
+        "MpvPauseTrue": "||",
     },
     "unicode": {
-        "pause": {
-            False: "►",
-            True: "⏸",
-        },
+        "MpvPauseFalse": "►",
+        "MpvPauseTrue": "⏸",
     },
     "emoji": {
-        "pause": {
-            False: "▶️ ",
-            True: "⏸️ ",
-        },
+        "MpvPauseFalse": "▶️ ",
+        "MpvPauseTrue": "⏸️ ",
+    }
+}
+
+# For these props, just append the string value to the end of them to the "base"
+# i.e., for "pause", "MpvPauseFalse"
+SPECIAL_PROPS = {
+    "pause": {
+        "converter": lambda x: str(bool(x)),
+        "suffixes": ["True", "False"],
     }
 }
 
@@ -52,7 +55,7 @@ def sexagesimalize(number):
         return f"{(minutes % 60)}:{(seconds % 60):0{2}}"
 
 def format_pause(is_paused):
-    return CURRENT_SCHEME["pause"].get(is_paused, "?")
+    return CURRENT_SCHEME.get("MpvPause" + str(is_paused), "?")
 
 def format_time(position):
     return sexagesimalize(position or 0)
@@ -99,35 +102,64 @@ class Formatter:
 
     def __init__(self, nvim):
         global CURRENT_SCHEME
-        scheme = nvim.api.get_var(NVIM_CHARACTER_STYLE)
-        format = nvim.api.get_var(NVIM_VAR_FORMAT)
-        highlights = nvim.api.get_var(NVIM_VAR_HIGHLIGHTS)
-
-        self._default_highlight = nvim.api.get_var(NVIM_VAR_DEFAULT_HIGHLIGHT)
-        self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), self._default_highlight]
-        self.external = ["[ Window ]", self._default_highlight]
+        format = nvim.api.get_var(NVIM_VAR_FORMAT) # user format
+        scheme = nvim.api.get_var(NVIM_CHARACTER_STYLE) # user display scheme
         CURRENT_SCHEME = DISPLAY_STYLES.get(scheme, CURRENT_SCHEME)
 
+        self._defaulted_highlights = nvim.api.get_var(NVIM_VAR_DEFAULTED_HIGHLIGHTS) # highlights which don't need a default set
+        self.external = ["[ Window ]", "MpvDefault"] # format for external windows
+        thresholds = nvim.api.get_var(NVIM_VAR_THRESHOLDS) # user thresholds
+
+        # loading notification
+        self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), "MpvDefault"]
+        # groups parsed by the format
         self.groups = []
-        self._format_string = ""
-        self._highlight_fields = {}
+        # thresholds
+        self._thresholds = {}
 
-        self.parse_highlights(highlights)
+        self._thresholds, new_groups = self.parse_thresholds(thresholds)
         self.compile_format(format)
+        self.bind_default_highlights(nvim, new_groups)
 
-    def parse_highlights(self, highlights):
-        '''Parse @-separated dict entries into further dicts'''
-        fields = copy.deepcopy(self.HIGHLIGHT_DEFAULTS)
-        # parse field@value
-        for field, highlight in itertools.chain(highlights.items()):
-            try_split = field.split("@")
-            if len(try_split) == 2:
-                if fields.get(try_split[0]) is None:
-                    fields[try_split[0]] = {}
-                fields[try_split[0]][try_json(try_split[1])] = highlight
+    def parse_thresholds(self, thresholds):
+        '''Parse compiled groups into highlight suffixes, adding thresholds for special properties'''
+        new_thresholds = {}
+        new_groups = {}
+        # special properties first (like pause)
+        for prop, info in SPECIAL_PROPS.items():
+            new_thresholds[prop] = info["converter"]
+            new_groups[prop] = info["suffixes"]
+        # user thresholds
+        for threshold, thresh_list in thresholds.items():
+            if len(thresh_list) == 1:
+                low_thresh, = thresh_list
+                new_thresholds[threshold] = lambda x: "Low" if x < low_thresh else "High"
+                new_groups[threshold] = ["Low", "High"]
+            elif len(thresh_list) == 2:
+                low_thresh, mid_thresh = thresh_list
+                new_thresholds[threshold] = lambda x: ("Low" if x < low_thresh else "Middle") if x < mid_thresh else "High"
+                new_groups[threshold] = ["Low", "Middle", "High"]
+            else:
+                raise ValueError(f"Cannot interpret user threshold {threshold}")
+        return new_thresholds, new_groups
+
+    def bind_default_highlights(self, nvim, new_groups):
+        '''Bind default highlights for all mpv properties as thresholds and in the format string'''
+        for group in self.groups:
+            if group in new_groups:
                 continue
-            fields[field] = highlight
-        self._highlight_fields = fields
+            new_groups[group] = [""]
+
+        new_highlights = []
+        for group, suffixes in new_groups.items():
+            base_highlight = "Mpv" + kebab_to_camel(group)
+            for suffix in suffixes:
+                highlight_name = base_highlight + suffix
+                if highlight_name not in self._defaulted_highlights:
+                    new_highlights.append(highlight_name)
+        # in case no highlight exists, bind defaults for these
+        nvim.lua.neovimpv.bind_default_highlights(new_highlights, "MpvDefault")
+        self._defaulted_highlights.extend(new_highlights)
 
     def compile_format(self, format: str):
         '''Compile format string into a list of lambdas ready to receive a data dict'''
@@ -143,12 +175,9 @@ class Formatter:
                 else:
                     pre, group = split.split("{")
                 if pre:
-                    pre_formatted.append([pre, lambda x, _: [x, self._default_highlight]])
+                    pre_formatted.append([pre, lambda x, _: [x, "MpvDefault"]])
                 if group:
-                    pre_formatted.append(self._format(
-                        group,
-                        self._highlight_fields.get(group, self._default_highlight)
-                    ))
+                    pre_formatted.append(self._format(group))
                     groups.add(group)
         except ValueError:
             pass
@@ -156,17 +185,16 @@ class Formatter:
         self._pre_formatted = pre_formatted
         self.groups = list(groups)
 
-    def _format(self, item, highlight_field):
+    def _format(self, item):
         '''Bind the property `item` to a handler lambda'''
         # Try to find a way to draw this
         formatter = self.HANDLERS.get(item, str)
-        highlighter = lambda x: highlight_field
-        # If highlight_field is a dict, use the value of the field to determine highlight color
-        if isinstance(highlight_field, dict):
-            highlighter = lambda x: highlight_field.get(x, self._default_highlight)
+        # thresholds include special fields like pause, as well as user-defined ones
+        threshold = self._thresholds.get(item, lambda x: "")
+        highlight_name = "Mpv" + kebab_to_camel(item)
         return [item, lambda x, data: [
-            formatter(data.get(x, "")),     # the text itself
-            highlighter(data.get(x, ""))    # its highlight
+            formatter(data.get(x, "")),
+            highlight_name + threshold(data.get(x, 0))
         ]]
 
     def format(self, format_dict):
@@ -175,3 +203,7 @@ class Formatter:
         If a handler returns a falsy value, the item is omitted.
         '''
         return [k for k in (j(i, format_dict) for i, j in self._pre_formatted) if k[0]]
+
+def kebab_to_camel(string):
+    '''Turn kebab-case string into CamelCase string'''
+    return ''.join([name.capitalize() for name in string.split("-")])

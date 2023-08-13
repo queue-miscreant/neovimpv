@@ -10,6 +10,7 @@ from neovimpv.mpv import MpvInstance
 from neovimpv.youtube import open_mpv_buffer, WARN_LXML
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 KEYPRESS_LOOKUP = {
     "kl": "left",
@@ -33,6 +34,7 @@ class Neovimpv:
     def __init__(self, nvim):
         self.nvim = nvim
         self._plugin_namespace = nvim.api.create_namespace(self.__class__.__name__)
+        nvim.exec_lua("_mpv = require('neovimpv')")
 
         # options
         self.formatter = Formatter(nvim)
@@ -48,7 +50,6 @@ class Neovimpv:
         os.makedirs(self.mpv_socket_dir)
 
         self._mpv_instances = {}
-        nvim.exec_lua("_mpv = require('neovimpv')")
 
         self._virtual_text_locked = False
 
