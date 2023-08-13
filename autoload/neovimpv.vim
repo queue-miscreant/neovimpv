@@ -27,6 +27,41 @@ function neovimpv#omnikey()
   endif
 endfunction
 
+function neovimpv#goto_relative_mpv(direction)
+  let current = line(".") - 1
+  let mpv_instances = nvim_buf_get_extmarks(
+        \ 0,
+        \ nvim_create_namespace("Neovimpv"),
+        \ [0, 0],
+        \ [-1, -1],
+        \ {}
+        \ )
+
+  call sort(mpv_instances, { x,y -> a:direction * (y[1] - x[1]) })
+
+  let last = -1
+  for i in mpv_instances
+    let diff = current - i[1]
+    if (diff * -a:direction) <= 0
+      break
+    endif
+    let last = i[1]
+  endfor
+
+  if last == -1
+    echohl ErrorMsg
+    if a:direction < 0
+      echom "No previous mpv found"
+    else
+      echom "No later mpv found"
+    endif
+    echohl None
+    return
+  endif
+
+  execute "normal " . string(last + 1) . "G"
+endfunction
+
 " Open search prompt
 function neovimpv#youtube_search_prompt()
   let query = input("YouTube Search: ")

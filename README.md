@@ -53,7 +53,7 @@ from the command line with the `--no-video` flag. URLs may be used if youtube-dl
 or yt-dlp has been set up.
 
 To decrease reliance on IPC, some rudimentary checks are performed to ensure that
-the file exists or is a URL. 
+the file exists or is a URL.
 
 Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
@@ -81,7 +81,7 @@ Some example commands include `seek {seconds}` and `quit`.
 
 
 ### `:MpvSetProperty property-name property-value`
-        
+
 Set a property on the mpv instance running on the current line. See
 [this](https://mpv.io/manual/stable/#property-list) part of the mpv
 documentation for more information about properties.
@@ -137,11 +137,26 @@ Capture a keypress and send it to the mpv instance running on the
 current line. If there is no instance, `g:mpv_omni_open_new_if_empty`
 decides whether or not to call `:MpvOpen` or report an error.
 
+Giving a count beforehand will be acknowledged, with the key repeatedly
+sent to mpv that number of times.
+
 ### `<Plug>(mpv_youtube_prompt)`
 
 Open a prompt for a YouTube search. This is equivalent to using the
 command `:MpvYoutubeSearch` with the on the contents of the prompt.
 See also `neovimpv-youtube-splits`.
+
+
+### `<Plug>(mpv_goto_earlier)`
+
+Jump to the latest line before the cursor in the current buffer which
+has an mpv instance.
+
+
+### `<Plug>(mpv_goto_later)`
+
+Jump to the earliest line after the cursor in the current buffer which
+has an mpv instance.
 
 
 YouTube Results
@@ -209,7 +224,7 @@ The default value is `"[ ... ]"`
 
 Format string to use when drawing text for an mpv instance. Each
 field which is intended to represent an mpv property must be
-surrounded by curly braces ({}). 
+surrounded by curly braces ({}).
 
 Some formats are drawn internally to the plugin:
 - `duration` and `playback-time` will both render in a familiar time
@@ -257,7 +272,7 @@ and "High", which are appended to the usual name (e.g., `MpvPlaybackTime`
 becomes `MpvPlaybackTimeLow` and `...High`). Values less than the entry
 are given "Low" while values greater than it are given "High".
 
-If the list contains two entries, the value is partitioned into "Low", 
+If the list contains two entries, the value is partitioned into "Low",
 "Middle", and "High" instead.
 
 
