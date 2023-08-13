@@ -111,7 +111,7 @@ This command is equivalent to `:MpvSend set_property pause <not pause state>`
 
 ### `:MpvYoutubeSearch {query}`
 
-Do a YouTube search for {query}, then open a split containing the
+Do a YouTube search for `{query}`, then open a split containing the
 results. See YouTube splits below for info.
 
 
@@ -159,8 +159,7 @@ you to open a split which contains the results of a YouTube search.
 The name of the YouTube video is displayed on each line, with additional video
 information available by moving the cursor to that line.
 
-                                                        *neovimpv-youtube-keys*
-The keys available in YouTube splits are:
+The keys available in YouTube splits are as follows:
 
 ### `<enter>`
 
@@ -179,6 +178,11 @@ the result with video rather than audio only.
 Download the thumbnail of the video and display it with the default system viewer
 
 
+### `q`
+
+Exit the split
+
+
 ### {yank-motion}
 
 If the yank motion is a single line, then the result's video URL is pasted into
@@ -190,15 +194,7 @@ Configuration
 -------------
 
 The following global variables may be placed in your vim init script. If they
-are changed while neovim is running, they will NOT take effect.
-
-
-### `g:mpv_default_highlight`
-
-Name of highlight to be used by default when drawing text for the mpv
-instance.
-
-The default value is `"LineNr"`.
+are changed while Neovim is running, they will NOT take effect.
 
 
 ### `g:mpv_loading`
@@ -217,12 +213,10 @@ surrounded by curly braces ({}).
 
 Some formats are drawn internally to the plugin:
 - `duration` and `playback-time` will both render in a familiar time
-  format, and will be highlighted as `"Conceal"` by default.
+  format.
 
 - `pause` will render using typical pause and play symbols, instead of
-  the string representations "True" and "False". It also uses the
-  highlights `"Conceal"` and `"Title"` when `True` and `False`,
-  respectively.
+  the string representations "True" and "False".
 
 The default value is `"[ {pause} {playback-time} / {duration} {loop} ]"`
 
@@ -234,20 +228,6 @@ Style to use when drawing pictographic fields. Possible values are
 Currently, the only pictographic field is "pause".
 
 The default value is `"unicode"`
-
-
-### `g:mpv_highlights`
-
-Dictionary of additional highlights which will be used when rendering
-the contents of `g:mpv_format`. These values will override the
-default highlights mentioned there.
-
-The keys in this dictionary should be mpv property names and the
-values should be valid highlight names.
-
-To use a different highlight for properties with a certain (discrete)
-value, you may also specify a key as `{mpv-property}@value`. The value
-will be evaluated as a JSON before being compared to its actual value.
 
 
 ### `g:mpv_markdown_writable`
@@ -266,11 +246,60 @@ with `:MpvOpen`. Note that `--no-video` is always implied, unless it
 is overridden by `--video=auto`.
 
 
-### `g:mpv_youtube_highlights`
+### `g:mpv_property_thresholds`
 
-Dictionary of highlights to use in YouTube splits when drawing
-extmarks. Only the keys `"views"`, `"channel_name"`, and `"length"` are
-supported.
+Dictionary where the keys are mpv properties. The values are lists of
+numbers which control which highlight will be used when rendering the
+property.
+
+If the list contains one entry, the highlight is partitioned into "Low"
+and "High", which are appended to the usual name (e.g., `MpvPlaybackTime`
+becomes `MpvPlaybackTimeLow` and `...High`). Values less than the entry
+are given "Low" while values greater than it are given "High".
+
+If the list contains two entries, the value is partitioned into "Low", 
+"Middle", and "High" instead.
+
+
+Highlights
+----------
+
+The highlight used to draw an mpv property is user-controllable. All
+highlights begin with "Mpv", followed by the property name. Properties in mpv
+are given in kebab-case, but the corresponding highlights in Vim will be in
+CamelCase. For example, the property `playback-time` becomes the highlight
+`MpvPlaybackTime`.
+
+All properties which occur in `g:mpv_format` are given highlights that link
+to bound to the plugin default highlight `MpvDefault`, unless they have
+already been defaulted in the plugin. The following defaults additional
+defaults exist:
+
+- MpvPauseTrue -> Conceal
+- MpvPauseFalse -> Title
+- MpvPlaybackTime -> Conceal
+- MpvDuration -> Conceal
+
+When using `g:mpv_property_thresholds`, the original highlight for the
+property will not be used. Instead, only the partitioned highlights will exist
+(with defaults appropriately defined).
+
+For example, the following will cause the first 10 seconds of playback time to
+be drawn with the highlight `ErrorMsg`, while the remaining time will be drawn
+with `MpvPlaybackTimeHigh (-> MpvDefault)` (instead of `MpvPlaybackTime`):
+
+```vim
+  let g:mpv_property_thresholds = { "playback-time": [10] }
+  hi! link MpvPlaybackTimeLow ErrorMsg
+```
+
+The following highlights are used for extra video info in YouTube results:
+
+| Property name   | Highlight name          | Explanation
+|-----------------|-------------------------|---------------------------
+| `length`        | `MpvYoutubeLength`      | Length of the video
+| `channel_name`  | `MpvYoutubeChannelName` | Channel name of uploader
+| `views`         | `MpvYoutubeViews`       | View count of the video
 
 
 TODOs

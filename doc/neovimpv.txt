@@ -125,7 +125,7 @@ The name of the YouTube video is displayed on each line, with additional video
 information available by moving the cursor to that line.
 
 YouTube results requires `lxml` to be available to Python. Videos cannot be
-played if `youtube-dl` or a replacement is available to mpv.
+played if `youtube-dl` or a replacement is not available to mpv.
 
                                                         *neovimpv-youtube-keys*
 The keys available in YouTube splits are:
@@ -144,6 +144,11 @@ The keys available in YouTube splits are:
                         clipboard, using `"+yy` will grab the URL, rather than
                         the line content.
 
+i                       Download the thumbnail of the video and display it with
+                        the default system viewer.
+
+q                       Exit the split.
+
 --------------------------------------------------------------------------------
 FUNCTIONS                                               *neovimpv-function*
 
@@ -161,13 +166,6 @@ CONFIGURATION                                           *neovimpv-configuration*
 
 The following global variables may be placed in your vim init script. If they
 are changed while neovim is running, they will NOT take effect.
-
-g:mpv_default_highlight                                 *g:mpv_default_highlight*
-
-        Name of |highlight| to be used by default when drawing text for the mpv
-        instance.
-
-        The default value is `"LineNr"`.
 
 g:mpv_loading                                           *g:mpv_loading*
 
@@ -202,27 +200,14 @@ g:mpv_style                                             *g:mpv_style*
 
         The default value is `"unicode"`
 
-g:mpv_highlights                                        *g:mpv_highlights*
-
-        Dictionary of additional highlights which will be used when rendering
-        the contents of |g:mpv_format|. These values will override the
-        default |highlight|s mentioned there.
-
-        The keys in this dictionary should be mpv property names and the
-        values should be valid highlight names.
-
-        To use a different highlight for properties with a certain (discrete)
-        value, you may also specify a key as `{mpv-property}@value`. The value
-        will be evaluated as a JSON before being compared to its actual value.
-
 g:mpv_markdown_writable                                 *g:mpv_markdown_writable*
 
         List of |filetype|s which, when a line is opened using |:MpvOpen|,
         will format the line into markdown, if it isn't already. The format
         used is `[{mpv-title}]({original-link})`.
 
-        This option is best used in files which support syntax that hides link
-        contents.
+        This option is best used in files which support syntax that conceals
+        link contents.
 
 g:mpv_default_args                                      *g:mpv_default_args*
 
@@ -230,11 +215,57 @@ g:mpv_default_args                                      *g:mpv_default_args*
         with |:MpvOpen|. Note that `--no-video` is always implied, unless it
         is overridden by `--video=auto`.
 
-g:mpv_youtube_highlights                                *g:mpv_youtube_highlights*
+g:mpv_property_thresholds                               *g:mpv_property_thresholds*
 
-        Dictionary of highlights to use in YouTube splits when drawing
-        extmarks. Only the keys "views", "channel_name", and "length" are
-        supported.
+        Dictionary where the keys are mpv properties. The values are lists of
+        numbers which control which highlight will be used when rendering the
+        property.
+
+        If the list contains one entry, the highlight is partitioned into "Low"
+        and "High", which are appended to the usual name (e.g., "MpvPlaybackTime"
+        becomes "MpvPlaybackTimeLow" and "...High"). Values less than the entry
+        are given "Low" while values greater than it are given "High".
+
+        If the list contains two entries, the value is partitioned into "Low", 
+        "Middle", and "High" instead.
+
+--------------------------------------------------------------------------------
+HIGHLIGHTS                                              *neovimpv-highlights*
+
+The highlight used to draw an mpv property is user-controllable. All
+highlights begin with "Mpv", followed by the property name. Properties in mpv
+are given in kebab-case, but the corresponding highlights in Vim will be in
+CamelCase. For example, the property "playback-time" becomes the highlight
+"MpvPlaybackTime".
+
+All properties which occur in `g:mpv_format` are given highlights that link
+to bound to the plugin default highlight `MpvDefault`, unless they have
+already been defaulted in the plugin. The following defaults additional
+defaults exist:
+
+- MpvPauseTrue -> Conceal
+- MpvPauseFalse -> Title
+- MpvPlaybackTime -> Conceal
+- MpvDuration -> Conceal
+
+When using |g:mpv_property_thresholds|, the original highlight for the
+property will not be used. Instead, only the partitioned highlights will exist
+(with defaults appropriately defined).
+
+For example, the following will cause the first 10 seconds of playback time to
+be drawn with the highlight "ErrorMsg", while the remaining time will be drawn
+with "MpvDefault" (instead of "MpvPlaybackTime"):
+
+  `let g:mpv_property_thresholds = { "playback-time": [10] }`
+  `hi! link MpvPlaybackTimeLow ErrorMsg`
+
+The following highlights are used for extra video info in YouTube results:
+
+| PROPERTY NAME | HIGHLIGHT NAME        | EXPLANATION
+_______________________________________________________________________
+| length        | MpvYoutubeLength      | Length of the video
+| channel_name  | MpvYoutubeChannelName | Channel name of uploader
+| views         | MpvYoutubeViews       | View count of the video
 
 ================================================================================
 vim:tw=80:nosta:ft=help:fen:
