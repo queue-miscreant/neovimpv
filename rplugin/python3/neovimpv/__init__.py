@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
 import logging
+import json
 import os
 import os.path
 
 import pynvim
-from neovimpv.format import Formatter, try_json
+from neovimpv.format import Formatter
 from neovimpv.mpv import MpvInstance, MpvPlaylistInstance
 from neovimpv.youtube import open_mpv_buffer, WARN_LXML
 
@@ -27,6 +28,13 @@ def translate_keypress(key):
         # log.debug(repr(key))
         return KEYPRESS_LOOKUP.get(key[1:], None)
     return key
+
+def try_json(arg):
+    '''Attempt to read arg as a JSON object. Return the string on failure'''
+    try:
+        return json.loads(arg)
+    except:
+        return arg
 
 @pynvim.plugin
 class Neovimpv:
@@ -81,6 +89,11 @@ class Neovimpv:
         instance.buffer.api.del_extmark(
             self._plugin_namespace,
             instance.id,
+        )
+        self.nvim.lua.neovimpv.update_dict(
+            self.nvim.current.buffer.number,
+            "mpv_running_instances",
+            instance.id
         )
 
     @pynvim.command("MpvOpen", nargs="*", range="")
@@ -232,3 +245,16 @@ class Neovimpv:
             self._mpv_instances[(self.nvim.current.buffer.number, extmark_id)]
             for extmark_id, _, _ in extmark_ids
         ]
+
+    def move_extmark(self, instance, line_num):
+        instance.buffer.api.set_extmark(
+            self._plugin_namespace,
+            line_num,
+            0,
+            {
+                "id": instance.id,
+                "virt_text": [self.formatter.loading],
+                "virt_text_pos": "eol",
+            }
+        )
+        instance.no_draw = False

@@ -1,6 +1,5 @@
 import copy
 import itertools
-import json
 import logging
 
 log = logging.getLogger(__name__)
@@ -37,13 +36,6 @@ SPECIAL_PROPS = {
 
 CURRENT_SCHEME = DISPLAY_STYLES.get("unicode")
 
-def try_json(arg):
-    '''Attempt to read arg as a JSON object. Return the string on failure'''
-    try:
-        return json.loads(arg)
-    except:
-        return arg
-
 def sexagesimalize(number):
     '''Convert a number to decimal-coded sexagesimal (i.e., clock format)'''
     seconds = int(number)
@@ -61,10 +53,7 @@ def format_time(position):
     return sexagesimalize(position or 0)
 
 def format_loop(loop):
-    if loop == "inf":
-        loop = "∞"
-    if loop:
-        return f"({loop})"
+    return f"({loop})" if loop != "inf" else "∞"
 
 class Formatter:
     '''
@@ -72,17 +61,10 @@ class Formatter:
     The format string can be specified using g:mpv_format, which is a string
     with mpv property names enclosed in {}.
 
-    By default, properties retrieved from mpv are drawn as their string
-    representation. Special properties, such as `duration` and `playback-time`
-    are drawn using entries in HANDLERS.
-
-    The default highlight used can be configured with g:mpv_default_highlight.
-
-    Further detail for mpv properties can be specified using g:mpv_highlights,
-    which is a dict which has mpv properties as keys and highlights as values.
-    The keys may also be an mpv property and a value, separated by an "@", if
-    you would like (discrete) values to be displayed in different colors
-    (i.e., ```{ "pause@false": ... }```).
+    The highlight used to draw an mpv format `format-name` will be
+    `MpvFormatName`. By default, these link to the highlight `MpvDefault`.
+    Threshold values may be established with the g:mpv_property_thresholds
+    variable.
     '''
     HANDLERS = {
         "pause": format_pause,
@@ -107,11 +89,10 @@ class Formatter:
         CURRENT_SCHEME = DISPLAY_STYLES.get(scheme, CURRENT_SCHEME)
 
         self._defaulted_highlights = nvim.api.get_var(NVIM_VAR_DEFAULTED_HIGHLIGHTS) # highlights which don't need a default set
-        self.external = ["[ Window ]", "MpvDefault"] # format for external windows
         thresholds = nvim.api.get_var(NVIM_VAR_THRESHOLDS) # user thresholds
 
-        # loading notification
-        self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), "MpvDefault"]
+        self.external = ["[ Window ]", "MpvDefault"] # format for external windows
+        self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), "MpvDefault"] # loading notification
         # groups parsed by the format
         self.groups = []
         # thresholds

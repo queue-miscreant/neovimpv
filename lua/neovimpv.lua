@@ -14,6 +14,22 @@ local function update_extmark(buffer, namespace, extmark_id, content, row, col)
   end
 end
 
+local function update_extmark2(buffer, namespace, extmark_id, content, row, col)
+  vim.api.nvim_buf_call(buffer, function()
+    local mpvs = vim.b["mpv_running_instances"]
+    extmark = mpvs[tostring(extmark_id)]
+    -- pcall(function()
+      vim.api.nvim_buf_set_extmark(
+        buffer,
+        namespace,
+        extmark.lines[extmark.current],
+        0,
+        content
+      )
+    -- end)
+  end)
+end
+
 -- Open some content in a split to run a callback
 --
 -- `input`
@@ -69,8 +85,41 @@ local function bind_default_highlights(froms, to)
   end
 end
 
+local function update_dict(buffer, dict_name, key, val)
+  vim.api.nvim_buf_call(buffer, function()
+    dict = vim.b[dict_name]
+    if dict == nil then
+      vim.b[dict_name] = vim.empty_dict()
+    end
+    if val == nil then
+      vim.cmd.unlet("b:" .. dict_name .. "[" .. vim.json.encode(key) .. "]")
+    else
+      vim.cmd.let("b:" .. dict_name .. 
+        "[json_decode(" .. vim.json.encode(key) .. 
+        ")] = json_decode('" .. vim.json.encode(val) .. "')"
+      )
+    end
+  end)
+end
+
+local function add_sign_extmarks(buffer, namespace, lines, contents)
+  new_ids = {}
+  for i, j in pairs(lines) do
+    new_ids[i] = vim.api.nvim_buf_set_extmark(
+      buffer,
+      namespace,
+      j,
+      0,
+      { sign_text=contents }
+    )
+  end
+  return new_ids
+end
+
 neovimpv = {
   update_extmark=update_extmark,
   open_select_split=open_select_split,
-  bind_default_highlights=bind_default_highlights
+  bind_default_highlights=bind_default_highlights,
+  update_dict=update_dict,
+  add_sign_extmarks=add_sign_extmarks
 }

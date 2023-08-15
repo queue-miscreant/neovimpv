@@ -54,9 +54,26 @@ class MpvInstance:
             },
             line
         )
+        # TODO
+        if not hasattr(self, "lines"):
+            self.lines = [line]
+
+        self.no_draw = False
 
         link, write_markdown = self._unmarkdown(plugin, buffer, link)
         asyncio.create_task(self.spawn(link, mpv_args, write_markdown=write_markdown))
+        self._update_dict()
+
+    def _update_dict(self):
+        self.plugin.nvim.lua.neovimpv.update_dict(
+            self.buffer.number,
+            "mpv_running_instances",
+            self.id,
+            {
+                "lines": self.lines,
+                "current": 0
+            }
+        )
 
     @staticmethod
     def _unmarkdown(plugin, buffer, link):
@@ -75,6 +92,8 @@ class MpvInstance:
 
     def draw_update(self):
         '''Rerender the extmark that this mpv instance corresponds to'''
+        if self.no_draw:
+            return
         display = {
             "id": self.id,
             "virt_text": self.plugin.formatter.format(self.protocol.data),
@@ -186,8 +205,14 @@ class MpvInstance:
 # clearly update_extmark isn't as useful as I thought it would be
 # current ideas: pass in the list of [line number, line] from the very beginning, then filter
 
-# also should draw extmarks (in the sign column?) for mpv playlists. Maybe a new namespace
+# TODO draw extmarks (in the sign column?) for mpv playlists. Maybe a new namespace?
 # Current player status is shown on the correct line, but key redirection is accepted from anywhere in range
+
+# TODO just use extmarks to mark the playlist range
+# on text changed, try to alter playlist in mpv as-necessary
+# keep record of playlist lines relative from the beginning, and move player extmark there
+# when the last-known playlist extmark range and the one in python differ,...
+
 class MpvPlaylistInstance(MpvInstance):
     def __init__(self, plugin, buffer, range_, lines, mpv_args):
         new_lines = []
@@ -200,37 +225,44 @@ class MpvPlaylistInstance(MpvInstance):
         if not new_lines:
             self.plugin.show_error("Lines do not contain a file path or valid URL")
             return None
-        self.lines = new_lines
+        self.line_data = new_lines
+        self.lines = [i[0] for i in new_lines]
         self.start, self.end = range_
-        self.current = self.lines[0][0]
+        self.current = self.line_data[0][0]
 
-        super().__init__(plugin, buffer, range_[0], self.lines[0][1], mpv_args)
-
-    def draw_update(self):
-        '''Rerender the extmark that this mpv instance corresponds to'''
-        # TODO: if windowed display, do nothing but move the line
-        display = {
-            "id": self.id,
-            "virt_text": self.plugin.formatter.format(self.protocol.data),
-            "virt_text_pos": "eol",
-        }
-
-        self.plugin.nvim.async_call(
-            self.buffer.api.set_extmark,
-            self.plugin._plugin_namespace,
-            self.current,
-            0,
-            display
+        self.playlist_ids = plugin.nvim.lua.neovimpv.add_sign_extmarks(
+            buffer.number,
+            plugin._plugin_namespace,
+            self.lines,
+            "P"
         )
+
+        log.debug(self.playlist_ids)
+
+        super().__init__(plugin, buffer, range_[0], self.line_data[0][1], mpv_args)
 
     async def spawn(self, link, mpv_args, timeout_duration=1, write_markdown=False):
         await super().spawn(link, mpv_args, timeout_duration, write_markdown)
-        for _, link, _ in self.lines[1:]:
+        for _, link, _ in self.line_data[1:]:
             self.protocol.send_command("loadfile", link, "append")
         # TODO: give extmarks to these lines
 
     def preamble(self, arg, write_markdown, has_video):
         '''Subscribe to necessary properties on the mpv IPC.'''
-        line_num, link, markdown = self.lines.pop(0)
+        line_num, link, markdown = self.line_data.pop(0)
         self.current = line_num
+        self.plugin.nvim.async_call(
+            self.plugin.move_extmark,
+            self,
+            line_num
+        )
+        self.no_draw = True
         super().preamble(link, markdown, has_video)
+
+    def close(self):
+        super().close()
+        self.plugin.async_call(
+            self.buffer.del_extmark,
+            self.plugin._plugin_namespace,
+            self.playlist_id
+        )

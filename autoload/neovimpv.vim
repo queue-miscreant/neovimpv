@@ -121,3 +121,61 @@ function neovimpv#youtube_thumbnail()
         \ 'xdg-open "$temp"',
         \ current["thumbnail"])
 endfunction
+
+let s:prevchange = []
+function s:undo_for_change_count()
+  " grab the change to the buffer that just happened
+  let linesbefore = 0
+  let cursorbefore = 0
+  let rangebefore = []
+  setlocal lz
+  let try_undo = b:changedtick
+  normal u
+  if try_undo == b:changedtick
+    exe "normal \<c-r>"
+    let linesbefore = line("$")
+    let cursorbefore = line(".")
+    let rangebefore = [ line("'["), line("']") ]
+    normal u
+  else
+    let linesbefore = line("$")
+    let cursorbefore = line(".")
+    let rangebefore = [ line("'["), line("']") ]
+    exe "normal \<c-r>"
+  endif
+  setlocal nolz
+  let s:prevchange = [ linesbefore, cursorbefore, rangebefore ]
+  call timer_start(0, "neovimpv#buffer_change_callback")
+endfunction
+
+function! neovimpv#buffer_change_callback(...)
+  let cur_lines = line("$")
+  let cur_cursor = line(".")
+  let cur_range = [ line("'["), line("']") ]
+
+  let lines_diff = cur_lines - s:prevchange[0]
+  " lines removed
+  if lines_diff < 0
+    " prev_range gives the lines that were moved
+    let range_removed = s:prevchange[2]
+    " NOTE: deleting from the last line of the buffer gives a range of [n-1, n]
+    if range_removed[1] == cur_lines
+      let range_removed[0] -= 1
+    endif
+    for value in values(b:mpv_running_instances)
+      " TODO: lines in range removed
+      let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_removed[0]) })
+    endfor
+  " lines added
+  elseif lines_diff > 0
+    " cur_range gives the lines that were added
+    let range_added = cur_range
+    for value in values(b:mpv_running_instances)
+      let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_added[0]) })
+    endfor
+  endif
+endfunction
+
+function neovimpv#bind_autocmd()
+  autocmd TextChanged <buffer> call s:undo_for_change_count()
+endfunction
