@@ -1,29 +1,40 @@
 " Omni-function for sending keys to mpv
-function neovimpv#omnikey()
+" TODO: semantics for visual selection intersecting with preexisting playlist?
+function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
-  let plugin = get(nvim_get_namespaces(), "Neovimpv", v:false)
-  let mpv_instances = []
-  if plugin
-    let cline = line(".")
-    let mpv_instances = nvim_buf_get_extmarks(0, plugin, [cline - 1, 0], [cline - 1, -1], {})
-  endif
-  if len(mpv_instances) == 0
-    " no mpv found, trying to open
+  let cline = line(".")
+  let mpv_playlists = nvim_buf_get_extmarks(
+        \ 0,
+        \ nvim_create_namespace("Neovimpv-playlists"),
+        \ [a:firstline - 1, 0],
+        \ [a:lastline - 1, -1],
+        \ {}
+        \ )
+  if len(mpv_playlists) == 0
+    " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
-      execute ":MpvOpen"
+      execute ":" . a:firstline . "," . a:lastline . "MpvOpen"
     else
       call nvim_notify("No mpv found running on that line", 4, {})
     endif
-  else
+  elseif !a:is_visual
     " mpv found, get key to send
-    let new_extmark = nvim_buf_set_extmark(0, plugin, cline - 1, 0, {
+    let temp_ns = nvim_create_namespace("")
+    let new_extmark = nvim_buf_set_extmark(0, temp_ns, cline - 1, 0, {
           \ "virt_text": [["[ getting input... ]", "MpvDefault"]],
           \ "virt_text_pos": "eol"
           \ } )
     redraw
-    let temp = getcharstr()
-    call MpvSendNvimKeys(mpv_instances[0][0], temp, v:count)
-    call nvim_buf_del_extmark(0, plugin, new_extmark)
+    try
+      let temp = getcharstr()
+      call MpvSendNvimKeys(b:mpv_playlists_to_displays[mpv_playlists[0][0]], temp, v:count)
+    finally
+      call nvim_buf_del_extmark(0, temp_ns, new_extmark)
+    endtry
+  else
+    echohl ErrorMsg
+    echo "Given range includes playlist; ignoring"
+    echohl None
   endif
 endfunction
 
@@ -31,7 +42,7 @@ function neovimpv#goto_relative_mpv(direction)
   let current = line(".") - 1
   let mpv_instances = nvim_buf_get_extmarks(
         \ 0,
-        \ nvim_create_namespace("Neovimpv"),
+        \ nvim_create_namespace("Neovimpv-displays"),
         \ [0, 0],
         \ [-1, -1],
         \ {}

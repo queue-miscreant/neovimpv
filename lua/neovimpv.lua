@@ -102,18 +102,52 @@ local function update_dict(buffer, dict_name, key, val)
   end)
 end
 
-local function add_sign_extmarks(buffer, namespace, lines, contents)
+local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
   new_ids = {}
-  for i, j in pairs(lines) do
-    new_ids[i] = vim.api.nvim_buf_set_extmark(
+  vim.api.nvim_buf_call(buffer, function()
+    dict = vim.b["mpv_playlists_to_displays"]
+    if dict == nil then
+      vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+    end
+    for i, j in pairs(lines) do
+      local extmark_id = vim.api.nvim_buf_set_extmark(
+        buffer,
+        namespace,
+        j,
+        0,
+        {
+          sign_text=contents,
+          sign_hl_group="SignColumn"
+        }
+      )
+      new_ids[i] = extmark_id
+      vim.cmd.let(
+        "b:mpv_playlists_to_displays" .. 
+        "[" .. tostring(extmark_id) .. "] = " .. 
+        tostring(display_id)
+      )
+    end
+  end)
+  return new_ids
+end
+
+local function remove_mpv_instance(buffer, display_id, playlist_ids)
+  vim.api.nvim_buf_del_extmark(
+    buffer,
+    vim.api.nvim_create_namespace("Neovimpv-displays"),
+    display_id
+  )
+  for _, playlist_id in pairs(playlist_ids) do
+    vim.api.nvim_buf_del_extmark(
       buffer,
-      namespace,
-      j,
-      0,
-      { sign_text=contents }
+      vim.api.nvim_create_namespace("Neovimpv-playlists"),
+      playlist_id
+    )
+    vim.cmd.unlet(
+      "b:mpv_playlists_to_displays" .. 
+      "[" .. tostring(playlist_id) .. "]"
     )
   end
-  return new_ids
 end
 
 neovimpv = {
@@ -121,5 +155,6 @@ neovimpv = {
   open_select_split=open_select_split,
   bind_default_highlights=bind_default_highlights,
   update_dict=update_dict,
-  add_sign_extmarks=add_sign_extmarks
+  add_sign_extmarks=add_sign_extmarks,
+  remove_mpv_instance=remove_mpv_instance
 }

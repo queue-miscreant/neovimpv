@@ -12,7 +12,8 @@ let g:mpv_markdown_writable = get(g:, "mpv_markdown_writable", [])
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])
 
-nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey()<cr>
+nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey(0)<cr>
+vnoremap <silent> <Plug>(mpv_omnikey) :call neovimpv#omnikey(1)<cr>
 nnoremap <silent> <Plug>(mpv_goto_earlier) :<c-u>call neovimpv#goto_relative_mpv(-1)<cr>
 nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1)<cr>
 nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt()<cr>

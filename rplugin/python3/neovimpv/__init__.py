@@ -40,7 +40,8 @@ def try_json(arg):
 class Neovimpv:
     def __init__(self, nvim):
         self.nvim = nvim
-        self._plugin_namespace = nvim.api.create_namespace(self.__class__.__name__)
+        self._display_namespace = nvim.api.create_namespace(self.__class__.__name__ + "-displays")
+        self._playlist_namespace = nvim.api.create_namespace(self.__class__.__name__ + "-playlists")
         nvim.exec_lua("_mpv = require('neovimpv')")
 
         # options
@@ -66,7 +67,7 @@ class Neovimpv:
         instance exists.
         '''
         extmark_ids = self.nvim.current.buffer.api.get_extmarks(
-            self._plugin_namespace,
+            self._display_namespace,
             [line, 0],
             [line, -1],
             {}
@@ -86,15 +87,17 @@ class Neovimpv:
         the file is closed.
         '''
         del self._mpv_instances[(instance.buffer.number, instance.id)]
-        instance.buffer.api.del_extmark(
-            self._plugin_namespace,
+        self.nvim.lua.neovimpv.remove_mpv_instance(
+            instance.buffer.number,
             instance.id,
+            instance.playlist_ids
         )
-        self.nvim.lua.neovimpv.update_dict(
-            self.nvim.current.buffer.number,
-            "mpv_running_instances",
-            instance.id
-        )
+        # self.nvim.lua("asdf = ... vim.print(vim.inspect(asdf))", instance.buffer)
+        # self.nvim.lua.neovimpv.update_dict(
+        #     self.nvim.current.buffer.number,
+        #     "mpv_running_instances",
+        #     instance.id
+        # )
 
     @pynvim.command("MpvOpen", nargs="*", range="")
     def open_in_mpv(self, args, range):
@@ -186,6 +189,9 @@ class Neovimpv:
         if (target := self._mpv_instances.get(
             (self.nvim.current.buffer.number, extmark_id)
         )):
+            if target.protocol is None:
+                self.show_error("Mpv not ready yet")
+                return
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
@@ -206,7 +212,7 @@ class Neovimpv:
         '''
         if (extmark_id := content.get("id")) is None:
             extmark_id = buffer.api.set_extmark(
-                self._plugin_namespace,
+                self._display_namespace,
                 row,
                 col,
                 content
@@ -214,7 +220,7 @@ class Neovimpv:
             return extmark_id
         self.nvim.lua.neovimpv.update_extmark(
             buffer,
-            self._plugin_namespace,
+            self._display_namespace,
             extmark_id,
             content,
             row,
@@ -223,7 +229,7 @@ class Neovimpv:
 
     def write_line_of_extmark(self, buffer, extmark_id, content):
         '''Write `content` to the line of an extmark with `nvim_buf_set_lines`'''
-        line, _ = buffer.api.get_extmark_by_id(self._plugin_namespace, extmark_id, {})
+        line, _ = buffer.api.get_extmark_by_id(self._display_namespace, extmark_id, {})
 
         # hack that I don't like so that the extmark doesn't get written to the wrong line
         buffer.api.set_text(
@@ -236,7 +242,7 @@ class Neovimpv:
 
     def get_mpvs_in_current_buffer(self):
         extmark_ids = self.nvim.current.buffer.api.get_extmarks(
-            self._plugin_namespace,
+            self._display_namespace,
             [0, 0],
             [-1, -1],
             {}
@@ -248,7 +254,7 @@ class Neovimpv:
 
     def move_extmark(self, instance, line_num):
         instance.buffer.api.set_extmark(
-            self._plugin_namespace,
+            self._display_namespace,
             line_num,
             0,
             {

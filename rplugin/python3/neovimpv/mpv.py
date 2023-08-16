@@ -62,7 +62,15 @@ class MpvInstance:
 
         link, write_markdown = self._unmarkdown(plugin, buffer, link)
         asyncio.create_task(self.spawn(link, mpv_args, write_markdown=write_markdown))
-        self._update_dict()
+        # self._update_dict()
+        self.playlist_ids = plugin.nvim.lua.neovimpv.add_sign_extmarks(
+            buffer.number,
+            plugin._playlist_namespace,
+            self.lines,
+            "|",
+            self.id
+        )
+        log.debug(self.playlist_ids)
 
     def _update_dict(self):
         self.plugin.nvim.lua.neovimpv.update_dict(
@@ -230,15 +238,6 @@ class MpvPlaylistInstance(MpvInstance):
         self.start, self.end = range_
         self.current = self.line_data[0][0]
 
-        self.playlist_ids = plugin.nvim.lua.neovimpv.add_sign_extmarks(
-            buffer.number,
-            plugin._plugin_namespace,
-            self.lines,
-            "P"
-        )
-
-        log.debug(self.playlist_ids)
-
         super().__init__(plugin, buffer, range_[0], self.line_data[0][1], mpv_args)
 
     async def spawn(self, link, mpv_args, timeout_duration=1, write_markdown=False):
@@ -258,11 +257,3 @@ class MpvPlaylistInstance(MpvInstance):
         )
         self.no_draw = True
         super().preamble(link, markdown, has_video)
-
-    def close(self):
-        super().close()
-        self.plugin.async_call(
-            self.buffer.del_extmark,
-            self.plugin._plugin_namespace,
-            self.playlist_id
-        )
