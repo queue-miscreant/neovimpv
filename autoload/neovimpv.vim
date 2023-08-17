@@ -2,7 +2,7 @@
 " TODO: semantics for visual selection intersecting with preexisting playlist?
 function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
-  let cline = line(".")
+  let cline = line(".") - 1
   let mpv_playlists = nvim_buf_get_extmarks(
         \ 0,
         \ nvim_create_namespace("Neovimpv-playlists"),
@@ -20,7 +20,7 @@ function neovimpv#omnikey(is_visual) range
   elseif !a:is_visual
     " mpv found, get key to send
     let temp_ns = nvim_create_namespace("")
-    let new_extmark = nvim_buf_set_extmark(0, temp_ns, cline - 1, 0, {
+    let new_extmark = nvim_buf_set_extmark(0, temp_ns, cline, 0, {
           \ "virt_text": [["[ getting input... ]", "MpvDefault"]],
           \ "virt_text_pos": "eol"
           \ } )
@@ -139,6 +139,7 @@ function s:undo_for_change_count()
   let linesbefore = 0
   let cursorbefore = 0
   let rangebefore = []
+  let extmarkbefore = []
   setlocal lz
   let try_undo = b:changedtick
   normal u
@@ -147,6 +148,14 @@ function s:undo_for_change_count()
     let linesbefore = line("$")
     let cursorbefore = line(".")
     let rangebefore = [ line("'["), line("']") ]
+    " TODO: deleting line of current player
+    let extmarkbefore = nvim_buf_get_extmarks(
+          \ 0,
+          \ nvim_create_namespace("Neovimpv-playlists"),
+          \ [rangebefore[0], 0],
+          \ [rangebefore[-1], {}],
+          \ {}l
+          \ )
     normal u
   else
     let linesbefore = line("$")
@@ -155,7 +164,7 @@ function s:undo_for_change_count()
     exe "normal \<c-r>"
   endif
   setlocal nolz
-  let s:prevchange = [ linesbefore, cursorbefore, rangebefore ]
+  let s:prevchange = [ linesbefore, cursorbefore, rangebefore, extmarkbefore ]
   call timer_start(0, "neovimpv#buffer_change_callback")
 endfunction
 
@@ -173,17 +182,15 @@ function! neovimpv#buffer_change_callback(...)
     if range_removed[1] == cur_lines
       let range_removed[0] -= 1
     endif
-    for value in values(b:mpv_running_instances)
-      " TODO: lines in range removed
-      let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_removed[0]) })
-    endfor
+    " TODO: finish this callback
+    call MpvRemoveFromPlaylist(range_removed, s:prevchange[3])
   " lines added
   elseif lines_diff > 0
     " cur_range gives the lines that were added
     let range_added = cur_range
-    for value in values(b:mpv_running_instances)
-      let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_added[0]) })
-    endfor
+    " for value in values(b:mpv_running_instances)
+    "   let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_added[0]) })
+    " endfor
   endif
 endfunction
 

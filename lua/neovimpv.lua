@@ -1,33 +1,11 @@
 -- Update an extmark's content without changing its row or column
-local function update_extmark(buffer, namespace, extmark_id, content, row, col)
+local function update_extmark(buffer, namespace, extmark_id, content)
   loc = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, extmark_id, {})
   if loc ~= nil then
-    if row ~= nil and row >= 0 then
-      loc[1] = row
-    end
-    if col ~= nil and col >= 0 then
-      loc[2] = col
-    end
     pcall(function()
       vim.api.nvim_buf_set_extmark(buffer, namespace, loc[1], loc[2], content)
     end)
   end
-end
-
-local function update_extmark2(buffer, namespace, extmark_id, content, row, col)
-  vim.api.nvim_buf_call(buffer, function()
-    local mpvs = vim.b["mpv_running_instances"]
-    extmark = mpvs[tostring(extmark_id)]
-    -- pcall(function()
-      vim.api.nvim_buf_set_extmark(
-        buffer,
-        namespace,
-        extmark.lines[extmark.current],
-        0,
-        content
-      )
-    -- end)
-  end)
 end
 
 -- Open some content in a split to run a callback
@@ -85,29 +63,14 @@ local function bind_default_highlights(froms, to)
   end
 end
 
-local function update_dict(buffer, dict_name, key, val)
-  vim.api.nvim_buf_call(buffer, function()
-    dict = vim.b[dict_name]
-    if dict == nil then
-      vim.b[dict_name] = vim.empty_dict()
-    end
-    if val == nil then
-      vim.cmd.unlet("b:" .. dict_name .. "[" .. vim.json.encode(key) .. "]")
-    else
-      vim.cmd.let("b:" .. dict_name .. 
-        "[json_decode(" .. vim.json.encode(key) .. 
-        ")] = json_decode('" .. vim.json.encode(val) .. "')"
-      )
-    end
-  end)
-end
-
+-- TODO: this function is doing a lot; add some auxiliary functions?
 local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
   new_ids = {}
   vim.api.nvim_buf_call(buffer, function()
     dict = vim.b["mpv_playlists_to_displays"]
     if dict == nil then
       vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+      vim.call("neovimpv#bind_autocmd")
     end
     for i, j in pairs(lines) do
       local extmark_id = vim.api.nvim_buf_set_extmark(
@@ -117,10 +80,10 @@ local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
         0,
         {
           sign_text=contents,
-          sign_hl_group="SignColumn"
+          sign_hl_group="MpvPlaylistSign"
         }
       )
-      new_ids[i] = extmark_id
+      new_ids[i] = { extmark_id, j }
       vim.cmd.let(
         "b:mpv_playlists_to_displays" .. 
         "[" .. tostring(extmark_id) .. "] = " .. 
@@ -143,10 +106,12 @@ local function remove_mpv_instance(buffer, display_id, playlist_ids)
       vim.api.nvim_create_namespace("Neovimpv-playlists"),
       playlist_id
     )
-    vim.cmd.unlet(
-      "b:mpv_playlists_to_displays" .. 
-      "[" .. tostring(playlist_id) .. "]"
-    )
+    vim.api.nvim_buf_call(buffer, function()
+      vim.cmd.unlet(
+        "b:mpv_playlists_to_displays" .. 
+        "[" .. tostring(playlist_id) .. "]"
+      )
+    end)
   end
 end
 
@@ -154,7 +119,6 @@ neovimpv = {
   update_extmark=update_extmark,
   open_select_split=open_select_split,
   bind_default_highlights=bind_default_highlights,
-  update_dict=update_dict,
   add_sign_extmarks=add_sign_extmarks,
   remove_mpv_instance=remove_mpv_instance
 }

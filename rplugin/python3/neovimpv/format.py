@@ -53,7 +53,7 @@ def format_time(position):
     return sexagesimalize(position or 0)
 
 def format_loop(loop):
-    return f"({loop})" if loop != "inf" else "∞"
+    return "" if not loop else f"({('∞' if loop == 'inf' else loop)})"
 
 class Formatter:
     '''

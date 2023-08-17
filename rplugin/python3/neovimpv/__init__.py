@@ -124,7 +124,7 @@ class Neovimpv:
         target = MpvInstance(
             self,
             self.nvim.current.buffer,
-            start,
+            [start],
             self.nvim.current.line,
             args
         )
@@ -195,6 +195,18 @@ class Neovimpv:
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
+    @pynvim.function("MpvRemoveFromPlaylist", sync=True)
+    def mpv_remove_from_playlist(self, args):
+        '''Send keypress to the mpv instance'''
+        if len(args) == 2:
+            range_removed, extmarks = args
+        else:
+            raise TypeError(f"Expected 2 arguments, got {len(args)}")
+
+        # TODO: make this work
+        # TODO: global mpv ids across buffers; map between buffer_id, extmark_id pairs
+        self.show_error(f"Remove from playlist: {range_removed}, {extmarks}")
+
     def show_error(self, error):
         '''Show an error to nvim'''
         self.nvim.async_call(
@@ -222,9 +234,7 @@ class Neovimpv:
             buffer,
             self._display_namespace,
             extmark_id,
-            content,
-            row,
-            col
+            content
         )
 
     def write_line_of_extmark(self, buffer, extmark_id, content):
@@ -251,16 +261,3 @@ class Neovimpv:
             self._mpv_instances[(self.nvim.current.buffer.number, extmark_id)]
             for extmark_id, _, _ in extmark_ids
         ]
-
-    def move_extmark(self, instance, line_num):
-        instance.buffer.api.set_extmark(
-            self._display_namespace,
-            line_num,
-            0,
-            {
-                "id": instance.id,
-                "virt_text": [self.formatter.loading],
-                "virt_text_pos": "eol",
-            }
-        )
-        instance.no_draw = False

@@ -29,3 +29,5 @@ hi default link MpvDuration Conceal
 hi default link MpvYoutubeLength MpvDefault
 hi default link MpvYoutubeChannelName MpvDefault
 hi default link MpvYoutubeViews MpvDefault
+
+hi default link MpvPlaylistSign SignColumn

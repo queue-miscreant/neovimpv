@@ -41,47 +41,43 @@ class MpvInstance:
         '''Set the default arguments to be used by new mpv instances'''
         cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
 
-    def __init__(self, plugin, buffer, line, link, mpv_args):
+    def __init__(self, plugin, buffer, lines, link, mpv_args):
         self.protocol = None
 
         self.plugin = plugin
         self.buffer = buffer
-        self.id = plugin.live_extmark(
-            buffer,
-            {
-                "virt_text": [plugin.formatter.loading],
-                "virt_text_pos": "eol",
-            },
-            line
-        )
-        # TODO
-        if not hasattr(self, "lines"):
-            self.lines = [line]
+
+        self.id = -1
+        self.lines = []
+        self.playlist_ids = []
+        self._init_extmarks(lines)
 
         self.no_draw = False
 
         link, write_markdown = self._unmarkdown(plugin, buffer, link)
         asyncio.create_task(self.spawn(link, mpv_args, write_markdown=write_markdown))
-        # self._update_dict()
-        self.playlist_ids = plugin.nvim.lua.neovimpv.add_sign_extmarks(
-            buffer.number,
-            plugin._playlist_namespace,
-            self.lines,
+
+    def _init_extmarks(self, lines):
+        '''Create extmarks for displaying data from the mpv instance'''
+        log.debug(lines)
+        self.id = self.plugin.live_extmark(
+            self.buffer,
+            {
+                "virt_text": [self.plugin.formatter.loading],
+                "virt_text_pos": "eol",
+            },
+            lines[0]
+        )
+        # TODO: user-controllable whether all playlists draw their extmarks (or they're just invisible)
+        # list of 2-tuples in the form extmark_id, row
+        self.playlist_ids = self.plugin.nvim.lua.neovimpv.add_sign_extmarks(
+            self.buffer.number,
+            self.plugin._playlist_namespace,
+            lines,
             "|",
             self.id
         )
-        log.debug(self.playlist_ids)
-
-    def _update_dict(self):
-        self.plugin.nvim.lua.neovimpv.update_dict(
-            self.buffer.number,
-            "mpv_running_instances",
-            self.id,
-            {
-                "lines": self.lines,
-                "current": 0
-            }
-        )
+        self._lines = lines
 
     @staticmethod
     def _unmarkdown(plugin, buffer, link):
@@ -213,47 +209,58 @@ class MpvInstance:
 # clearly update_extmark isn't as useful as I thought it would be
 # current ideas: pass in the list of [line number, line] from the very beginning, then filter
 
-# TODO draw extmarks (in the sign column?) for mpv playlists. Maybe a new namespace?
-# Current player status is shown on the correct line, but key redirection is accepted from anywhere in range
-
-# TODO just use extmarks to mark the playlist range
-# on text changed, try to alter playlist in mpv as-necessary
-# keep record of playlist lines relative from the beginning, and move player extmark there
+# TODO on text changed, try to alter playlist in mpv as-necessary
 # when the last-known playlist extmark range and the one in python differ,...
+# keep record of playlist lines relative from the beginning, and move player extmark there
 
 class MpvPlaylistInstance(MpvInstance):
     def __init__(self, plugin, buffer, range_, lines, mpv_args):
-        new_lines = []
+        playlist = []
         for i, link in zip(range(range_[0], range_[1] + 1), lines):
             link, write_markdown = self._unmarkdown(plugin, buffer, link)
             link = validate_link(link)
             if link is None:
                 continue
-            new_lines.append((i, link, write_markdown))
-        if not new_lines:
+            playlist.append((i, link, write_markdown))
+        if not playlist:
             self.plugin.show_error("Lines do not contain a file path or valid URL")
             return None
-        self.line_data = new_lines
-        self.lines = [i[0] for i in new_lines]
-        self.start, self.end = range_
-        self.current = self.line_data[0][0]
+        self.playlist_items = playlist
+        self.current = self.playlist_items[0][0]
 
-        super().__init__(plugin, buffer, range_[0], self.line_data[0][1], mpv_args)
+        super().__init__(
+            plugin,
+            buffer,
+            [i[0] for i in playlist],
+            self.playlist_items[0][1],
+            mpv_args
+        )
 
     async def spawn(self, link, mpv_args, timeout_duration=1, write_markdown=False):
         await super().spawn(link, mpv_args, timeout_duration, write_markdown)
-        for _, link, _ in self.line_data[1:]:
+        for _, link, _ in self.playlist_items[1:]:
             self.protocol.send_command("loadfile", link, "append")
-        # TODO: give extmarks to these lines
 
     def preamble(self, arg, write_markdown, has_video):
-        '''Subscribe to necessary properties on the mpv IPC.'''
-        line_num, link, markdown = self.line_data.pop(0)
+        '''Transition the player to the next playlist item. Suspend drawing until move_extmark returns'''
+        line_num, link, markdown = self.playlist_items.pop(0)
         self.current = line_num
         self.plugin.nvim.async_call(
-            self.plugin.move_extmark,
-            self,
+            self.move_player_extmark,
             line_num
         )
         self.no_draw = True
         super().preamble(link, markdown, has_video)
+
+    def move_player_extmark(self, line_num):
+        self.buffer.api.set_extmark(
+            self.plugin._display_namespace,
+            line_num,
+            0,
+            {
+                "id": self.id,
+                "virt_text": [self.plugin.formatter.loading],
+                "virt_text_pos": "eol",
+            }
+        )
+        self.no_draw = False
