@@ -104,8 +104,7 @@ class Neovimpv:
         '''Open current line as a file in mpv. '''
         start, end = range[0] - 1, range[1] - 1
         if start != end:
-            # TODO
-            # warn the user about mpvs currently open in that range
+            # TODO: warn the user about mpvs currently open in that range
             lines = self.nvim.current.buffer[start:end]
             target = MpvPlaylistInstance(
                 self,
@@ -195,17 +194,18 @@ class Neovimpv:
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
-    @pynvim.function("MpvRemoveFromPlaylist", sync=True)
-    def mpv_remove_from_playlist(self, args):
-        '''Send keypress to the mpv instance'''
-        if len(args) == 2:
-            range_removed, extmarks = args
+    @pynvim.function("MpvUpdatePlaylists", sync=True)
+    def mpv_update_playlists(self, args):
+        '''Receive updated playlist extmark positions from nvim'''
+        if len(args) == 1:
+            updated_playlists, = args
         else:
-            raise TypeError(f"Expected 2 arguments, got {len(args)}")
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
 
-        # TODO: make this work
-        # TODO: global mpv ids across buffers; map between buffer_id, extmark_id pairs
-        self.show_error(f"Remove from playlist: {range_removed}, {extmarks}")
+        for player, playlist_items in updated_playlists.items():
+            mpv_instance = self._mpv_instances.get((self.nvim.current.buffer.number, int(player)))
+            if mpv_instance is not None:
+                self.nvim.loop.call_soon(mpv_instance.update_playlist, playlist_items)
 
     def show_error(self, error):
         '''Show an error to nvim'''

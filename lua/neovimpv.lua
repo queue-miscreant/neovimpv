@@ -83,7 +83,7 @@ local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
           sign_hl_group="MpvPlaylistSign"
         }
       )
-      new_ids[i] = { extmark_id, j }
+      new_ids[i] = extmark_id
       vim.cmd.let(
         "b:mpv_playlists_to_displays" .. 
         "[" .. tostring(extmark_id) .. "] = " .. 

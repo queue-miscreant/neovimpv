@@ -48,7 +48,6 @@ class MpvInstance:
         self.buffer = buffer
 
         self.id = -1
-        self.lines = []
         self.playlist_ids = []
         self._init_extmarks(lines)
 
@@ -59,7 +58,7 @@ class MpvInstance:
 
     def _init_extmarks(self, lines):
         '''Create extmarks for displaying data from the mpv instance'''
-        log.debug(lines)
+        # TODO: move this to lua
         self.id = self.plugin.live_extmark(
             self.buffer,
             {
@@ -77,7 +76,10 @@ class MpvInstance:
             "|",
             self.id
         )
-        self._lines = lines
+
+    def update_playlist(self, new_playlist):
+        new_playlist.sort(key=lambda x: self.playlist_ids.index(x))
+        self.playlist_ids = new_playlist
 
     @staticmethod
     def _unmarkdown(plugin, buffer, link):
@@ -209,58 +211,82 @@ class MpvInstance:
 # clearly update_extmark isn't as useful as I thought it would be
 # current ideas: pass in the list of [line number, line] from the very beginning, then filter
 
-# TODO on text changed, try to alter playlist in mpv as-necessary
-# when the last-known playlist extmark range and the one in python differ,...
-# keep record of playlist lines relative from the beginning, and move player extmark there
-
 class MpvPlaylistInstance(MpvInstance):
     def __init__(self, plugin, buffer, range_, lines, mpv_args):
         playlist = []
+        line_numbers = []
         for i, link in zip(range(range_[0], range_[1] + 1), lines):
             link, write_markdown = self._unmarkdown(plugin, buffer, link)
             link = validate_link(link)
             if link is None:
                 continue
-            playlist.append((i, link, write_markdown))
+            playlist.append((link, write_markdown))
+            line_numbers.append(i)
         if not playlist:
             self.plugin.show_error("Lines do not contain a file path or valid URL")
             return None
         self.playlist_items = playlist
-        self.current = self.playlist_items[0][0]
+        self.current = 0
 
         super().__init__(
             plugin,
             buffer,
-            [i[0] for i in playlist],
-            self.playlist_items[0][1],
+            line_numbers,
+            self.playlist_items[0][0],
             mpv_args
         )
 
     async def spawn(self, link, mpv_args, timeout_duration=1, write_markdown=False):
         await super().spawn(link, mpv_args, timeout_duration, write_markdown)
-        for _, link, _ in self.playlist_items[1:]:
+        for link, _ in self.playlist_items[1:]:
             self.protocol.send_command("loadfile", link, "append")
 
     def preamble(self, arg, write_markdown, has_video):
         '''Transition the player to the next playlist item. Suspend drawing until move_extmark returns'''
-        line_num, link, markdown = self.playlist_items.pop(0)
-        self.current = line_num
+        link, markdown = self.playlist_items.pop(0)
         self.plugin.nvim.async_call(
             self.move_player_extmark,
-            line_num
+            self.playlist_ids[self.current]
         )
         self.no_draw = True
         super().preamble(link, markdown, has_video)
+        self.current += 1
 
-    def move_player_extmark(self, line_num):
-        self.buffer.api.set_extmark(
-            self.plugin._display_namespace,
-            line_num,
-            0,
-            {
-                "id": self.id,
-                "virt_text": [self.plugin.formatter.loading],
-                "virt_text_pos": "eol",
-            }
-        )
+    def move_player_extmark(self, extmark_id):
+        # TODO: move this to lua
+        try:
+            row, _ = self.buffer.api.get_extmark_by_id(
+                self.plugin._playlist_namespace,
+                extmark_id,
+                {}
+            )
+            self.buffer.api.set_extmark(
+                self.plugin._display_namespace,
+                row,
+                0,
+                {
+                    "id": self.id,
+                    "virt_text": [self.plugin.formatter.loading],
+                    "virt_text_pos": "eol",
+                }
+            )
+        except ValueError:
+            pass
         self.no_draw = False
+
+    def update_playlist(self, new_playlist):
+        old = self.playlist_ids
+        super().update_playlist(new_playlist)
+
+        removed_indices = []
+        new_current = 0
+        for old_current, i in enumerate(old):
+            if self.playlist_ids[new_current] == i:
+                new_current += 1
+                continue
+            removed_indices.append(old_current)
+
+        # TODO: need to figure out whether multiple deletes change the playlist indexes
+        # ex with [0,1,2,3]: delete index 1, delete index 2 -- is the remaining playlist [0, 3] or [0, 2] ?
+        for i in removed_indices:
+            self.protocol.send_command("playlist-remove", i)

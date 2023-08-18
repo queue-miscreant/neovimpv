@@ -1,5 +1,4 @@
 " Omni-function for sending keys to mpv
-" TODO: semantics for visual selection intersecting with preexisting playlist?
 function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
   let cline = line(".") - 1
@@ -148,19 +147,25 @@ function s:undo_for_change_count()
     let linesbefore = line("$")
     let cursorbefore = line(".")
     let rangebefore = [ line("'["), line("']") ]
-    " TODO: deleting line of current player
     let extmarkbefore = nvim_buf_get_extmarks(
           \ 0,
           \ nvim_create_namespace("Neovimpv-playlists"),
-          \ [rangebefore[0], 0],
-          \ [rangebefore[-1], {}],
-          \ {}l
+          \ [rangebefore[0] - 1, 0],
+          \ [rangebefore[1] - 1, -1],
+          \ {}
           \ )
     normal u
   else
     let linesbefore = line("$")
     let cursorbefore = line(".")
     let rangebefore = [ line("'["), line("']") ]
+    let extmarkbefore = nvim_buf_get_extmarks(
+          \ 0,
+          \ nvim_create_namespace("Neovimpv-playlists"),
+          \ [rangebefore[0] - 1, 0],
+          \ [rangebefore[1] - 1, -1],
+          \ {}
+          \ )
     exe "normal \<c-r>"
   endif
   setlocal nolz
@@ -182,8 +187,8 @@ function! neovimpv#buffer_change_callback(...)
     if range_removed[1] == cur_lines
       let range_removed[0] -= 1
     endif
-    " TODO: finish this callback
-    call MpvRemoveFromPlaylist(range_removed, s:prevchange[3])
+    let new_playlists = s:get_updated_mpv_playlist(s:prevchange[3])
+    call MpvUpdatePlaylists(new_playlists)
   " lines added
   elseif lines_diff > 0
     " cur_range gives the lines that were added
@@ -192,6 +197,39 @@ function! neovimpv#buffer_change_callback(...)
     "   let value["lines"] = map(value["lines"], { _, x -> x + lines_diff*(x > range_added[0]) })
     " endfor
   endif
+endfunction
+
+function s:get_updated_mpv_playlist(removed_extmarks)
+  let removed_ids = map(a:removed_extmarks, { _, x -> x[0] })
+
+  let altered_players = []
+  let old_playlists = {}
+  for [playlist_item, player] in items(b:mpv_playlists_to_displays)
+    let playlist_item = str2nr(playlist_item)
+    if index(removed_ids, playlist_item) >= 0
+      unlet b:mpv_playlists_to_displays[playlist_item]
+      call nvim_buf_del_extmark(
+            \ 0,
+            \ nvim_create_namespace("Neovimpv-playlists"),
+            \ playlist_item
+            \ )
+      call add(altered_players, player)
+    else
+      if get(old_playlists, player, []) == []
+        let old_playlists[player] = []
+      endif
+      call add(old_playlists[player], playlist_item)
+    endif
+  endfor
+
+  let new_playlists = {}
+  for [player, playlist_items] in items(old_playlists)
+    if index(altered_players, str2nr(player)) >= 0
+      let new_playlists[player] = playlist_items
+    endif
+  endfor
+
+  return new_playlists
 endfunction
 
 function neovimpv#bind_autocmd()
