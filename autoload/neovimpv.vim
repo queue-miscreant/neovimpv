@@ -133,6 +133,7 @@ function neovimpv#youtube_thumbnail()
 endfunction
 
 let s:prevchange = []
+" TODO: cleanup, insert mode equivalent
 function s:undo_for_change_count()
   " grab the change to the buffer that just happened
   let linesbefore = 0
@@ -232,6 +233,7 @@ function s:get_updated_mpv_playlist(removed_extmarks)
   return new_playlists
 endfunction
 
+# TODO remove autocmd when last player exits?
 function neovimpv#bind_autocmd()
   autocmd TextChanged <buffer> call s:undo_for_change_count()
 endfunction

@@ -160,6 +160,12 @@ class MpvInstance:
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
             protocol.add_event("file-loaded", lambda _, __: self.preamble(link, write_markdown, has_video))
             protocol.add_event("close", lambda _, __: self.close())
+            # ALWAYS observe this so we can toggle pause
+            protocol.observe_property("pause")
+            # observe everything we need to draw the format string
+            for i in self.plugin.formatter.groups:
+                protocol.observe_property(i)
+            protocol.add_event("property-change", lambda _, __: self.draw_update())
         except MpvError as e:
             self.plugin.show_error(e.args[0])
             log.error("mpv encountered error", exc_info=True)
@@ -182,7 +188,7 @@ class MpvInstance:
             self.plugin.show_error(f"File ended: {error}")
 
     def preamble(self, arg, write_markdown, has_video):
-        '''Subscribe to necessary properties on the mpv IPC.'''
+        '''Update state after new file loaded'''
         if write_markdown:
             self.plugin.nvim.loop.create_task(self.update_markdown(arg))
         if has_video:
@@ -196,21 +202,12 @@ class MpvInstance:
                 }
             )
             return
-        # ALWAYS observe this so we can toggle pause
-        self.protocol.observe_property("pause")
-        # observe everything we need to draw the format string
-        for i in self.plugin.formatter.groups:
-            self.protocol.observe_property(i)
-        self.protocol.add_event("property-change", lambda _, __: self.draw_update())
 
     def close(self):
         '''Defer to the plugin to remove the extmark'''
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
 
 # TODO: this should probably be the base class if we're gonna be overriding all of these methods
-# clearly update_extmark isn't as useful as I thought it would be
-# current ideas: pass in the list of [line number, line] from the very beginning, then filter
-
 class MpvPlaylistInstance(MpvInstance):
     def __init__(self, plugin, buffer, range_, lines, mpv_args):
         playlist = []
@@ -240,17 +237,18 @@ class MpvPlaylistInstance(MpvInstance):
         await super().spawn(link, mpv_args, timeout_duration, write_markdown)
         for link, _ in self.playlist_items[1:]:
             self.protocol.send_command("loadfile", link, "append")
+        self.protocol.observe_property("playlist-pos")
 
     def preamble(self, arg, write_markdown, has_video):
         '''Transition the player to the next playlist item. Suspend drawing until move_extmark returns'''
         link, markdown = self.playlist_items.pop(0)
+        self.current = self.protocol.data.get("playlist-pos")
         self.plugin.nvim.async_call(
             self.move_player_extmark,
             self.playlist_ids[self.current]
         )
         self.no_draw = True
         super().preamble(link, markdown, has_video)
-        self.current += 1
 
     def move_player_extmark(self, extmark_id):
         # TODO: move this to lua
@@ -286,7 +284,5 @@ class MpvPlaylistInstance(MpvInstance):
                 continue
             removed_indices.append(old_current)
 
-        # TODO: need to figure out whether multiple deletes change the playlist indexes
-        # ex with [0,1,2,3]: delete index 1, delete index 2 -- is the remaining playlist [0, 3] or [0, 2] ?
         for i in removed_indices:
             self.protocol.send_command("playlist-remove", i)
