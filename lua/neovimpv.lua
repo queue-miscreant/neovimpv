@@ -8,6 +8,118 @@ local function update_extmark(buffer, namespace, extmark_id, content)
   end
 end
 
+-- From a list of `lines` in a `buffer`, create extmarks for a playlist
+-- Set some extra data in the buffer which remembers the player corresponding
+-- to a playlist.
+-- Note: lines is 1-indexed like line numbers in vim.
+-- Also, bind an autocommand to watch for deletions in the playlist.
+-- TODO: user-controllable whether all playlists draw their extmarks (or they're just invisible)
+-- list of 2-tuples in the form extmark_id, row
+local function create_playlist(buffer, lines, contents, display_id)
+  new_ids = {}
+  vim.api.nvim_buf_call(buffer, function()
+    dict = vim.b["mpv_playlists_to_displays"]
+    -- setup callback in this buffer
+    if dict == nil then
+      vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+      vim.call("neovimpv#bind_autocmd")
+    end
+    -- add each playlist extmark
+    for i, j in pairs(lines) do
+      local extmark_id = vim.api.nvim_buf_set_extmark(
+        buffer,
+        vim.api.nvim_create_namespace("Neovimpv-playlists"),
+        j - 1,
+        0,
+        {
+          sign_text=contents,
+          sign_hl_group="MpvPlaylistSign"
+        }
+      )
+      new_ids[i] = extmark_id
+      vim.cmd(
+        "let b:mpv_playlists_to_displays" ..
+        "[" .. tostring(extmark_id) .. "] = " ..
+        tostring(display_id)
+      )
+    end
+  end)
+  return new_ids
+end
+
+-- From a list of `lines` in a `buffer`, create extmarks for a player (displays
+-- current playback state) and a playlist (list of lines to play next)
+-- Note: lines is 1-indexed like line numbers in vim.
+local function create_player(buffer, lines)
+  local player = vim.api.nvim_buf_set_extmark(
+      buffer,
+      vim.api.nvim_create_namespace("Neovimpv-displays"),
+      lines[1] - 1,
+      0,
+      {
+          virt_text={{vim.g["mpv_loading"], "MpvDefault"}},
+          virt_text_pos="eol",
+      }
+  )
+  local playlist_ids = create_playlist(
+      buffer,
+      lines,
+      "|",
+      player
+  )
+  return {player, playlist_ids}
+end
+
+-- Move a player with id `display_id` to the same line as the playlist item with
+-- id `playlist_id`
+local function move_player(buffer, display_id, new_playlist_id)
+  -- get the destination line
+  loc = vim.api.nvim_buf_get_extmark_by_id(
+    buffer,
+    vim.api.nvim_create_namespace("Neovimpv-playlists"),
+    new_playlist_id,
+    {}
+  )
+  -- return false if no extmark exists
+  if #loc == 0 then return false end
+  -- set the player to that line
+  vim.api.nvim_buf_set_extmark(
+    buffer,
+    vim.api.nvim_create_namespace("Neovimpv-displays"),
+    loc[1],
+    0,
+    {
+      id=display_id,
+      virt_text={{vim.g["mpv_loading"], "MpvDefault"}},
+      virt_text_pos=eol,
+    }
+  )
+  return true
+end
+
+-- Delete extmarks in the displays and playlists namespace. Also, clear up
+-- playlist information in the buffer.
+local function remove_player(buffer, display_id, playlist_ids)
+  vim.api.nvim_buf_del_extmark(
+    buffer,
+    vim.api.nvim_create_namespace("Neovimpv-displays"),
+    display_id
+  )
+  vim.api.nvim_buf_call(buffer, function()
+    for _, playlist_id in pairs(playlist_ids) do
+      vim.api.nvim_buf_del_extmark(
+        buffer,
+        vim.api.nvim_create_namespace("Neovimpv-playlists"),
+        playlist_id
+      )
+      vim.cmd(
+        "unlet b:mpv_playlists_to_displays" ..
+        "[" .. tostring(playlist_id) .. "]"
+      )
+    end
+  end)
+end
+
 -- Open some content in a split to run a callback
 --
 -- `input`
@@ -57,68 +169,19 @@ local function open_select_split(input, filetype, height)
   vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 end
 
+-- Link default highlights from names in `froms` to the highlight `to`
 local function bind_default_highlights(froms, to)
   for _, from in pairs(froms) do
     vim.cmd("highlight default link " .. from .. " " .. to)
   end
 end
 
--- TODO: this function is doing a lot; add some auxiliary functions?
-local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
-  new_ids = {}
-  vim.api.nvim_buf_call(buffer, function()
-    dict = vim.b["mpv_playlists_to_displays"]
-    if dict == nil then
-      vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
-      vim.call("neovimpv#bind_autocmd")
-    end
-    for i, j in pairs(lines) do
-      local extmark_id = vim.api.nvim_buf_set_extmark(
-        buffer,
-        namespace,
-        j,
-        0,
-        {
-          sign_text=contents,
-          sign_hl_group="MpvPlaylistSign"
-        }
-      )
-      new_ids[i] = extmark_id
-      vim.cmd(
-        "let b:mpv_playlists_to_displays" ..
-        "[" .. tostring(extmark_id) .. "] = " .. 
-        tostring(display_id)
-      )
-    end
-  end)
-  return new_ids
-end
-
-local function remove_mpv_instance(buffer, display_id, playlist_ids)
-  vim.api.nvim_buf_del_extmark(
-    buffer,
-    vim.api.nvim_create_namespace("Neovimpv-displays"),
-    display_id
-  )
-  for _, playlist_id in pairs(playlist_ids) do
-    vim.api.nvim_buf_del_extmark(
-      buffer,
-      vim.api.nvim_create_namespace("Neovimpv-playlists"),
-      playlist_id
-    )
-    vim.api.nvim_buf_call(buffer, function()
-      vim.cmd(
-        "unlet b:mpv_playlists_to_displays" ..
-        "[" .. tostring(playlist_id) .. "]"
-      )
-    end)
-  end
-end
-
 neovimpv = {
   update_extmark=update_extmark,
+  create_player=create_player,
+  move_player=move_player,
+  remove_player=remove_player,
+
   open_select_split=open_select_split,
   bind_default_highlights=bind_default_highlights,
-  add_sign_extmarks=add_sign_extmarks,
-  remove_mpv_instance=remove_mpv_instance
 }

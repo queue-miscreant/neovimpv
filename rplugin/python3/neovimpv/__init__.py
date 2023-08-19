@@ -87,29 +87,23 @@ class Neovimpv:
         the file is closed.
         '''
         del self._mpv_instances[(instance.buffer.number, instance.id)]
-        self.nvim.lua.neovimpv.remove_mpv_instance(
+        self.nvim.lua.neovimpv.remove_player(
             instance.buffer.number,
             instance.id,
             instance.playlist_ids
         )
-        # self.nvim.lua("asdf = ... vim.print(vim.inspect(asdf))", instance.buffer)
-        # self.nvim.lua.neovimpv.update_dict(
-        #     self.nvim.current.buffer.number,
-        #     "mpv_running_instances",
-        #     instance.id
-        # )
 
     @pynvim.command("MpvOpen", nargs="*", range="")
     def open_in_mpv(self, args, range):
         '''Open current line as a file in mpv. '''
-        start, end = range[0] - 1, range[1] - 1
+        start, end = range
         if start != end:
             # TODO: warn the user about mpvs currently open in that range
-            lines = self.nvim.current.buffer[start:end]
+            lines = self.nvim.current.buffer[start-1:end] # end+1 for inclusive
             target = MpvPlaylistInstance(
                 self,
                 self.nvim.current.buffer,
-                [start, end],
+                range,
                 lines,
                 args
             )

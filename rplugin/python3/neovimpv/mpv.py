@@ -58,24 +58,7 @@ class MpvInstance:
 
     def _init_extmarks(self, lines):
         '''Create extmarks for displaying data from the mpv instance'''
-        # TODO: move this to lua
-        self.id = self.plugin.live_extmark(
-            self.buffer,
-            {
-                "virt_text": [self.plugin.formatter.loading],
-                "virt_text_pos": "eol",
-            },
-            lines[0]
-        )
-        # TODO: user-controllable whether all playlists draw their extmarks (or they're just invisible)
-        # list of 2-tuples in the form extmark_id, row
-        self.playlist_ids = self.plugin.nvim.lua.neovimpv.add_sign_extmarks(
-            self.buffer.number,
-            self.plugin._playlist_namespace,
-            lines,
-            "|",
-            self.id
-        )
+        self.id, self.playlist_ids = self.plugin.nvim.lua.neovimpv.create_player(self.buffer.number, lines)
 
     def update_playlist(self, new_playlist):
         new_playlist.sort(key=lambda x: self.playlist_ids.index(x))
@@ -240,7 +223,7 @@ class MpvPlaylistInstance(MpvInstance):
         self.protocol.observe_property("playlist-pos")
 
     def preamble(self, arg, write_markdown, has_video):
-        '''Transition the player to the next playlist item. Suspend drawing until move_extmark returns'''
+        '''Transition the player to the next playlist item. Suspend drawing until move_player_extmark returns'''
         link, markdown = self.playlist_items.pop(0)
         self.current = self.protocol.data.get("playlist-pos")
         self.plugin.nvim.async_call(
@@ -250,26 +233,14 @@ class MpvPlaylistInstance(MpvInstance):
         self.no_draw = True
         super().preamble(link, markdown, has_video)
 
-    def move_player_extmark(self, extmark_id):
-        # TODO: move this to lua
-        try:
-            row, _ = self.buffer.api.get_extmark_by_id(
-                self.plugin._playlist_namespace,
-                extmark_id,
-                {}
-            )
-            self.buffer.api.set_extmark(
-                self.plugin._display_namespace,
-                row,
-                0,
-                {
-                    "id": self.id,
-                    "virt_text": [self.plugin.formatter.loading],
-                    "virt_text_pos": "eol",
-                }
-            )
-        except ValueError:
-            pass
+    def move_player_extmark(self, playlist_id):
+        '''Invoke the Lua callback for moving the player to the line of the extmark playlist_id.'''
+        success = self.plugin.nvim.lua.neovimpv.move_player(
+            self.buffer,
+            self.id,
+            playlist_id
+        )
+        not success
         self.no_draw = False
 
     def update_playlist(self, new_playlist):
