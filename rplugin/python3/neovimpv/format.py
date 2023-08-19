@@ -91,11 +91,9 @@ class Formatter:
         self._defaulted_highlights = nvim.api.get_var(NVIM_VAR_DEFAULTED_HIGHLIGHTS) # highlights which don't need a default set
         thresholds = nvim.api.get_var(NVIM_VAR_THRESHOLDS) # user thresholds
 
-        self.external = ["[ Window ]", "MpvDefault"] # format for external windows
-        self.loading = [nvim.api.get_var(NVIM_VAR_LOADING), "MpvDefault"] # loading notification
         # groups parsed by the format
         self.groups = []
-        # thresholds
+        # threshold callbacks
         self._thresholds = {}
 
         self._thresholds, new_groups = self.parse_thresholds(thresholds)

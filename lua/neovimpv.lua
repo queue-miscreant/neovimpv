@@ -72,9 +72,9 @@ end
 
 -- Move a player with id `display_id` to the same line as the playlist item with
 -- id `playlist_id`
-local function move_player(buffer, display_id, new_playlist_id)
+local function move_player(buffer, display_id, new_playlist_id, new_text)
   -- get the destination line
-  loc = vim.api.nvim_buf_get_extmark_by_id(
+  local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
     vim.api.nvim_create_namespace("Neovimpv-playlists"),
     new_playlist_id,
@@ -82,6 +82,7 @@ local function move_player(buffer, display_id, new_playlist_id)
   )
   -- return false if no extmark exists
   if #loc == 0 then return false end
+  local new_extmark_text = new_text == vim.NIL and vim.g["mpv_loading"] or new_text
   -- set the player to that line
   vim.api.nvim_buf_set_extmark(
     buffer,
@@ -90,7 +91,7 @@ local function move_player(buffer, display_id, new_playlist_id)
     0,
     {
       id=display_id,
-      virt_text={{vim.g["mpv_loading"], "MpvDefault"}},
+      virt_text={{new_extmark_text, "MpvDefault"}},
       virt_text_pos=eol,
     }
   )

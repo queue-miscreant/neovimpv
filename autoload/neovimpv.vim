@@ -170,7 +170,7 @@ endfunction
 function neovimpv#buffer_change_callback(...)
   if s:old_extmark != []
     let new_playlists = s:get_updated_mpv_playlist(s:old_extmark)
-    call MpvUpdatePlaylists(s:old_extmark)
+    call MpvUpdatePlaylists(new_playlists)
     let s:old_extmark = []
   endif
 endfunction

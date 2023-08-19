@@ -7,7 +7,7 @@ import os.path
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvInstance, MpvPlaylistInstance
+from neovimpv.mpv import MpvInstance
 from neovimpv.youtube import open_mpv_buffer, WARN_LXML
 
 log = logging.getLogger(__name__)
@@ -94,34 +94,23 @@ class Neovimpv:
         )
 
     @pynvim.command("MpvOpen", nargs="*", range="")
-    def open_in_mpv(self, args, range):
+    def open_in_mpv(self, args, range_):
         '''Open current line as a file in mpv. '''
-        start, end = range
-        if start != end:
-            # TODO: warn the user about mpvs currently open in that range
-            lines = self.nvim.current.buffer[start-1:end] # end+1 for inclusive
-            target = MpvPlaylistInstance(
-                self,
-                self.nvim.current.buffer,
-                range,
-                lines,
-                args
-            )
-            self._mpv_instances[(target.buffer.number, target.id)] = target
-            return
-
-        if (target := self.get_mpv_by_line(start, show_error=False)):
+        start, end = range_
+        if start == end and self.get_mpv_by_line(start, show_error=False):
             self.show_error("Mpv is already open on this line!")
             return
 
+        lines = self.nvim.current.buffer[start-1:end] # end+1 for inclusive
         target = MpvInstance(
             self,
             self.nvim.current.buffer,
-            [start],
-            self.nvim.current.line,
+            range(start, end + 1),
+            lines,
             args
         )
-        self._mpv_instances[(target.buffer.number, target.id)] = target
+        if target is not None:
+            self._mpv_instances[(target.buffer.number, target.id)] = target
 
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
