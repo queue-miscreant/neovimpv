@@ -84,8 +84,8 @@ local function add_sign_extmarks(buffer, namespace, lines, contents, display_id)
         }
       )
       new_ids[i] = extmark_id
-      vim.cmd.let(
-        "b:mpv_playlists_to_displays" .. 
+      vim.cmd(
+        "let b:mpv_playlists_to_displays" ..
         "[" .. tostring(extmark_id) .. "] = " .. 
         tostring(display_id)
       )
@@ -107,8 +107,8 @@ local function remove_mpv_instance(buffer, display_id, playlist_ids)
       playlist_id
     )
     vim.api.nvim_buf_call(buffer, function()
-      vim.cmd.unlet(
-        "b:mpv_playlists_to_displays" .. 
+      vim.cmd(
+        "unlet b:mpv_playlists_to_displays" ..
         "[" .. tostring(playlist_id) .. "]"
       )
     end)
