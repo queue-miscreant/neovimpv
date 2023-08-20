@@ -85,7 +85,12 @@ class MpvInstance:
             show_text
         )
         if not success:
-            self.plugin.show_error(f"Could not move the player (current file: {self.protocol.data.get('filename')})")
+            current = self.protocol.data.get('playlist-pos')
+            try:
+                filename = self.playlist_items[current][0]
+            except IndexError:
+                filename = None
+            self.plugin.show_error(f"Could not move the player (current file: {filename})")
         self.no_draw = False
 
     def update_playlist(self, new_playlist):
@@ -94,10 +99,13 @@ class MpvInstance:
 
         removed_indices = []
         new_current = 0
+        offset = 0
         for old_current, i in enumerate(self.playlist_ids):
             if new_playlist[new_current] == i:
                 new_current += 1
                 continue
+            del self.playlist_items[old_current - offset]
+            offset += 1
             removed_indices.append(old_current)
 
         for i in removed_indices:
@@ -214,8 +222,8 @@ class MpvInstance:
         Move the player to new playlist item and suspend drawing until complete.
         '''
         self.no_draw = True
-        link, write_markdown = self.playlist_items.pop(0)
         current = self.protocol.data.get("playlist-pos")
+        link, write_markdown = self.playlist_items[current]
         if current is None:
             self.plugin.show_error("Playlist transition failed!")
             return
