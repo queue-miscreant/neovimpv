@@ -12,6 +12,9 @@ let g:mpv_markdown_writable = get(g:, "mpv_markdown_writable", [])
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])
 
+" Possible values: "always", "multiple", "never"
+let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multiple")
+
 " do lua setup
 lua require('neovimpv')
 

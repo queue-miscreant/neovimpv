@@ -264,8 +264,25 @@ g:mpv_property_thresholds                               *g:mpv_property_threshol
         If the list contains two entries, the value is partitioned into "Low",
         "Middle", and "High" instead.
 
+
+g:mpv_draw_playlist_extmarks                            *g:mpv_draw_playlist_extmarks*
+
+        String which is either `"always"`, `"multiple"`, or `"never"`.
+        Controls whether playlist extmarks are drawn in the sign column.
+        The default value is `"multiple"`.
+
+        For "always", signs will be drawn regardless of playlist length.
+        For "multiple", signs will not be drawn if there is only one playlist
+        item.
+        For "never", signs will never be drawn.
+
 --------------------------------------------------------------------------------
 HIGHLIGHTS                                              *neovimpv-highlights*
+
+General-purpose highlight groups defined by this plugin are `MpvDefault` and
+`MpvPlaylistSign`. The former is, as its name suggests, the default choice
+for extmarks in the plugin. The latter is the default choice for playlist
+extmarks in the sign column.
 
 The highlight used to draw an mpv property is user-controllable. All
 highlights begin with "Mpv", followed by the property name. Properties in mpv

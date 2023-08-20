@@ -57,15 +57,22 @@ end
 
 -- From a list of `lines` in a `buffer`, create extmarks for a playlist
 -- Set some extra data in the buffer which remembers the player corresponding
--- to a playlist.
--- Note: lines is 1-indexed like line numbers in vim.
+-- to a playlist. Returns the extmark ids created.
 -- Also, bind an autocommand to watch for deletions in the playlist.
--- TODO: user-controllable whether all playlists draw their extmarks (or they're just invisible)
--- list of 2-tuples in the form extmark_id, row
+-- Note: `lines` is 1-indexed like line numbers in vim.
 local function create_playlist(buffer, lines, contents, display_id)
-  new_ids = {}
+  local new_ids = {}
+  local extmark = {
+    sign_text=contents,
+    sign_hl_group="MpvPlaylistSign"
+  }
+  local rule = vim.g["mpv_draw_playlist_extmarks"]
+  if rule == "never" or (rule == "multiple" and #lines == 1) then
+    extmark = {}
+  end
+
   vim.api.nvim_buf_call(buffer, function()
-    dict = vim.b["mpv_playlists_to_displays"]
+    local dict = vim.b["mpv_playlists_to_displays"]
     -- setup callback in this buffer
     if dict == nil then
       vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
@@ -78,10 +85,7 @@ local function create_playlist(buffer, lines, contents, display_id)
         PLAYLIST_NAMESPACE,
         j - 1,
         0,
-        {
-          sign_text=contents,
-          sign_hl_group="MpvPlaylistSign"
-        }
+        extmark
       )
       new_ids[i] = extmark_id
       vim.cmd(
@@ -170,7 +174,7 @@ end
 
 -- Set the contents of the line of a playlist item with id `playist_id` in a `buffer` to `content`
 local function write_line_of_playlist_item(buffer, playlist_id, content)
-  loc = vim.api.nvim_buf_get_extmark_by_id(
+  local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
     PLAYLIST_NAMESPACE,
     playlist_id,
