@@ -1,9 +1,56 @@
+#!/usr/bin/lua
+-- neovimpv.lua
+--
+-- A collection of helpler functions which generally do a lot of extmark
+-- (or otherwise vim-related) manipulations at once.
+-- Placed here to reduce IPC with repeated get/set_extmarks calls.
+
+local DISPLAY_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-displays")
+local PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
+
+
+-- Get all player ids in the display namespace, which should correspond to Python MpvInstances
+function get_players_in_buffer(buffer)
+  extmark_ids = vim.api.nvim_buf_get_extmarks(
+    buffer,
+    DISPLAY_NAMESPACE,
+    0,
+    -1,
+    {}
+  )
+end
+
+-- Try to get the playlist extmarks from `start` to `end` in a `buffer`.
+-- Returns the id of the first player the playlist item belongs to.
+function get_player_by_line(buffer, start, end_)
+  if end_ == nil then
+    end_ = start
+  end
+
+  return vim.api.nvim_buf_call(buffer, function()
+    local dict = vim.b["mpv_playlists_to_displays"]
+    local playlist_item = vim.api.nvim_buf_get_extmarks(
+      buffer,
+      PLAYLIST_NAMESPACE,
+      {start - 1, 0},
+      {end_ - 1, -1},
+      {}
+    )[1]
+    
+    if playlist_item == nil or dict == nil then
+      return
+    end
+
+    return dict[tostring(playlist_item[1])]
+  end)
+end
+
 -- Update an extmark's content without changing its row or column
-local function update_extmark(buffer, namespace, extmark_id, content)
-  loc = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, extmark_id, {})
+local function update_extmark(buffer, extmark_id, content)
+  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, DISPLAY_NAMESPACE, extmark_id, {})
   if loc ~= nil then
     pcall(function()
-      vim.api.nvim_buf_set_extmark(buffer, namespace, loc[1], loc[2], content)
+      vim.api.nvim_buf_set_extmark(buffer, DISPLAY_NAMESPACE, loc[1], loc[2], content)
     end)
   end
 end
@@ -28,7 +75,7 @@ local function create_playlist(buffer, lines, contents, display_id)
     for i, j in pairs(lines) do
       local extmark_id = vim.api.nvim_buf_set_extmark(
         buffer,
-        vim.api.nvim_create_namespace("Neovimpv-playlists"),
+        PLAYLIST_NAMESPACE,
         j - 1,
         0,
         {
@@ -53,7 +100,7 @@ end
 local function create_player(buffer, lines)
   local player = vim.api.nvim_buf_set_extmark(
       buffer,
-      vim.api.nvim_create_namespace("Neovimpv-displays"),
+      DISPLAY_NAMESPACE,
       lines[1] - 1,
       0,
       {
@@ -76,7 +123,7 @@ local function move_player(buffer, display_id, new_playlist_id, new_text)
   -- get the destination line
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
-    vim.api.nvim_create_namespace("Neovimpv-playlists"),
+    PLAYLIST_NAMESPACE,
     new_playlist_id,
     {}
   )
@@ -86,7 +133,7 @@ local function move_player(buffer, display_id, new_playlist_id, new_text)
   -- set the player to that line
   vim.api.nvim_buf_set_extmark(
     buffer,
-    vim.api.nvim_create_namespace("Neovimpv-displays"),
+    DISPLAY_NAMESPACE,
     loc[1],
     0,
     {
@@ -103,14 +150,14 @@ end
 local function remove_player(buffer, display_id, playlist_ids)
   vim.api.nvim_buf_del_extmark(
     buffer,
-    vim.api.nvim_create_namespace("Neovimpv-displays"),
+    DISPLAY_NAMESPACE,
     display_id
   )
   vim.api.nvim_buf_call(buffer, function()
     for _, playlist_id in pairs(playlist_ids) do
       vim.api.nvim_buf_del_extmark(
         buffer,
-        vim.api.nvim_create_namespace("Neovimpv-playlists"),
+        PLAYLIST_NAMESPACE,
         playlist_id
       )
       vim.cmd(
@@ -119,6 +166,18 @@ local function remove_player(buffer, display_id, playlist_ids)
       )
     end
   end)
+end
+
+-- Set the contents of the line of a playlist item with id `playist_id` in a `buffer` to `content`
+local function write_line_of_playlist_item(buffer, playlist_id, content)
+  loc = vim.api.nvim_buf_get_extmark_by_id(
+    buffer,
+    PLAYLIST_NAMESPACE,
+    playlist_id,
+    {}
+  )
+
+  vim.call("setbufline", buffer, loc[1] + 1, content)
 end
 
 -- Open some content in a split to run a callback
@@ -178,11 +237,18 @@ local function bind_default_highlights(froms, to)
 end
 
 neovimpv = {
+  get_players_in_buffer=get_players_in_buffer,
+  get_player_by_line=get_player_by_line,
+
   update_extmark=update_extmark,
   create_player=create_player,
   move_player=move_player,
   remove_player=remove_player,
+  write_line_of_playlist_item=write_line_of_playlist_item,
 
   open_select_split=open_select_split,
   bind_default_highlights=bind_default_highlights,
+
+  DISPLAY_NAMESPACE=DISPLAY_NAMESPACE,
+  PLAYLIST_NAMESPACE=PLAYLIST_NAMESPACE
 }

@@ -1,32 +1,34 @@
 " Omni-function for sending keys to mpv
 function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
-  let cline = line(".") - 1
-  let mpv_playlists = nvim_buf_get_extmarks(
-        \ 0,
-        \ nvim_create_namespace("Neovimpv-playlists"),
-        \ [a:firstline - 1, 0],
-        \ [a:lastline - 1, -1],
-        \ {}
-        \ )
-  if len(mpv_playlists) == 0
+  let playlist_item = luaeval(
+        \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ")")
+
+  if playlist_item == v:null
     " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
       execute ":" . a:firstline . "," . a:lastline . "MpvOpen"
     else
-      call nvim_notify("No mpv found running on that line", 4, {})
+      echohl ErrorMsg
+      echo "No mpv found running on that line"
+      echohl None
     endif
   elseif !a:is_visual
     " mpv found, get key to send
     let temp_ns = nvim_create_namespace("")
-    let new_extmark = nvim_buf_set_extmark(0, temp_ns, cline, 0, {
-          \ "virt_text": [["[ getting input... ]", "MpvDefault"]],
-          \ "virt_text_pos": "eol"
+    let new_extmark = nvim_buf_set_extmark(
+          \ 0,
+          \ temp_ns,
+          \ line(".") - 1,
+          \ 0,
+          \ {
+          \   "virt_text": [["[ getting input... ]", "MpvDefault"]],
+          \   "virt_text_pos": "eol"
           \ } )
     redraw
     try
       let temp = getcharstr()
-      call MpvSendNvimKeys(b:mpv_playlists_to_displays[mpv_playlists[0][0]], temp, v:count)
+      call MpvSendNvimKeys(playlist_item, temp, v:count)
     finally
       call nvim_buf_del_extmark(0, temp_ns, new_extmark)
     endtry
@@ -41,7 +43,7 @@ function neovimpv#goto_relative_mpv(direction)
   let current = line(".") - 1
   let mpv_instances = nvim_buf_get_extmarks(
         \ 0,
-        \ nvim_create_namespace("Neovimpv-displays"),
+        \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
         \ [0, 0],
         \ [-1, -1],
         \ {}
@@ -134,7 +136,7 @@ function s:calculate_change(new_lines, new_cursor, new_range)
 
   let old_extmark = nvim_buf_get_extmarks(
         \ 0,
-        \ nvim_create_namespace("Neovimpv-playlists"),
+        \ luaeval("neovimpv.PLAYLIST_NAMESPACE"),
         \ [old_range[0] - 1, 0],
         \ [old_range[1] - 1, -1],
         \ {}
@@ -186,7 +188,7 @@ function s:get_updated_mpv_playlist(removed_extmarks)
       unlet b:mpv_playlists_to_displays[playlist_item]
       call nvim_buf_del_extmark(
             \ 0,
-            \ nvim_create_namespace("Neovimpv-playlists"),
+            \ luaeval("neovimpv.PLAYLIST_NAMESPACE"),
             \ playlist_item
             \ )
       call add(altered_players, player)

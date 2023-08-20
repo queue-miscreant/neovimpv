@@ -40,7 +40,7 @@ class MpvInstance:
         '''Set the default arguments to be used by new mpv instances'''
         cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
 
-    def __init__(self, plugin, buffer, line_range, filenames, extra_args):
+    def __init__(self, plugin, buffer, line_range, filenames, extra_args, unmarkdown=False):
         self.protocol = None
         self.plugin = plugin
         self.buffer = buffer
@@ -52,25 +52,40 @@ class MpvInstance:
         self.id = -1
         self.playlist_ids = []
 
-        playlist = []
-        lines_with_links = []
-        for i, link in zip(line_range, filenames):
-            link, write_markdown = self._unmarkdown(plugin, buffer, link)
-            link = validate_link(link)
-            if link is None:
-                continue
-            playlist.append((link, write_markdown))
-            lines_with_links.append(i)
-        if not playlist:
+        lines_with_links = self._construct_playlist(line_range, filenames, unmarkdown)
+        if not self.playlist_items:
             self.plugin.show_error(
                 "Lines do not contain a file path or valid URL" if len(filenames) > 1 else
                 "Line does not contain a file path or valid URL"
             )
             return None
-        self.playlist_items = playlist
 
         self._init_extmarks(lines_with_links)
         plugin.nvim.loop.create_task(self.spawn(mpv_args))
+
+    def _construct_playlist(self, line_range, filenames, unmarkdown):
+        '''
+        Read over the list of lines, skipping those which are not files or URLs.
+        Make note of which need to be turned into markdown.
+        '''
+        playlist = []
+        lines_with_links = []
+        for i, link in zip(line_range, filenames):
+            write_markdown = False
+            # if we've allowed this buffer to read/edit things into markdown
+            if unmarkdown:
+                try_markdown = MARKDOWN_LINK.search(link)
+                if try_markdown:
+                    link = try_markdown.group(2)
+                else:
+                    write_markdown = True
+            link = validate_link(link)
+            if link is None:
+                continue
+            playlist.append((link, write_markdown))
+            lines_with_links.append(i)
+        self.playlist_items = playlist
+        return lines_with_links
 
     def _init_extmarks(self, lines):
         '''Create extmarks for displaying data from the mpv instance'''
@@ -93,6 +108,31 @@ class MpvInstance:
             self.plugin.show_error(f"Could not move the player (current file: {filename})")
         self.no_draw = False
 
+    def _draw_update(self):
+        '''Rerender the extmark that this mpv instance corresponds to'''
+        if self.no_draw:
+            return
+
+        display = {
+            "id": self.id,
+            "virt_text": self.plugin.formatter.format(self.protocol.data),
+            "virt_text_pos": "eol",
+        }
+
+        if self.has_window:
+            display["virt_text"] = [["[ Window ]", "MpvDefault"]]
+            self.no_draw = True
+
+        self.plugin.nvim.lua.neovimpv.update_extmark(
+            self.buffer.number,
+            self.id,
+            display
+        )
+
+    # ==========================================================================
+    # The following methods do not assume that nvim is in an interactable state
+    # ==========================================================================
+
     def update_playlist(self, new_playlist):
         '''Update the instance's internal playlist and forward deletions to mpv'''
         new_playlist.sort(key=lambda x: self.playlist_ids.index(x))
@@ -113,38 +153,7 @@ class MpvInstance:
 
         self.playlist_ids = new_playlist
 
-    @staticmethod
-    def _unmarkdown(plugin, buffer, link):
-        write_markdown = False
-        # if we've allowed this buffer to read/edit things into markdown
-        if buffer.api.get_option("filetype") in plugin.do_markdowns:
-            unmarkdown = MARKDOWN_LINK.search(link)
-            if unmarkdown:
-                link = unmarkdown.group(2)
-            else:
-                write_markdown = True
-        return link, write_markdown
-
-    def toggle_pause(self):
-        self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
-
-    def draw_update(self):
-        '''Rerender the extmark that this mpv instance corresponds to'''
-        if self.no_draw or self.has_window:
-            return
-        display = {
-            "id": self.id,
-            "virt_text": self.plugin.formatter.format(self.protocol.data),
-            "virt_text_pos": "eol",
-        }
-
-        self.plugin.nvim.async_call(
-            self.plugin.live_extmark,
-            self.buffer.number,
-            display
-        )
-
-    async def update_markdown(self, arg):
+    async def update_markdown(self, link, playlist_id):
         '''
         Wait until we've got the title and filename, then format the line where
         mpv is being displayed as markdown.
@@ -155,11 +164,14 @@ class MpvInstance:
             return
 
         self.plugin.nvim.async_call(
-            self.plugin.write_line_of_extmark,
-            self.buffer,
-            self.id,
-            [f"[{media_title.replace('[', '(').replace(']',')')}]({arg})"],
+            lambda x, y, z: self.plugin.nvim.lua.neovimpv.write_line_of_playlist_item(x,y,z),
+            self.buffer.number,
+            playlist_id,
+            f"[{media_title.replace('[', '(').replace(']',')')}]({link})"
         )
+
+    def toggle_pause(self):
+        self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
     async def spawn(self, mpv_args, timeout_duration=1):
         '''
@@ -183,7 +195,10 @@ class MpvInstance:
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
             protocol.add_event("file-loaded", lambda _, __: self.preamble())
             protocol.add_event("close", lambda _, __: self.close())
-            protocol.add_event("property-change", lambda _, __: self.draw_update())
+            protocol.add_event(
+                "property-change",
+                lambda _, __: self.plugin.nvim.async_call(self._draw_update)
+            )
 
             # ALWAYS observe this so we can toggle pause
             protocol.observe_property("pause")
@@ -230,12 +245,11 @@ class MpvInstance:
 
         self.plugin.nvim.async_call(
             self.move_player_extmark,
-            self.playlist_ids[current],
-            self.has_window and "[ Window ]" or None
+            self.playlist_ids[current]
         )
 
         if write_markdown:
-            self.plugin.nvim.loop.create_task(self.update_markdown(link))
+            self.plugin.nvim.loop.create_task(self.update_markdown(link, self.playlist_ids[current]))
 
     def close(self):
         '''Defer to the plugin to remove the extmark'''
