@@ -49,7 +49,7 @@ nnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
 vnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
 ```
 
-For additional movement fidelity and access to a YoutubeSearch prompt, add
+For additional movement fidelity and access to a YouTube search prompt, add
 ```vim
 nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
 nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
@@ -186,10 +186,10 @@ has an mpv instance.
 YouTube Results
 ---------------
 
-While specifying content with 'ytdl://ytsearch:' is possible, the results you
-get are more or less a guessing game. Worse still, getting video attributes
-(like description, title, view count) with `youtube-dl` (and its forks) is
-generally very slow with multiple prompts.
+While searching for content on youtube with 'ytdl://ytsearch:' is possible, the
+results you get are more or less a guessing game. Worse still, getting video
+attributes (like description, title, view count) with `youtube-dl` (and its
+forks) is generally very slow with multiple prompts.
 
 To alleviate these problems, the plugin includes YouTube searching built-in.
 The command `:MpvYoutubeSearch` and the key `<Plug>(mpv_youtube_prompt)` allow
@@ -222,11 +222,12 @@ Download the thumbnail of the video and display it with the default system viewe
 Exit the split
 
 
-### {yank-motion}
+### Yanking
 
-If the yank motion is a single line, then the result's video URL is pasted into
-the register that was used. For example, to copy the result into the system
-clipboard, using `"+yy` will grab the URL, rather than the line content.
+If the yank motion is "y" (i.e., the whole line), then the URL of the result
+under the cursor is pasted into the register that was used. For example, to copy
+the result into the system clipboard, using `"+yy` will grab the URL, rather
+than the line content.
 
 
 Configuration
@@ -238,10 +239,8 @@ are changed while Neovim is running, they will NOT take effect.
 
 ### `g:mpv_loading`
 
-String to be displayed while an mpv instance is still loading. Uses
-the default highlight defined in `g:mpv_default_highlight`.
-
-The default value is `"[ ... ]"`
+String to be displayed while an mpv instance is still loading.
+The default value is `"[ ... ]"`, displayed with highlight `MpvDefault`.
 
 
 ### `g:mpv_format`

@@ -140,10 +140,10 @@ KEYS                                                    *neovimpv-keys*
 --------------------------------------------------------------------------------
 YOUTUBE RESULTS                                         *neovimpv-youtube-splits*
 
-While specifying content with 'ytdl://ytsearch:' is possible, the results you
-get are more or less a guessing game. Worse still, getting video attributes
-(like description, title, view count) with `youtube-dl` (and its forks) is
-generally very slow with multiple prompts.
+While searching for content on youtube with 'ytdl://ytsearch:' is possible, the
+results you get are more or less a guessing game. Worse still, getting video
+attributes (like description, title, view count) with `youtube-dl` (and its
+forks) is generally very slow with multiple prompts.
 
 To alleviate these problems, the plugin includes YouTube searching built-in.
 The command |:MpvYoutubeSearch| and the key `<Plug>(mpv_youtube_prompt)` allow
@@ -166,11 +166,11 @@ The keys available in YouTube splits are:
                         `--video=auto` instead, which opens the result with
                         video rather than audio only.
 
-{yank-motion}           If the yank motion is a single line, then the result's
-                        video URL is pasted into the register that was used.
-                        For example, to copy the result into the system
-                        clipboard, using `"+yy` will grab the URL, rather than
-                        the line content.
+{yank-motion}           If the yank motion is "y" (i.e., the whole line), then
+                        the URL of the result under the cursor is pasted into
+                        the register that was used. For example, to copy the
+                        result into the system clipboard, using `"+yy` will grab
+                        the URL, rather than the line content.
 
 i                       Download the thumbnail of the video and display it with
                         the default system viewer.
@@ -204,10 +204,8 @@ are changed while neovim is running, they will NOT take effect.
 
 g:mpv_loading                                           *g:mpv_loading*
 
-        String to be displayed while an mpv instance is still loading. Uses
-        the default highlight defined in |g:mpv_default_highlight|.
-
-        The default value is `"[ ... ]"`
+        String to be displayed while an mpv instance is still loading.
+        The default value is `"[ ... ]"`, displayed with highlight `MpvDefault`.
 
 g:mpv_format                                            *g:mpv_format*
 
