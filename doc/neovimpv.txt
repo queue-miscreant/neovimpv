@@ -23,6 +23,17 @@ the same line as a running instance and typing a |neovimpv-command|, or by
 using the omnikey (see |neovimpv-keys|). When the mpv instance is closed, the
 extmark will be destroyed.
 
+                                                        *neovimpv-playlist*
+
+Opening multiple lines of text will queue each line which contains a valid
+file name (or appears to contain a valid URL) in an mpv playlist. The player
+extmark will follow the current playlist item.
+
+If lines are deleted from the playlist, the item is removed from the mpv
+playlist, and its corresponding extmark is deleted. Undoing will not restore
+the playlist or extmark. Line contents are NOT tracked, and the file opened
+will correspond to the contents of the line at the time mpv was opened.
+
 --------------------------------------------------------------------------------
 COMMANDS                                                *neovimpv-command*
 
@@ -34,6 +45,9 @@ COMMANDS                                                *neovimpv-command*
 
         To decrease reliance on IPC, some rudimentary checks are performed to
         ensure that the file exists or is a URL.
+
+        A range can also be passed, in which case the lines are opened as a
+        playlist (see |neovimpv-playlist|).
 
         Optionally {mpv-args} may be given, which are passed as command line
         arguments. This can be used to override `--no-video`, for example, by
@@ -101,7 +115,8 @@ KEYS                                                    *neovimpv-keys*
 
         Capture a keypress and send it to the mpv instance running on the
         current line. If there is no instance, |g:mpv_omni_open_new_if_empty|
-        decides whether or not to call |:MpvOpen| or report an error.
+        decides whether or not to call |:MpvOpen| or report an error. Can be
+        used in visual mode to open a playlist.
 
         Giving a count beforehand will be acknowledged, with the key repeatedly
         sent to mpv that number of times.
@@ -174,6 +189,13 @@ MpvSendNvimKeys({extmark_id}, {keypress_string})        *MpvSendNvimKeys()*
         but not all. You should not rely on proper handling of modifier keys
         (Ctrl, Alt, Shift, Super).
 
+MpvUpdatePlaylists({updated_playlists})                 *MpvUpdatePlaylists()*
+
+        Update player's playlists on the Python side. {updated_playlists} is a
+        dictionary where the keys are playlist ids and values are a list of
+        playlist items. This function does NOT change extmarks, but it will
+        modify the mpv playlist.
+
 --------------------------------------------------------------------------------
 CONFIGURATION                                           *neovimpv-configuration*
 
@@ -242,8 +264,25 @@ g:mpv_property_thresholds                               *g:mpv_property_threshol
         If the list contains two entries, the value is partitioned into "Low",
         "Middle", and "High" instead.
 
+
+g:mpv_draw_playlist_extmarks                            *g:mpv_draw_playlist_extmarks*
+
+        String which is either `"always"`, `"multiple"`, or `"never"`.
+        Controls whether playlist extmarks are drawn in the sign column.
+        The default value is `"multiple"`.
+
+        For "always", signs will be drawn regardless of playlist length.
+        For "multiple", signs will not be drawn if there is only one playlist
+        item.
+        For "never", signs will never be drawn.
+
 --------------------------------------------------------------------------------
 HIGHLIGHTS                                              *neovimpv-highlights*
+
+General-purpose highlight groups defined by this plugin are `MpvDefault` and
+`MpvPlaylistSign`. The former is, as its name suggests, the default choice
+for extmarks in the plugin. The latter is the default choice for playlist
+extmarks in the sign column.
 
 The highlight used to draw an mpv property is user-controllable. All
 highlights begin with "Mpv", followed by the property name. Properties in mpv

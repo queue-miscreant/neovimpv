@@ -8,6 +8,12 @@ path into a buffer and type `:MpvOpen` to open the file in mpv as if you had
 invoked it from the command line. The plugin also features the ability to open
 content from YouTube searches.
 
+Multiple lines of text can be opened as an mpv playlist. The playback display
+will be drawn as the same line as the current file in mpv. If the line is deleted,
+it will be removed from the playlist. Undoing will not restore the playlist.
+
+Note that playlist content comes from the content of the lines when mpv is first
+opened -- updating lines will NOT change the playlist.
 
 Requirements
 ------------
@@ -40,6 +46,14 @@ attempt to capture a keypress to send to mpv.
 
 ```vim
 nnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
+vnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
+```
+
+For additional movement fidelity and access to a YoutubeSearch prompt, add
+```vim
+nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
+nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
+nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
 ```
 
 
@@ -54,6 +68,8 @@ or yt-dlp has been set up.
 
 To decrease reliance on IPC, some rudimentary checks are performed to ensure that
 the file exists or is a URL.
+
+A range can also be passed, in which case the lines are opened as a playlist.
 
 Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
@@ -127,6 +143,13 @@ The plugin is able to translate SOME of these into mpv equivalents,
 but not all. You should not rely on proper handling of modifier keys
 (Ctrl, Alt, Shift, Super).
 
+### `MpvUpdatePlaylists(updated_playlists)`
+
+Update player's playlists on the Python side. `updated_playlists` is a
+dictionary where the keys are playlist ids and values are a list of
+playlist items. This function does NOT change extmarks, but it will
+modify the mpv playlist.
+
 
 Keys
 ----
@@ -135,7 +158,8 @@ Keys
 
 Capture a keypress and send it to the mpv instance running on the
 current line. If there is no instance, `g:mpv_omni_open_new_if_empty`
-decides whether or not to call `:MpvOpen` or report an error.
+decides whether or not to call `:MpvOpen` or report an error. Can be
+used in visual mode to open a playlist.
 
 Giving a count beforehand will be acknowledged, with the key repeatedly
 sent to mpv that number of times.
@@ -276,8 +300,25 @@ If the list contains two entries, the value is partitioned into "Low",
 "Middle", and "High" instead.
 
 
+### `g:mpv_draw_playlist_extmarks`
+
+String which is either `"always"`, `"multiple"`, or `"never"`.
+Controls whether playlist extmarks are drawn in the sign column.
+The default value is `"multiple"`.
+
+| Value        | Description
+|--------------|-----------------------------------------------------
+| `"always"`   | Signs will be drawn regardless of playlist length.
+| `"multiple"` | Signs will not be drawn if there is only one playlist item.
+| `"never"`    | Signs will never be drawn.
+
 Highlights
 ----------
+
+General-purpose highlight groups defined by this plugin are `MpvDefault` and
+`MpvPlaylistSign`. The former is, as its name suggests, the default choice
+for extmarks in the plugin. The latter is the default choice for playlist
+extmarks in the sign column.
 
 The highlight used to draw an mpv property is user-controllable. All
 highlights begin with "Mpv", followed by the property name. Properties in mpv
@@ -320,5 +361,5 @@ The following highlights are used for extra video info in YouTube results:
 TODOs
 -----
 
-- Mpv playlists
+- YouTube playlists
 - Improve sending keys

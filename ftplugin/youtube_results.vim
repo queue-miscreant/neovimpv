@@ -14,7 +14,7 @@ function s:set_youtube_extmark()
   let current = b:selection[line(".") - 1]
   call nvim_buf_set_extmark(
         \ 0,
-        \ nvim_create_namespace("Neovimpv"),
+        \ nvim_create_namespace("Neovimpv-displays"),
         \ line(".") - 1,
         \ 0,
         \ { "id": 1,
