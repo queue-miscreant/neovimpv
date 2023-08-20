@@ -42,6 +42,7 @@ def parse_video_renderer(renderer):
     for name, path in YOUTUBE_RENDERER_PATHS.items():
         ret[name] = try_follow_path(renderer, path)
     ret["link"] = f"https://youtu.be/{ret['video_id']}"
+    ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
     return ret
 
 class YoutubeResults:

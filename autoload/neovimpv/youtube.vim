@@ -1,29 +1,42 @@
-" paste the result of a youtube buffer selection into window_id
-function s:mpv_youtube_paste(window_id, value)
-  let row = getcurpos(a:window_id)[1]
-  let buffer_id = winbufnr(a:window_id)
-  let line = getbufoneline(buffer_id, row)
+" Insert `value` at the line of the current cursor, if it's empty.
+" Otherwise, insert it a line below the current line.
+function s:try_insert(value)
+  let row = line(".")
+  let append_line = len(getline(row)) != 0
 
-  quit
-  if len(line) == 0
-    call setbufline(buffer_id, row, "ytdl://" . a:value["video_id"])
-  else
-    call setbufline(buffer_id, row+1, "ytdl://" . a:value["video_id"])
-    normal j
+  let targetrow = row
+  if append_line
+    let targetrow += 1
   endif
 
-  return 1
+  call setline(targetrow, a:value)
+
+  return append_line
 endfunction
 
-" Callback for youtube results buffers
+" Callback for youtube results buffers. Return to the calling window,
+" paste the link where the cursor is, then call MpvOpen.
+" Writes markdown if the buffer's filetype supports markdown.
 function neovimpv#youtube#callback(extra)
   let current = b:selection[line(".") - 1]
-  if s:mpv_youtube_paste(b:calling_window, current)
-    execute ":MpvOpen " . a:extra
+  let window = b:calling_window
+  " Close the youtube buffer and return the calling window
+  quit
+  call win_gotoid(window)
+
+  let insert_link = current["link"]
+  if index(g:mpv_markdown_writable, &l:filetype) >= 0
+    let insert_link = current["markdown"]
   endif
+
+  if s:try_insert(insert_link)
+    normal j
+  endif
+  execute ":MpvOpen " . a:extra
 endfunction
 
-" Callback for youtube results buffers
+" Callback for youtube results buffers.
+" Opens the thumbnail of result under the cursor in the system viewer.
 function neovimpv#youtube#open_thumbnail()
   let current = b:selection[line(".") - 1]
   call system(
