@@ -38,16 +38,16 @@ function s:yank_youtube_link(event)
 endfunction
 
 nnoremap <buffer> <silent> <cr> :call
-      \ neovimpv#youtube_callback("")<cr>
+      \ neovimpv#youtube#callback("")<cr>
 
 nnoremap <buffer> <silent> <s-enter> :call
-      \ neovimpv#youtube_callback("--video=auto")<cr>
+      \ neovimpv#youtube#callback("--video=auto")<cr>
 
 nnoremap <buffer> <silent> v :call
-      \ neovimpv#youtube_callback("--video=auto")<cr>
+      \ neovimpv#youtube#callback("--video=auto")<cr>
 
 nnoremap <buffer> <silent> i :call
-      \ neovimpv#youtube_thumbnail()<cr>
+      \ neovimpv#youtube#open_thumbnail()<cr>
 
 nnoremap <buffer> <silent> q :q<cr>
 
