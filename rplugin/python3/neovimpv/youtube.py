@@ -33,6 +33,14 @@ CHILD_VIDEO_RENDERER_PATHS = {
     "video_id": ["videoId"],
 }
 
+PLAYLIST_VIDEO_RENDERER_PATHS = {
+    "title": ["title", "runs", 0, "text"],
+    "length": ["lengthText", "simpleText"],
+    "video_id": ["videoId"],
+    "thumbnail": ["thumbnail", "thumbnails", 0, "url"],
+    "channel_name": ["shortBylineText", "runs", 0, "text"],
+}
+
 def try_follow_path(obj, path):
     '''
     Iteratively get an item from a dict/list until the path is consumed.
@@ -54,13 +62,13 @@ def parse_dict(dict, paths):
         ret[name] = try_follow_path(dict, path)
     return ret
 
-def parse_video_renderer(renderer):
+def parse_video_renderer(renderer, paths=VIDEO_RENDERER_PATHS):
     '''
     Transform a video JSON from the YouTube search page (pared down by
     YoutubeResults.CONTENTS_PATH) into a dict with the same keys as
-    VIDEO_RENDERER_PATHS with values from the page.
+    `paths` with values from the page.
     '''
-    ret = parse_dict(renderer, VIDEO_RENDERER_PATHS)
+    ret = parse_dict(renderer, paths)
     try:
         ret["link"] = f"https://youtu.be/{ret['video_id']}"
         ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
@@ -68,7 +76,8 @@ def parse_video_renderer(renderer):
         return None
     return ret
 
-parse_child_video_renderer = lambda renderer: parse_dict(renderer, CHILD_VIDEO_RENDERER_PATHS)
+parse_child_video_renderer = lambda renderer: parse_video_renderer(renderer, CHILD_VIDEO_RENDERER_PATHS)
+parse_playlist_video_renderer = lambda renderer: parse_video_renderer(renderer, PLAYLIST_VIDEO_RENDERER_PATHS)
 
 def parse_playlist_renderer(renderer):
     '''
@@ -157,8 +166,60 @@ class YoutubeResults:
         with urllib.request.urlopen(url) as a:
             return cls._extract_youtube_response(a)
 
+class YoutubePlaylist:
+    SENTINEL = "var ytInitialData = "
+    CONTENTS_PATH = [
+        "contents",
+        "twoColumnBrowseResultsRenderer",
+        "tabs",
+        0,
+        "tabRenderer",
+        "content",
+        "sectionListRenderer",
+        "contents",
+        0,
+        "itemSectionRenderer",
+        "contents",
+        0,
+        "playlistVideoListRenderer",
+        "contents",
+    ]
+
+    def __init__(self, playlist_contents):
+        self.contents = [i for i in (
+            parse_playlist_video_renderer(result.get("playlistVideoRenderer"))
+            for result in playlist_contents
+        ) if i]
+
+    @classmethod
+    def get_all(cls, playlist_id):
+        results = cls._search_json_raw(playlist_id)
+        contents = try_follow_path(results, cls.CONTENTS_PATH)
+        return cls(contents or [])
+
+    @classmethod
+    def _extract_youtube_response(cls, response):
+        '''Extract JSON from curl of YouTube results page'''
+        parsed = lxml.html.parse(response)
+        for tag in parsed.iter("script"):
+            content = tag.text_content()
+            if not isinstance(content, str) or not content.startswith(cls.SENTINEL):
+                continue
+            # this script defines a single variable and has a trailing semicolon
+            return json.loads(content[len(cls.SENTINEL):-1])
+        return None
+
+    @classmethod
+    def _search_json_raw(cls, playlist_id):
+        '''Run youtube curl and parse result'''
+        url = f"https://www.youtube.com/playlist?list={playlist_id}"
+        print(f"Curling {url}", file=sys.stderr)
+        with urllib.request.urlopen(url) as a:
+            return cls._extract_youtube_response(a)
+
 async def open_results_buffer(nvim, youtube_query):
-    '''Don't block the event loop while waiting for results'''
+    '''Run search query in YouTube, then pass scraped results to Lua'''
+    # don't block the event loop while waiting for results
     def executor():
         try:
             return YoutubeResults.get_all(youtube_query)
@@ -178,4 +239,23 @@ async def open_results_buffer(nvim, youtube_query):
         results,
         "youtube_results",
         5
+    )
+
+async def open_playlist_results(nvim, playlist):
+    '''Scrape playlist page and pass results to Lua'''
+    # don't block the event loop while waiting for results
+    def executor():
+        try:
+            return YoutubePlaylist.get_all(playlist["playlist_id"])
+        except urllib.error.HTTPError as e:
+            nvim.show_error(f"An error occurred when fetching results: {e}")
+            return None
+
+    results = await nvim.loop.run_in_executor(None, executor)
+    if results is None:
+        return
+
+    nvim.async_call(
+        nvim.lua.neovimpv.open_playlist_results,
+        results.contents,
     )

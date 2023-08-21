@@ -233,6 +233,41 @@ local function open_select_split(input, filetype, height)
   vim.api.nvim_buf_set_option(buf, "filetype", filetype)
 end
 
+-- TODO: user chooses to paste in whole playlist, open in split, open in vert split, open in new tab
+local function open_playlist_results(playlist)
+  local old_window = vim.api.nvim_get_current_win()
+  -- parse input
+  local buf_lines = {}
+  local content = {}
+  for i = 1, #playlist do
+    local text = playlist[i]["markdown"]
+    -- local value = playlist[i][2]
+    -- if type(text) ~= "string" or value == nil then
+    --   error("Table value is not of form {string, value}")
+    -- end
+    table.insert(buf_lines, text)
+    -- table.insert(content, value)
+  end
+
+  -- open new tab to an empty scratch
+  vim.cmd("tabe")
+  local win = vim.api.nvim_get_current_win()
+  local buf = vim.api.nvim_create_buf(true, true)
+  vim.api.nvim_win_set_buf(win, buf)
+
+  -- set buffer content
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, buf_lines)
+  -- vim.api.nvim_buf_set_var(buf, "selection", content)
+  vim.api.nvim_buf_set_var(buf, "calling_window", old_window)
+
+  -- set options for new buffer/window
+  vim.api.nvim_win_set_option(win, "number", false)
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "filetype", "youtube_playlist")
+
+  vim.cmd("%MpvOpen")
+end
+
 -- Link default highlights from names in `froms` to the highlight `to`
 local function bind_default_highlights(froms, to)
   for _, from in pairs(froms) do
@@ -251,6 +286,7 @@ neovimpv = {
   write_line_of_playlist_item=write_line_of_playlist_item,
 
   open_select_split=open_select_split,
+  open_playlist_results=open_playlist_results,
   bind_default_highlights=bind_default_highlights,
 
   DISPLAY_NAMESPACE=DISPLAY_NAMESPACE,

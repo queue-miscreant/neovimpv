@@ -8,6 +8,7 @@ let g:mpv_omni_open_new_if_empty = v:true
 
 " Markdown-writable files
 let g:mpv_markdown_writable = get(g:, "mpv_markdown_writable", [])
+call add(g:mpv_markdown_writable, "youtube_playlist")
 
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])

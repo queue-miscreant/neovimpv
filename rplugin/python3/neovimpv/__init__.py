@@ -8,7 +8,7 @@ import os.path
 import pynvim
 from neovimpv.format import Formatter
 from neovimpv.mpv import MpvInstance
-from neovimpv.youtube import open_results_buffer, WARN_LXML
+from neovimpv.youtube import open_results_buffer, open_playlist_results, WARN_LXML
 
 log = logging.getLogger(__name__)
 
@@ -120,6 +120,8 @@ class Neovimpv:
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", range="")
     def mpv_youtube_search(self, args, range):
+        if len(args) != 1:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
         if WARN_LXML:
             self.show_error("Python module lxml not detected. Cannot open YouTube results.")
             return
@@ -155,6 +157,16 @@ class Neovimpv:
             mpv_instance = self._mpv_instances.get((self.nvim.current.buffer.number, int(player)))
             if mpv_instance is not None:
                 self.nvim.loop.call_soon(mpv_instance.update_playlist, playlist_items)
+
+    @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
+    def mpv_open_youtube_playlist(self, args):
+        '''Receive updated playlist extmark positions from nvim'''
+        if len(args) != 1:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
+
+        self.nvim.loop.create_task(
+            open_playlist_results(self.nvim, args[0])
+        )
 
     def show_error(self, error):
         '''Show an error to nvim'''

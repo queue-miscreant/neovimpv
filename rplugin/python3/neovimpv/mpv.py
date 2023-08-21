@@ -238,11 +238,16 @@ class MpvInstance:
         '''
         self.no_draw = True
         current = self.protocol.data.get("playlist-pos")
-        link, write_markdown = self.playlist_items[current]
         if current is None:
             self.plugin.show_error("Playlist transition failed!")
             return
+        # TODO: mpv playlist changes not reflected in buffer
+        if current >= len(self.playlist_items):
+            self.plugin.show_error("Item induced larger playlist!")
+            self.no_draw = False
+            return
 
+        link, write_markdown = self.playlist_items[current]
         self.plugin.nvim.async_call(
             self.move_player_extmark,
             self.playlist_ids[current]

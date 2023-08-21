@@ -24,7 +24,11 @@ function neovimpv#youtube#callback(extra)
   quit
   call win_gotoid(window)
 
-  " TODO: youtube playlist
+  if exists("current.playlist_id")
+    call MpvOpenYoutubePlaylist(current)
+    return
+  endif
+
   let insert_link = current["link"]
   if index(g:mpv_markdown_writable, &l:filetype) >= 0
     let insert_link = current["markdown"]
@@ -40,6 +44,11 @@ endfunction
 " Opens the thumbnail of result under the cursor in the system viewer.
 function neovimpv#youtube#open_thumbnail()
   let current = b:selection[line(".") - 1]
+
+  if !exists("current.thumbnail")
+    return
+  endif
+
   call system(
         \ 'read -r url; ' .
         \ 'temp=`mktemp`; ' .
