@@ -3,7 +3,7 @@ neovimpv
 
 ![example](./neovimpv_example.png)
 
-A plugin for opening mpv instances based on buffer contents. Simply type a file
+An nvim plugin for opening mpv instances based on buffer contents. Simply type a file
 path into a buffer and type `:MpvOpen` to open the file in mpv as if you had
 invoked it from the command line. The plugin also features the ability to open
 content from YouTube searches.

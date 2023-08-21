@@ -24,6 +24,7 @@ function neovimpv#youtube#callback(extra)
   quit
   call win_gotoid(window)
 
+  " TODO: youtube playlist
   let insert_link = current["link"]
   if index(g:mpv_markdown_writable, &l:filetype) >= 0
     let insert_link = current["markdown"]

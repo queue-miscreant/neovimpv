@@ -8,7 +8,7 @@ import os.path
 import pynvim
 from neovimpv.format import Formatter
 from neovimpv.mpv import MpvInstance
-from neovimpv.youtube import open_mpv_buffer, WARN_LXML
+from neovimpv.youtube import open_results_buffer, WARN_LXML
 
 log = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ class Neovimpv:
             self.show_error("Python module lxml not detected. Cannot open YouTube results.")
             return
         self.nvim.loop.create_task(
-            open_mpv_buffer(self.nvim, args[0])
+            open_results_buffer(self.nvim, args[0])
         )
 
     @pynvim.function("MpvSendNvimKeys", sync=True)
