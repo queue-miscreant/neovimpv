@@ -161,11 +161,13 @@ class Neovimpv:
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):
         '''Receive updated playlist extmark positions from nvim'''
-        if len(args) != 1:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
+        if len(args) == 2:
+            playlist, extra = args
+        else:
+            raise TypeError(f"Expected 2 argument, got {len(args)}")
 
         self.nvim.loop.create_task(
-            open_playlist_results(self.nvim, args[0])
+            open_playlist_results(self.nvim, playlist, extra)
         )
 
     def show_error(self, error):

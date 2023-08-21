@@ -241,7 +241,7 @@ async def open_results_buffer(nvim, youtube_query):
         5
     )
 
-async def open_playlist_results(nvim, playlist):
+async def open_playlist_results(nvim, playlist, extra):
     '''Scrape playlist page and pass results to Lua'''
     # don't block the event loop while waiting for results
     def executor():
@@ -258,4 +258,5 @@ async def open_playlist_results(nvim, playlist):
     nvim.async_call(
         nvim.lua.neovimpv.open_playlist_results,
         results.contents,
+        extra
     )

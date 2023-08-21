@@ -25,7 +25,7 @@ function neovimpv#youtube#callback(extra)
   call win_gotoid(window)
 
   if exists("current.playlist_id")
-    call MpvOpenYoutubePlaylist(current)
+    call MpvOpenYoutubePlaylist(current, a:extra)
     return
   endif
 

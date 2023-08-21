@@ -234,7 +234,7 @@ local function open_select_split(input, filetype, height)
 end
 
 -- TODO: user chooses to paste in whole playlist, open in split, open in vert split, open in new tab
-local function open_playlist_results(playlist)
+local function open_playlist_results(playlist, extra)
   local old_window = vim.api.nvim_get_current_win()
   -- parse input
   local buf_lines = {}
@@ -265,7 +265,7 @@ local function open_playlist_results(playlist)
   vim.api.nvim_buf_set_option(buf, "modifiable", false)
   vim.api.nvim_buf_set_option(buf, "filetype", "youtube_playlist")
 
-  vim.cmd("%MpvOpen")
+  vim.cmd("%MpvOpen " .. extra)
 end
 
 -- Link default highlights from names in `froms` to the highlight `to`
