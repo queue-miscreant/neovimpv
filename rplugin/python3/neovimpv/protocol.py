@@ -21,15 +21,20 @@ class MpvProtocol(asyncio.Protocol):
     def __init__(self):
         self.transport = None
         self.data = {}
-
+        # general properties
         self._properties = {}
         self._reverse_properties = {}
         self._last_property = 20
-
+        # events and async support
         self._event_handlers = {}
         self._waiting_properties = {}
         self._ignore_errors = []
+        # playlist support
+        self._playlist_request = -1
+        self._playlist_new = None
+        # default events
         self.add_event("property-change", lambda _, data: self._property_change(data))
+        self.add_event("end-file", lambda _, data: self._try_playlist(data))
 
     def _property_id(self, property_name):
         '''Keep records of which properties we've sent before and decided on an ID for.'''
@@ -85,15 +90,20 @@ class MpvProtocol(asyncio.Protocol):
                 if (property_name := self._reverse_properties.get(request_id)) is not None:
                     datum.update({"property-name": property_name})
                 self._try_handle_event("error", datum)
-                continue
             elif (event_name := datum.get("event")) is not None:
                 self._try_handle_event(event_name, datum)
-                continue
             elif request_id is not None and request_id in self._reverse_properties:
                 # reverse lookup the property name for convenience
                 property_name = self._reverse_properties[request_id]
                 self.data[property_name] = datum.get("data")
                 log.debug(f"Got property {property_name}: {datum}")
+            elif request_id is not None and request_id == self._playlist_request:
+                self._try_handle_event("got-playlist", {
+                    "playlist": datum.get("data"),
+                    "new": self._playlist_new
+                })
+                self._playlist_request = -1
+                self._playlist_new = None
             elif request_id is not None and request_id in self._waiting_properties:
                 # we received a message about something we're waiting for
                 type, property_name, future = self._waiting_properties[request_id]
@@ -202,6 +212,15 @@ class MpvProtocol(asyncio.Protocol):
         if property_name is not None and data is not None:
             self.data[property_name] = data
 
+    def _try_playlist(self, json_data):
+        '''Handler for file-close events with reason redirect'''
+        if json_data.get("reason") != "redirect":
+            return
+        self._playlist_request = self._last_property
+        self._playlist_new = { i: json_data.get(i)
+            for i in ["playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries"] }
+        self.get_property(f"playlist", request_id=self._playlist_request)
+        self._last_property += 1
 
 async def create_mpv(mpv_args, ipc_path, read_timeout=1, loop=None):
     '''

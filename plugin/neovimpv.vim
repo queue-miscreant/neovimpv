@@ -40,4 +40,3 @@ hi default link MpvYoutubeVideoCount MpvDefault
 hi default link MpvYoutubePlaylistVideo MpvDefault
 
 hi default link MpvPlaylistSign SignColumn
-hi default link MpvPlaylistSign SignColumn

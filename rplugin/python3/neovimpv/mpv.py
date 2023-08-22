@@ -6,6 +6,7 @@ import logging
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
@@ -51,6 +52,9 @@ class MpvInstance:
 
         self.id = -1
         self.playlist_ids = []
+
+        self.static_playlists = {}
+        self._last_mpv_playlist_id = -1
 
         lines_with_links = self._construct_playlist(line_range, filenames, unmarkdown)
         if not self.playlist_items:
@@ -193,12 +197,14 @@ class MpvInstance:
             # default event handling
             protocol.add_event("error", lambda _, err: self._show_error(err))
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
-            protocol.add_event("file-loaded", lambda _, __: self.preamble())
+            protocol.add_event("start-file", lambda _, data: self._remember_playlist_id(data))
+            protocol.add_event("file-loaded", lambda _, data: self._preamble(data))
             protocol.add_event("close", lambda _, __: self.close())
             protocol.add_event(
                 "property-change",
                 lambda _, __: self.plugin.nvim.async_call(self._draw_update)
             )
+            protocol.add_event("got-playlist", lambda _, data: self._update_static_playlist(data))
 
             # ALWAYS observe this so we can toggle pause
             protocol.observe_property("pause")
@@ -231,23 +237,28 @@ class MpvInstance:
         if arg.get("reason") == "error" and (error := arg.get("file_error")):
             self.plugin.show_error(f"File ended: {error}")
 
-    def preamble(self):
+    def _remember_playlist_id(self, data):
+        '''Remember the last playlist_entry_id for when the file gets loaded'''
+        self._last_mpv_playlist_id = data.get("playlist_entry_id", 0)
+
+    def _preamble(self, data):
         '''
         Update state after new file loaded.
         Move the player to new playlist item and suspend drawing until complete.
         '''
         self.no_draw = True
-        current = self.protocol.data.get("playlist-pos")
-        if current is None:
+        override_markdown = False
+        current = self._last_mpv_playlist_id - 1
+        if (redirect := self.static_playlists.get(current)) is not None:
+            current = redirect
+            override_markdown = True
+        elif current >= len(self.playlist_items) or current < 0:
             self.plugin.show_error("Playlist transition failed!")
-            return
-        # TODO: mpv playlist changes not reflected in buffer
-        if current >= len(self.playlist_items):
-            self.plugin.show_error("Item induced larger playlist!")
             self.no_draw = False
             return
 
         link, write_markdown = self.playlist_items[current]
+        write_markdown |= override_markdown
         self.plugin.nvim.async_call(
             self.move_player_extmark,
             self.playlist_ids[current]
@@ -255,6 +266,17 @@ class MpvInstance:
 
         if write_markdown:
             self.plugin.nvim.loop.create_task(self.update_markdown(link, self.playlist_ids[current]))
+
+    def _update_static_playlist(self, data):
+        '''
+        Update state after playlist loaded.
+        The playlist retrieved from MpvProtocol is raw, so we need to do a bit of extra processing.
+        '''
+        item_entry = data["new"]["playlist_entry_id"] # the mpv video id which triggered the new playlist
+        start = data["new"]["playlist_insert_id"]
+        end = start + data["new"]["playlist_insert_num_entries"]
+        for i in range(start, end):
+            self.static_playlists[i - 1] = item_entry - 1
 
     def close(self):
         '''Defer to the plugin to remove the extmark'''
