@@ -57,7 +57,6 @@ function s:yank_youtube_link(event)
   endif
 
   let current = b:selection[line(".") - 1]
-  echo current
   call setreg(a:event["regname"], current["link"])
 endfunction
 

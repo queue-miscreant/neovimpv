@@ -44,6 +44,7 @@ class Neovimpv:
         # options
         self.formatter = Formatter(nvim)
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
+        self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
         MpvInstance.setDefaultArgs(nvim.api.get_var("mpv_default_args"))
 
         # setup temp dir
@@ -211,6 +212,5 @@ class Neovimpv:
         del self._mpv_instances[(instance.buffer.number, instance.id)]
         self.nvim.lua.neovimpv.remove_player(
             instance.buffer.number,
-            instance.id,
-            instance.playlist_ids
+            instance.id
         )

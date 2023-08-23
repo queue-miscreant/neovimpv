@@ -1,3 +1,7 @@
+if !has("nvim")
+  echo "Plugin not supported outside of nvim"
+  finish
+endif
 " Formatting variables
 " These ones are settable from vimrc and have no special interpretation
 let g:mpv_loading = get(g:, "mpv_loading", "[ ... ]")
@@ -13,8 +17,18 @@ call add(g:mpv_markdown_writable, "youtube_playlist")
 " Default arguments for mpv instances
 let g:mpv_default_args = get(g:, "mpv_default_args", [])
 
+" When to show playlist extmarks in the sign column
 " Possible values: "always", "multiple", "never"
 let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multiple")
+
+" Controls how playlist updates from mpv can affect changes in the buffer
+" Possible values: "stay", "paste", "paste_one", "new_one"
+" Default is "stay": keep the player in the position of the playlist item
+" "paste": insert the new playlist in place of the playlist
+" "paste_one": like "paste" if the playlist is the only item in the list,
+"              otherwise like "stay"
+" "new_one": like "paste_one", but the playlist is put into a new buffer
+let g:mpv_on_playlist_update = get(g:, "mpv_on_playlist_update", "stay")
 
 " do lua setup
 lua require('neovimpv')
