@@ -309,35 +309,28 @@ local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
     buffer=buffer,
     playlist=save_extmarks
   }
+
   -- how many levels of indirection is this?
-  vim.call("timer_start", 0, "neovimpv#after_playlist_paste")
+  vim.defer_fn(function()
+    for i = 1, #save_extmarks do
+      local playlist_item = save_extmarks[i]
+      -- Set the extmarks in the same manner as create_player
+      vim.api.nvim_buf_set_extmark(
+        buffer,
+        PLAYLIST_NAMESPACE,
+        playlist_item[1],
+        0,
+        {
+          id=playlist_item[2],
+          sign_text="|",
+          sign_hl_group="MpvPlaylistSign"
+        }
+      )
+    end
+  end, 0)
 
   -- only return extmark ids
   return vim.tbl_map(function(i) return i[2] end, save_extmarks)
-end
-
--- Move playlist extmarks in main loop.
--- Written here for proximity and similarity to other extmark functions
-function move_extmarks_after_playlist_paste()
-  if last_pasted_playlist == nil then return end
-
-  for i = 1, #last_pasted_playlist.playlist do
-    local playlist_item = last_pasted_playlist.playlist[i]
-    -- Set the extmarks in the same manner as create_player
-    vim.api.nvim_buf_set_extmark(
-      last_pasted_playlist.buffer,
-      PLAYLIST_NAMESPACE,
-      playlist_item[1],
-      0,
-      {
-        id=playlist_item[2],
-        sign_text="|",
-        sign_hl_group="MpvPlaylistSign"
-      }
-    )
-  end
-
-  last_pasted_playlist = nil
 end
 
 -- TODO: user chooses open in split, open in vert split, open in new tab
@@ -363,7 +356,6 @@ neovimpv = {
   write_line_of_playlist_item=write_line_of_playlist_item,
 
   paste_playlist=paste_playlist,
-  move_extmarks_after_playlist_paste=move_extmarks_after_playlist_paste,
   new_playlist_buffer=new_playlist_buffer,
 
   open_select_split=open_select_split,

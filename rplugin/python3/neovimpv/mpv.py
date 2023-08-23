@@ -244,7 +244,6 @@ class MpvInstance:
 
     def _remember_playlist_id(self, data):
         '''Remember the last playlist_entry_id for when the file gets loaded'''
-        log.debug(data)
         self._last_mpv_playlist_id = data.get("playlist_entry_id", -1)
 
     def _preamble(self, data):
@@ -305,7 +304,6 @@ class MpvInstance:
             )
 
     def _paste_playlist(self, new_playlist, current):
-        # TODO: response: extmark ids
         new_extmarks = self.plugin.nvim.lua.neovimpv.paste_playlist(
             self.buffer.number,
             self.id,
@@ -345,5 +343,4 @@ class MpvInstance:
     def close(self):
         '''Defer to the plugin to remove the extmark'''
         self.protocol.send_command("quit") # just in case
-        log.debug("HERE")
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)

@@ -184,7 +184,3 @@ endfunction
 function neovimpv#bind_autocmd()
   autocmd TextChanged <buffer> call s:undo_for_change_count()
 endfunction
-
-function neovimpv#after_playlist_paste(...)
-  lua neovimpv.move_extmarks_after_playlist_paste()
-endfunction
