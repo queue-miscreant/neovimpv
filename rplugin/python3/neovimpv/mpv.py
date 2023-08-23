@@ -94,7 +94,7 @@ class MpvInstance:
     def _init_extmarks(self, lines):
         '''Create extmarks for displaying data from the mpv instance'''
         self.id, playlist_ids = self.plugin.nvim.lua.neovimpv.create_player(
-            self.buffer.number,
+            self.buffer,
             [i[0] for i in lines] # only the line number, not the link
         )
         # initial mpv ids are 1-indexed, but match the playlist
@@ -132,7 +132,7 @@ class MpvInstance:
             self.no_draw = True
 
         self.plugin.nvim.lua.neovimpv.update_extmark(
-            self.buffer.number,
+            self.buffer,
             self.id,
             display
         )
@@ -174,7 +174,7 @@ class MpvInstance:
 
         self.plugin.nvim.async_call(
             lambda x, y, z: self.plugin.nvim.lua.neovimpv.write_line_of_playlist_item(x,y,z),
-            self.buffer.number,
+            self.buffer,
             playlist_id,
             f"[{media_title.replace('[', '(').replace(']',')')}]({link})"
         )
@@ -287,7 +287,6 @@ class MpvInstance:
 
         # TODO: it might be necessary to add a condition variable when we're waiting for a playlist
         if do_stay:
-        # if False:
             for i in range(start, end):
                 self.static_playlists[i] = item_entry
         elif self.plugin.on_playlist_update in ("paste", "paste_one") :
@@ -305,7 +304,7 @@ class MpvInstance:
 
     def _paste_playlist(self, new_playlist, current):
         new_extmarks = self.plugin.nvim.lua.neovimpv.paste_playlist(
-            self.buffer.number,
+            self.buffer,
             self.id,
             current,
             # TODO: markdown
@@ -321,9 +320,8 @@ class MpvInstance:
             self.mpv_id_to_extra_data[mpv["id"]] = (mpv["filename"], False)
 
     def _new_playlist_buffer(self, new_playlist, current):
-        #TODO: response: extmark ids
-        new_extmarks, new_buffer_id = self.plugin.nvim.lua.neovimpv.new_playlist_buffer(
-            self.buffer.number,
+        new_buffer_id, new_display, new_extmarks = self.plugin.nvim.lua.neovimpv.new_playlist_buffer(
+            self.buffer,
             self.id,
             current,
             # TODO: markdown
@@ -333,7 +331,9 @@ class MpvInstance:
             ]
         )
 
-        # self.plugin.set_new_buffer(self, new_buffer_id)
+        self.plugin.set_new_buffer(self, new_buffer_id, new_display)
+        self.mpv_id_to_extmark_id.clear()
+        self.mpv_id_to_extra_data.clear()
 
         # bind the new extmarks to their mpv ids
         for mpv, extmark_id in zip(new_playlist, new_extmarks):

@@ -70,14 +70,14 @@ class Neovimpv:
 
         target = MpvInstance(
             self,
-            self.nvim.current.buffer,
+            self.nvim.current.buffer.number,
             range(start, end + 1),
             lines,
             args,
             current_filetype in self.do_markdowns
         )
         if target is not None:
-            self._mpv_instances[(target.buffer.number, target.id)] = target
+            self._mpv_instances[(target.buffer, target.id)] = target
 
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
@@ -209,8 +209,17 @@ class Neovimpv:
         Delete an MpvInstance and its extmark. This is invoked by default when
         the file is closed.
         '''
-        del self._mpv_instances[(instance.buffer.number, instance.id)]
+        del self._mpv_instances[(instance.buffer, instance.id)]
         self.nvim.lua.neovimpv.remove_player(
-            instance.buffer.number,
+            instance.buffer,
             instance.id
         )
+
+    def set_new_buffer(self, instance, new_buffer, new_display):
+        '''
+        Updates the global record of an mpv instance's buffer and display extmark
+        '''
+        del self._mpv_instances[(instance.buffer, instance.id)]
+        instance.buffer = new_buffer
+        instance.id = new_display
+        self._mpv_instances[(new_buffer, new_display)] = instance

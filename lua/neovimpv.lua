@@ -101,7 +101,7 @@ end
 -- From a list of `lines` in a `buffer`, create extmarks for a player (displays
 -- current playback state) and a playlist (list of lines to play next)
 -- Note: lines is 1-indexed like line numbers in vim.
-local function create_player(buffer, lines)
+local function create_player(buffer, lines, no_playlist)
   local player = vim.api.nvim_buf_set_extmark(
       buffer,
       DISPLAY_NAMESPACE,
@@ -112,6 +112,11 @@ local function create_player(buffer, lines)
           virt_text_pos="eol",
       }
   )
+
+  if no_playlist then
+    return player
+  end
+
   local playlist_ids = create_playlist(
       buffer,
       lines,
@@ -177,6 +182,11 @@ local function remove_player(buffer, display_id)
       )
     end
   end)
+end
+
+local function get_new_player(buffer, display_id, new_buffer, new_lines)
+  remove_player(buffer, display_id)
+  return create_player(new_buffer, new_lines, true)
 end
 
 -- Set the contents of the line of a playlist item with id `playist_id` in a `buffer` to `content`
@@ -275,7 +285,6 @@ local function open_playlist_results(playlist, extra)
   vim.cmd("%MpvOpen " .. extra)
 end
 
-local last_pasted_playlist = nil
 -- paste in whole playlist "on top" of an old playlist item
 local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
   -- get the old location of the playlist item
@@ -305,11 +314,6 @@ local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
     )
   end
 
-  last_pasted_playlist = {
-    buffer=buffer,
-    playlist=save_extmarks
-  }
-
   -- how many levels of indirection is this?
   vim.defer_fn(function()
     for i = 1, #save_extmarks do
@@ -334,8 +338,68 @@ local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
 end
 
 -- TODO: user chooses open in split, open in vert split, open in new tab
-local function new_playlist_buffer(buffer, player, old_playlist_id, new_playlist)
-  vim.print("TODO")
+local function new_playlist_buffer(buffer, display_id, old_playlist_id, new_playlist)
+  -- open split to an empty scratch
+  -- TODO: user-configurable
+  vim.cmd("bel split")
+  local win = vim.api.nvim_get_current_win()
+  local buf = vim.api.nvim_create_buf(true, true)
+  vim.api.nvim_win_set_buf(win, buf)
+
+  -- set buffer content
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_playlist)
+
+  -- set options for new buffer/window
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(
+    buf,
+    "filetype",
+    vim.api.nvim_buf_get_option(buffer, "filetype")
+  )
+
+  local save_extmarks = {}
+  vim.api.nvim_buf_call(buf, function()
+    vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+    for i = 1, #new_playlist do
+      -- And create a playlist extmark for it
+      -- Need to be back in main loop for the actual line numbers
+      local extmark_id = vim.api.nvim_buf_set_extmark(
+        buf,
+        PLAYLIST_NAMESPACE,
+        0,
+        0,
+        {}
+      )
+
+      save_extmarks[i] = extmark_id
+      vim.cmd(
+        "let b:mpv_playlists_to_displays" ..
+        "[" .. tostring(extmark_id) .. "] = " ..
+        tostring(display_id)
+      )
+    end
+  end)
+
+  local new_id = get_new_player(buffer, display_id, buf, {1, -1})
+  vim.defer_fn(function()
+    for i = 1, #save_extmarks do
+      local extmark_id = save_extmarks[i]
+      -- Set the extmarks in the same manner as create_player
+      vim.api.nvim_buf_set_extmark(
+        buf,
+        PLAYLIST_NAMESPACE,
+        i - 1,
+        0,
+        {
+          id=extmark_id,
+          sign_text="|",
+          sign_hl_group="MpvPlaylistSign"
+        }
+      )
+    end
+  end, 0)
+
+  return {buf, new_id, save_extmarks}
 end
 
 -- Link default highlights from names in `froms` to the highlight `to`
@@ -354,6 +418,7 @@ neovimpv = {
   move_player=move_player,
   remove_player=remove_player,
   write_line_of_playlist_item=write_line_of_playlist_item,
+  -- get_new_player=get_new_player,
 
   paste_playlist=paste_playlist,
   new_playlist_buffer=new_playlist_buffer,
