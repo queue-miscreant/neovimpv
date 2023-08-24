@@ -36,7 +36,7 @@ function get_player_by_line(buffer, start, end_)
       {end_ - 1, -1},
       {}
     )[1]
-    
+
     if playlist_item == nil or dict == nil then
       return
     end
@@ -127,13 +127,19 @@ local function create_player(buffer, lines, no_playlist)
 end
 
 -- Move a player with id `display_id` to the same line as the playlist item with
--- id `playlist_id`
+-- id `playlist_id`. Also handles resetting the previous playlist extmark's virtual lines
 local function move_player(buffer, display_id, new_playlist_id, new_text)
   -- get the destination line
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
     PLAYLIST_NAMESPACE,
     new_playlist_id,
+    {}
+  )
+  local loc_display = vim.api.nvim_buf_get_extmark_by_id(
+    buffer,
+    DISPLAY_NAMESPACE,
+    display_id,
     {}
   )
   -- return false if no extmark exists
@@ -151,6 +157,29 @@ local function move_player(buffer, display_id, new_playlist_id, new_text)
       virt_text_pos=eol,
     }
   )
+
+  local old_playlist_item = vim.api.nvim_buf_get_extmarks(
+    buffer,
+    PLAYLIST_NAMESPACE,
+    {loc_display[1], 0},
+    {loc_display[1], -1},
+    {}
+  )[1]
+  -- reset playlist extmark
+  if old_playlist_item ~= nil then
+    vim.api.nvim_buf_set_extmark(
+      buffer,
+      PLAYLIST_NAMESPACE,
+      loc_display[1],
+      0,
+      {
+        id=old_playlist_item[1],
+        sign_text="|",
+        sign_hl_group="MpvPlaylistSign",
+        virt_lines={},
+      }
+    )
+  end
   return true
 end
 
@@ -283,6 +312,30 @@ local function open_playlist_results(playlist, extra)
   vim.api.nvim_buf_set_option(buf, "filetype", "youtube_playlist")
 
   vim.cmd("%MpvOpen " .. extra)
+end
+
+-- Update a playlist extmark to also show the currently playing item
+local function show_current_playlist(buffer, playlist_item, virt_text)
+  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, PLAYLIST_NAMESPACE, playlist_item, {})
+  if loc ~= nil then
+    pcall(function()
+      vim.api.nvim_buf_set_extmark(
+        buffer,
+        PLAYLIST_NAMESPACE,
+        loc[1],
+        loc[2],
+        {
+          id=playlist_item,
+          virt_lines={{
+            {"Currently playing: ", "MpvDefault"},
+            {virt_text, "MpvTitle"}
+          }},
+          sign_text="|",
+          sign_hl_group="MpvPlaylistSign"
+        }
+      )
+    end)
+  end
 end
 
 -- paste in whole playlist "on top" of an old playlist item
@@ -424,6 +477,7 @@ neovimpv = {
   write_line_of_playlist_item=write_line_of_playlist_item,
   -- get_new_player=get_new_player,
 
+  show_current_playlist=show_current_playlist,
   paste_playlist=paste_playlist,
   new_playlist_buffer=new_playlist_buffer,
 

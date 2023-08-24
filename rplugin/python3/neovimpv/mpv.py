@@ -116,6 +116,21 @@ class MpvInstance:
             self.plugin.show_error(f"Could not move the player (current file: {filename})")
         self.no_draw = False
 
+    def update_current_playlist(self, current, redirect):
+        '''Invoke the Lua callback for updating the currently playing text'''
+        playlist = self.protocol.data.get("playlist", [])
+        current_title = next(
+            (item.get("title") for item in playlist if item.get("id") == current),
+            None
+        )
+
+        playlist_item = self.mpv_id_to_extmark_id.get(redirect)
+        self.plugin.nvim.lua.neovimpv.show_current_playlist(
+            self.buffer,
+            playlist_item,
+            current_title
+        )
+
     def _draw_update(self):
         '''Rerender the extmark that this mpv instance corresponds to'''
         if self.no_draw:
@@ -144,6 +159,10 @@ class MpvInstance:
     def forward_deletions(self, removed_items):
         '''Forward deletions to mpv'''
         mpv_ids = [i for i,j in self.mpv_id_to_extmark_id.items() if j in removed_items]
+        # reverse-lookup for remapped extmarks
+        static_deletions = [j for i in removed_items for j, k in self.static_playlists.items() if k == i]
+        mpv_ids += static_deletions
+        # get deleted indexes
         removed_indices = [index
             for index, item in enumerate(self.protocol.data.get("playlist", []))
             if item["id"] in mpv_ids
@@ -243,19 +262,17 @@ class MpvInstance:
         Move the player to new playlist item and suspend drawing until complete.
         '''
         self.no_draw = True
-        override_markdown = False
         current = self._last_mpv_playlist_id
         if (redirect := self.static_playlists.get(current)) is not None:
-            current = redirect
-            # TODO: only write name of playlist
-            override_markdown = True
+            self.plugin.nvim.async_call(self.update_current_playlist, current, redirect)
+            self.no_draw = False
+            return
         elif current not in self.mpv_id_to_extmark_id:
             self.plugin.show_error("Playlist transition failed!")
             self.no_draw = False
             return
 
         link, write_markdown = self.mpv_id_to_extra_data[current]
-        write_markdown |= override_markdown
         self.plugin.nvim.async_call(self.move_player_extmark, current)
 
         if write_markdown:

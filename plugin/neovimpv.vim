@@ -23,9 +23,8 @@ let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multip
 
 " Controls how playlist updates from mpv can affect changes in the buffer
 " Possible values: "stay", "paste", "paste_one", "new_one"
-"       TODO: stay keeps the player default and uses extmarks to show current
-"       video
-" Default is "stay": keep the player in the position of the playlist item
+" Default is "stay": keep the player in the position of the playlist item and
+" renders currently playing in extmark
 " "paste": insert the new playlist in place of the playlist
 " "paste_one": like "paste" if the playlist is the only item in the list,
 "              otherwise like "stay"
@@ -41,13 +40,14 @@ nnoremap <silent> <Plug>(mpv_goto_earlier) :<c-u>call neovimpv#goto_relative_mpv
 nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1)<cr>
 nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt()<cr>
 
-let g:mpv_defaulted_highlights = ["MpvPauseTrue", "MpvPauseFalse", "MpvPlaybackTime", "MpvDuration"]
+let g:mpv_defaulted_highlights = ["MpvPauseTrue", "MpvPauseFalse", "MpvPlaybackTime", "MpvDuration", "MpvTitle"]
 hi default link MpvDefault LineNr
 
 hi default link MpvPauseTrue Conceal
 hi default link MpvPauseFalse Title
 hi default link MpvPlaybackTime Conceal
 hi default link MpvDuration Conceal
+hi default link MpvTitle MpvDefault
 
 hi default link MpvYoutubeLength MpvDefault
 hi default link MpvYoutubeChannelName MpvDefault
