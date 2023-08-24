@@ -23,6 +23,8 @@ let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multip
 
 " Controls how playlist updates from mpv can affect changes in the buffer
 " Possible values: "stay", "paste", "paste_one", "new_one"
+"       TODO: stay keeps the player default and uses extmarks to show current
+"       video
 " Default is "stay": keep the player in the position of the playlist item
 " "paste": insert the new playlist in place of the playlist
 " "paste_one": like "paste" if the playlist is the only item in the list,

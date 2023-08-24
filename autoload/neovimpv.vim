@@ -138,8 +138,8 @@ endfunction
 " which were deleted, then forward the changes to Python
 function neovimpv#buffer_change_callback(...)
   if s:old_extmark != []
-    let new_playlists = s:get_updated_mpv_playlist(s:old_extmark)
-    call MpvUpdatePlaylists(new_playlists)
+    let new_playlists = s:get_players_with_deletions(s:old_extmark)
+    call MpvForwardDeletions(new_playlists)
     let s:old_extmark = []
   endif
 endfunction
@@ -147,11 +147,11 @@ endfunction
 " Remove playlist items in `removed_playlist` and clean up the map to the player.
 " Along the way, create a reverse mapping consisting whose keys are player ids and
 " whose values are playlist ids that survived the change.
-function s:get_updated_mpv_playlist(removed_playlist)
+function s:get_players_with_deletions(removed_playlist)
   let removed_ids = map(a:removed_playlist, { _, x -> x[0] })
 
   let altered_players = []
-  let old_playlists = {}
+  let removed_items = {}
   for [playlist_item, player] in items(b:mpv_playlists_to_displays)
     let playlist_item = str2nr(playlist_item)
     if index(removed_ids, playlist_item) >= 0
@@ -162,25 +162,19 @@ function s:get_updated_mpv_playlist(removed_playlist)
             \ playlist_item
             \ )
       call add(altered_players, player)
-    else
-      if get(old_playlists, player, []) == []
-        let old_playlists[player] = []
+      if get(removed_items, player, []) == []
+        let removed_items[player] = []
       endif
-      call add(old_playlists[player], playlist_item)
+      call add(removed_items[player], playlist_item)
+    else
     endif
   endfor
 
-  let new_playlists = {}
-  for [player, playlist_items] in items(old_playlists)
-    if index(altered_players, str2nr(player)) >= 0
-      let new_playlists[player] = playlist_items
-    endif
-  endfor
-
-  return new_playlists
+  return removed_items
 endfunction
 
 " TODO remove autocmd when last player exits?
+" TODO use lua callback instead
 function neovimpv#bind_autocmd()
   autocmd TextChanged <buffer> call s:undo_for_change_count()
 endfunction

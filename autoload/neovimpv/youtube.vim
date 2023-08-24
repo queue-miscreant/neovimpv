@@ -6,10 +6,10 @@ function s:try_insert(value)
 
   let targetrow = row
   if append_line
-    let targetrow += 1
+    call append(targetrow, a:value)
+  else
+    call setline(targetrow, a:value)
   endif
-
-  call setline(targetrow, a:value)
 
   return append_line
 endfunction

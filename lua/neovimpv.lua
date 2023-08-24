@@ -138,7 +138,7 @@ local function move_player(buffer, display_id, new_playlist_id, new_text)
   )
   -- return false if no extmark exists
   if #loc == 0 then return false end
-  local new_extmark_text = new_text == vim.NIL and vim.g["mpv_loading"] or new_text
+  local new_extmark_text = (new_text == vim.NIL or new_text == nil) and vim.g["mpv_loading"] or new_text
   -- set the player to that line
   vim.api.nvim_buf_set_extmark(
     buffer,
@@ -286,7 +286,7 @@ local function open_playlist_results(playlist, extra)
 end
 
 -- paste in whole playlist "on top" of an old playlist item
-local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
+local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist, currently_playing_index)
   -- get the old location of the playlist item
   local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, PLAYLIST_NAMESPACE, old_playlist_id, {})
 
@@ -330,6 +330,10 @@ local function paste_playlist(buffer, display_id, old_playlist_id, new_playlist)
           sign_hl_group="MpvPlaylistSign"
         }
       )
+      -- move the player just in case
+      if i == currently_playing_index then
+        move_player(buffer, display_id, playlist_item[2])
+      end
     end
   end, 0)
 

@@ -221,6 +221,7 @@ class MpvProtocol(asyncio.Protocol):
             for i in ["playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries"] }
         self.get_property(f"playlist", request_id=self._playlist_request)
         self._last_property += 1
+        self._try_handle_event("pre-got-playlist", {})
 
 async def create_mpv(mpv_args, ipc_path, read_timeout=1, loop=None):
     '''

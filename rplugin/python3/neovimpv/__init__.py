@@ -146,18 +146,18 @@ class Neovimpv:
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
-    @pynvim.function("MpvUpdatePlaylists", sync=True)
-    def mpv_update_playlists(self, args):
+    @pynvim.function("MpvForwardDeletions", sync=True)
+    def mpv_forward_deletions(self, args):
         '''Receive updated playlist extmark positions from nvim'''
         if len(args) == 1:
             updated_playlists, = args
         else:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
-        for player, playlist_items in updated_playlists.items():
+        for player, removed_items in updated_playlists.items():
             mpv_instance = self._mpv_instances.get((self.nvim.current.buffer.number, int(player)))
             if mpv_instance is not None:
-                self.nvim.loop.call_soon(mpv_instance.update_playlist, playlist_items)
+                self.nvim.loop.call_soon(mpv_instance.forward_deletions, removed_items)
 
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):
