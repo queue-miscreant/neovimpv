@@ -10,13 +10,16 @@ local PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
 
 
 -- Get all player ids in the display namespace, which should correspond to Python MpvInstances
-function get_players_in_buffer(buffer)
-  extmark_ids = vim.api.nvim_buf_get_extmarks(
+local function get_players_in_buffer(buffer)
+  local has_playlists = vim.api.nvim_buf_call(
     buffer,
-    DISPLAY_NAMESPACE,
-    0,
-    -1,
-    {}
+    function() return vim.b["mpv_playlists_to_displays"] end
+  )
+  if not has_playlists then return {} end
+
+  return vim.tbl_map(
+    function(x) return x[1] end, -- extmark id only
+    vim.api.nvim_buf_get_extmarks(buffer, DISPLAY_NAMESPACE, 0, -1, {})
   )
 end
 
@@ -163,10 +166,10 @@ local function move_player(buffer, display_id, new_playlist_id, new_text)
     PLAYLIST_NAMESPACE,
     {loc_display[1], 0},
     {loc_display[1], -1},
-    {}
+    { details=true }
   )[1]
   -- reset playlist extmark
-  if old_playlist_item ~= nil then
+  if old_playlist_item ~= nil and old_playlist_item[4].virt_lines ~= nil then
     vim.api.nvim_buf_set_extmark(
       buffer,
       PLAYLIST_NAMESPACE,
@@ -396,8 +399,14 @@ end
 
 -- TODO: user chooses open in split, open in vert split, open in new tab
 local function new_playlist_buffer(buffer, display_id, old_playlist_id, new_playlist)
+  -- free up the old playlist map
+  vim.api.nvim_buf_call(buffer, function()
+    vim.cmd(
+      "unlet b:mpv_playlists_to_displays" ..
+      "[" .. tostring(old_playlist_id) .. "]"
+    )
+  end)
   -- open split to an empty scratch
-  -- TODO: user-configurable
   vim.cmd("bel split")
   local win = vim.api.nvim_get_current_win()
   local buf = vim.api.nvim_create_buf(true, true)

@@ -311,6 +311,23 @@ The default value is `"multiple"`.
 | `"multiple"` | Signs will not be drawn if there is only one playlist item.
 | `"never"`    | Signs will never be drawn.
 
+
+### `g:mpv_on_playlist_update`
+
+String which is either `"stay"`, `"paste"`, `"paste_one"`, or 
+`"new_one"`. Controls what happens when mpv dynamically loads a
+playlist.
+
+The default value is `"stay"`.
+
+| Value         | Description
+|---------------|-----------------------------------------------------
+| `"stay"`      | The playlist "file" will be retained in the buffer and the title of the current file will be drawn in an extmark below.
+| `"paste"`     | The dynamic content is inserted in place of the playlist file. All items in the playlist are queued and displayed in the buffer.
+| `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"paste"` mode.
+| `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer.
+
+
 Highlights
 ----------
 

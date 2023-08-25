@@ -181,10 +181,10 @@ class Neovimpv:
         )
 
     def get_mpvs_in_buffer(self, buffer):
-        '''Show an error to nvim'''
+        '''Get mpv mpv instances that the buffer currently knows about'''
         return [i for i in
             (self._mpv_instances.get((buffer.number, i))
-                for i in self.nvim.lua.get_players_in_buffer(buffer.number))
+                for i in self.nvim.lua.neovimpv.get_players_in_buffer(buffer.number))
             if i
         ]
 

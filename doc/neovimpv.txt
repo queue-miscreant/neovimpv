@@ -262,17 +262,36 @@ g:mpv_property_thresholds                               *g:mpv_property_threshol
         If the list contains two entries, the value is partitioned into "Low",
         "Middle", and "High" instead.
 
-
 g:mpv_draw_playlist_extmarks                            *g:mpv_draw_playlist_extmarks*
 
         String which is either `"always"`, `"multiple"`, or `"never"`.
         Controls whether playlist extmarks are drawn in the sign column.
         The default value is `"multiple"`.
 
-        For "always", signs will be drawn regardless of playlist length.
-        For "multiple", signs will not be drawn if there is only one playlist
+        For `"always"`, signs will be drawn regardless of playlist length.
+        For `"multiple"`, signs will not be drawn if there is only one playlist
         item.
-        For "never", signs will never be drawn.
+        For `"never"`, signs will never be drawn.
+
+g:mpv_on_playlist_update                                *g:mpv_on_playlist_update*
+
+        String which is either `"stay"`, `"paste"`, `"paste_one"`, or 
+        `"new_one"`. Controls what happens when mpv dynamically loads a
+        playlist.
+        The default value is `"stay"`.
+
+        For `"stay"`, the playlist "file" will be retained in the buffer and 
+        the tile of the current file will be drawn in an extmark below.
+        For `"paste"`, the dynamic content is inserted in place of the playlist
+        "file". All items in the playlist are queued and displayed in the
+        buffer.
+        For `"paste_one"`, the plugin behaves in `"paste"` mode when the
+        initial playlist has only one item. Otherwise, it behaves in `"paste"`
+        mode.
+        For `"new_one"`, a single-item playlist will paste the dynamic content
+        in a new split. All content is queued and the player is moved to the
+        new buffer.
+
 
 --------------------------------------------------------------------------------
 HIGHLIGHTS                                              *neovimpv-highlights*
