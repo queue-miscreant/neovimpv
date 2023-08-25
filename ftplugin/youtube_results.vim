@@ -1,7 +1,7 @@
 " check that we have callbacks
 if !exists("b:selection") ||
       \ !exists("b:calling_window") ||
-      \ len(b:selection) == 0
+      \ len(b:selection) ==# 0
   finish
 endif
 
@@ -12,24 +12,47 @@ setlocal nohidden
 " Additional video data as extmarks
 function s:set_youtube_extmark()
   let current = b:selection[line(".") - 1]
-  call nvim_buf_set_extmark(
-        \ 0,
-        \ nvim_create_namespace("Neovimpv-displays"),
-        \ line(".") - 1,
-        \ 0,
-        \ { "id": 1,
-        \   "virt_text": [[current["length"], "MpvYoutubeLength"]],
-        \   "virt_text_pos": "eol",
-        \   "virt_lines": [
-        \     [[current["channel_name"], "MpvYoutubeChannelName"]],
-        \     [[current["views"], "MpvYoutubeViews"]]
-        \   ]
-        \ })
+  if exists("current.video_id")
+    call nvim_buf_set_extmark(
+          \ 0,
+          \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
+          \ line(".") - 1,
+          \ 0,
+          \ { "id": 1,
+          \   "virt_text": [[current["length"], "MpvYoutubeLength"]],
+          \   "virt_text_pos": "eol",
+          \   "virt_lines": [
+          \     [[current["channel_name"], "MpvYoutubeChannelName"]],
+          \     [[current["views"], "MpvYoutubeViews"]]
+          \   ]
+          \ })
+  elseif exists("current.playlist_id")
+    let video_extmarks =
+          \ [[[current["channel_name"], "MpvYoutubeChannelName"]]]
+    for video in current["videos"]
+      call add(video_extmarks, [
+            \ ["  ", "MpvDefault"],
+            \ [video["title"], "MpvYoutubePlaylistVideo"],
+            \ [" ", "MpvDefault"],
+            \ [video["length"], "MpvYoutubeLength"]
+            \ ])
+    endfor
+    call nvim_buf_set_extmark(
+          \ 0,
+          \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
+          \ line(".") - 1,
+          \ 0,
+          \ { "id": 1,
+          \   "virt_text": [[current["video_count"] . " videos", "MpvYoutubeVideoCount"]],
+          \   "virt_text_pos": "eol",
+          \   "virt_lines": video_extmarks
+          \ })
+  endif
 endfunction
 
 " Replace yank contents with URL
 function s:yank_youtube_link(event)
-  if !( len(a:event["regcontents"]) == 1 && a:event["operator"] == "y" )
+  if !( len(a:event["regcontents"]) ==# 1 && a:event["operator"] ==# "y" )
     return
   endif
 

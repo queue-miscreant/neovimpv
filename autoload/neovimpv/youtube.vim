@@ -6,10 +6,10 @@ function s:try_insert(value)
 
   let targetrow = row
   if append_line
-    let targetrow += 1
+    call append(targetrow, a:value)
+  else
+    call setline(targetrow, a:value)
   endif
-
-  call setline(targetrow, a:value)
 
   return append_line
 endfunction
@@ -23,6 +23,11 @@ function neovimpv#youtube#callback(extra)
   " Close the youtube buffer and return the calling window
   quit
   call win_gotoid(window)
+
+  if exists("current.playlist_id")
+    call MpvOpenYoutubePlaylist(current, a:extra)
+    return
+  endif
 
   let insert_link = current["link"]
   if index(g:mpv_markdown_writable, &l:filetype) >= 0
@@ -39,6 +44,11 @@ endfunction
 " Opens the thumbnail of result under the cursor in the system viewer.
 function neovimpv#youtube#open_thumbnail()
   let current = b:selection[line(".") - 1]
+
+  if !exists("current.thumbnail")
+    return
+  endif
+
   call system(
         \ 'read -r url; ' .
         \ 'temp=`mktemp`; ' .

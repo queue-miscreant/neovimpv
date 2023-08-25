@@ -8,7 +8,7 @@ import os.path
 import pynvim
 from neovimpv.format import Formatter
 from neovimpv.mpv import MpvInstance
-from neovimpv.youtube import open_mpv_buffer, WARN_LXML
+from neovimpv.youtube import open_results_buffer, open_playlist_results, WARN_LXML
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class Neovimpv:
         # options
         self.formatter = Formatter(nvim)
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
+        self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
         MpvInstance.setDefaultArgs(nvim.api.get_var("mpv_default_args"))
 
         # setup temp dir
@@ -69,14 +70,14 @@ class Neovimpv:
 
         target = MpvInstance(
             self,
-            self.nvim.current.buffer,
-            range(start, end + 1),
+            self.nvim.current.buffer.number,
             lines,
+            range(start, end + 1),
             args,
             current_filetype in self.do_markdowns
         )
         if target is not None:
-            self._mpv_instances[(target.buffer.number, target.id)] = target
+            self._mpv_instances[(target.buffer, target.id)] = target
 
     @pynvim.command("MpvPause", nargs="?", range="")
     def pause_mpv(self, args, range):
@@ -120,11 +121,13 @@ class Neovimpv:
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", range="")
     def mpv_youtube_search(self, args, range):
+        if len(args) != 1:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
         if WARN_LXML:
             self.show_error("Python module lxml not detected. Cannot open YouTube results.")
             return
         self.nvim.loop.create_task(
-            open_mpv_buffer(self.nvim, args[0])
+            open_results_buffer(self.nvim, args[0])
         )
 
     @pynvim.function("MpvSendNvimKeys", sync=True)
@@ -143,18 +146,35 @@ class Neovimpv:
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
-    @pynvim.function("MpvUpdatePlaylists", sync=True)
-    def mpv_update_playlists(self, args):
+    @pynvim.function("MpvForwardDeletions", sync=True)
+    def mpv_forward_deletions(self, args):
         '''Receive updated playlist extmark positions from nvim'''
         if len(args) == 1:
             updated_playlists, = args
         else:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
-        for player, playlist_items in updated_playlists.items():
-            mpv_instance = self._mpv_instances.get((self.nvim.current.buffer.number, int(player)))
+        for player, removed_items in updated_playlists.items():
+            mpv_instance = self._mpv_instances.get(
+                (self.nvim.current.buffer.number, int(player))
+            )
             if mpv_instance is not None:
-                self.nvim.loop.call_soon(mpv_instance.update_playlist, playlist_items)
+                self.nvim.loop.call_soon(
+                    mpv_instance.playlist.forward_deletions,
+                    removed_items
+                )
+
+    @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
+    def mpv_open_youtube_playlist(self, args):
+        '''Receive updated playlist extmark positions from nvim'''
+        if len(args) == 2:
+            playlist, extra = args
+        else:
+            raise TypeError(f"Expected 2 argument, got {len(args)}")
+
+        self.nvim.loop.create_task(
+            open_playlist_results(self.nvim, playlist, extra)
+        )
 
     def show_error(self, error):
         '''Show an error to nvim'''
@@ -166,10 +186,10 @@ class Neovimpv:
         )
 
     def get_mpvs_in_buffer(self, buffer):
-        '''Show an error to nvim'''
+        '''Get mpv mpv instances that the buffer currently knows about'''
         return [i for i in
             (self._mpv_instances.get((buffer.number, i))
-                for i in self.nvim.lua.get_players_in_buffer(buffer.number))
+                for i in self.nvim.lua.neovimpv.get_players_in_buffer(buffer.number))
             if i
         ]
 
@@ -194,9 +214,17 @@ class Neovimpv:
         Delete an MpvInstance and its extmark. This is invoked by default when
         the file is closed.
         '''
-        del self._mpv_instances[(instance.buffer.number, instance.id)]
+        del self._mpv_instances[(instance.buffer, instance.id)]
         self.nvim.lua.neovimpv.remove_player(
-            instance.buffer.number,
-            instance.id,
-            instance.playlist_ids
+            instance.buffer,
+            instance.id
         )
+
+    def set_new_buffer(self, instance, new_buffer, new_display):
+        '''
+        Updates the global record of an mpv instance's buffer and display extmark
+        '''
+        del self._mpv_instances[(instance.buffer, instance.id)]
+        instance.buffer = new_buffer
+        instance.id = new_display
+        self._mpv_instances[(new_buffer, new_display)] = instance
