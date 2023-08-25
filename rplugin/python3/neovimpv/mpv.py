@@ -170,6 +170,7 @@ class MpvInstance:
         '''
         self.no_draw = True
         current_mpv_id = self.protocol.last_playlist_entry_id
+        override_markdown = False
         redirected_mpv_id = self.playlist.mpv_id_remap.get(current_mpv_id)
         if redirected_mpv_id is not None:
             self.plugin.nvim.async_call(
@@ -177,8 +178,9 @@ class MpvInstance:
                 current_mpv_id,
                 redirected_mpv_id
             )
-            self.no_draw = False
-            return
+            # use the extmark of this mpv id to move the player
+            current_mpv_id = redirected_mpv_id
+            override_markdown = True
         elif current_mpv_id not in self.playlist.mpv_id_to_extmark_id:
             self.plugin.show_error("Playlist transition failed!")
             log.debug(
@@ -189,10 +191,10 @@ class MpvInstance:
             self.no_draw = False
             return
 
-        filename, write_markdown, _ = self.playlist.mpv_id_to_extra_data[current_mpv_id]
         self.plugin.nvim.async_call(self.playlist.move_player_extmark, current_mpv_id)
 
-        if write_markdown:
+        filename, write_markdown, _ = self.playlist.mpv_id_to_extra_data[current_mpv_id]
+        if write_markdown and not override_markdown:
             self.plugin.nvim.loop.create_task(self.update_markdown(
                 filename,
                 self.playlist.mpv_id_to_extmark_id[current_mpv_id]
@@ -266,9 +268,11 @@ class MpvPlaylist:
         log.debug(
             "Moving player!\n" \
             "playlist_mpv_id: %s\n" \
-            "mpv_id_to_extmark_id: %s",
+            "mpv_id_to_extmark_id: %s\n" \
+            "mpv_id_remap: %s",
             playlist_mpv_id,
-            self.mpv_id_to_extmark_id
+            self.mpv_id_to_extmark_id,
+            self.mpv_id_remap,
         )
         success = self.parent.plugin.nvim.lua.neovimpv.move_player(
             self.parent.buffer,
