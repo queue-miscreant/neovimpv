@@ -71,8 +71,8 @@ class Neovimpv:
         target = MpvInstance(
             self,
             self.nvim.current.buffer.number,
-            range(start, end + 1),
             lines,
+            range(start, end + 1),
             args,
             current_filetype in self.do_markdowns
         )
@@ -155,9 +155,14 @@ class Neovimpv:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
         for player, removed_items in updated_playlists.items():
-            mpv_instance = self._mpv_instances.get((self.nvim.current.buffer.number, int(player)))
+            mpv_instance = self._mpv_instances.get(
+                (self.nvim.current.buffer.number, int(player))
+            )
             if mpv_instance is not None:
-                self.nvim.loop.call_soon(mpv_instance.forward_deletions, removed_items)
+                self.nvim.loop.call_soon(
+                    mpv_instance.playlist.forward_deletions,
+                    removed_items
+                )
 
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):

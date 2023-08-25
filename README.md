@@ -379,3 +379,4 @@ TODOs
 
 - YouTube playlists
 - Improve sending keys
+- Folds?

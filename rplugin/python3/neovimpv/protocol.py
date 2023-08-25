@@ -32,8 +32,10 @@ class MpvProtocol(asyncio.Protocol):
         # playlist support
         self._playlist_request = -1
         self._playlist_new = None
+        self.last_playlist_entry_id = -1
         # default events
         self.add_event("property-change", lambda _, data: self._property_change(data))
+        self.add_event("start-file", lambda _, data: self._remember_playlist_id(data))
         self.add_event("end-file", lambda _, data: self._try_playlist(data))
 
     def _property_id(self, property_name):
@@ -59,7 +61,7 @@ class MpvProtocol(asyncio.Protocol):
         for handler in self._event_handlers.get(event_name, []):
             handler(self, json_data)
         if event_name != "property-change":
-            log.debug(f"Received event '{event_name}': {json_data}")
+            log.debug("Received event %s: %s", event_name, json_data)
 
     def connection_made(self, transport):
         '''Process communication initiated. Save transport and send connected event.'''
@@ -84,7 +86,7 @@ class MpvProtocol(asyncio.Protocol):
             # handle response
             if datum.get("error") not in ("success", None):
                 if consumed_error:
-                    log.debug(f"Ignoring errorful response {datum}")
+                    log.debug("Ignoring errorful response %s", datum)
                     continue
                 # reverse lookup the property name for convenience
                 if (property_name := self._reverse_properties.get(request_id)) is not None:
@@ -96,7 +98,7 @@ class MpvProtocol(asyncio.Protocol):
                 # reverse lookup the property name for convenience
                 property_name = self._reverse_properties[request_id]
                 self.data[property_name] = datum.get("data")
-                log.debug(f"Got property {property_name}: {datum}")
+                log.debug("Got property %s: %s", property_name, datum)
             elif request_id is not None and request_id == self._playlist_request:
                 self._try_handle_event("got-playlist", {
                     "playlist": datum.get("data"),
@@ -110,13 +112,13 @@ class MpvProtocol(asyncio.Protocol):
 
                 if type == self.GET:
                     self.data[property_name] = datum.get("data")
-                    log.debug(f"Got awaited property {property_name}: {datum}")
+                    log.debug("Got awaited property %s: %s", property_name, datum)
                     future.set_result(datum.get("data"))
                 elif type == self.SET:
                     self.data[property_name] = future
-                    log.debug(f"Successfully set {property_name} to {datum}")
+                    log.debug("Successfully set %s to %s", property_name, datum)
             else:
-                log.debug(f"Unknown data received from mpv: {datum}")
+                log.debug("Unknown data received from mpv: %s", datum)
 
     def connection_lost(self, exc):
         '''Process communication closed. Call close event.'''
@@ -124,13 +126,15 @@ class MpvProtocol(asyncio.Protocol):
 
     def send_command(self, *args, request_id=0, ignore_error=False):
         '''Write a command to the socket'''
+        if self.transport.is_closing():
+            return
         command = {
             "command": args,
             "request_id": request_id,
         }
         if ignore_error:
             self._ignore_errors.append(request_id)
-        log.debug(f"Sent command {command}")
+        log.debug("Sent command %s", command)
         self.transport.write((json.dumps(command) + "\n").encode())
 
     def get_property(self, property_name, request_id=None, ignore_error=False):
@@ -211,6 +215,10 @@ class MpvProtocol(asyncio.Protocol):
         data = json_data.get("data")
         if property_name is not None and data is not None:
             self.data[property_name] = data
+
+    def _remember_playlist_id(self, data):
+        '''Remember the last playlist_entry_id for when the file gets loaded'''
+        self.last_playlist_entry_id = data.get("playlist_entry_id", -1)
 
     def _try_playlist(self, json_data):
         '''Handler for file-close events with reason redirect'''

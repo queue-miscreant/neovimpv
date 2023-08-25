@@ -318,7 +318,7 @@ local function open_playlist_results(playlist, extra)
 end
 
 -- Update a playlist extmark to also show the currently playing item
-local function show_current_playlist(buffer, playlist_item, virt_text)
+local function show_playlist_current(buffer, playlist_item, virt_text)
   local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, PLAYLIST_NAMESPACE, playlist_item, {})
   if loc ~= nil then
     pcall(function()
@@ -486,7 +486,7 @@ neovimpv = {
   write_line_of_playlist_item=write_line_of_playlist_item,
   -- get_new_player=get_new_player,
 
-  show_current_playlist=show_current_playlist,
+  show_playlist_current=show_playlist_current,
   paste_playlist=paste_playlist,
   new_playlist_buffer=new_playlist_buffer,
 
