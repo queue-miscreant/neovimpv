@@ -118,6 +118,10 @@ KEYS                                                    *neovimpv-keys*
         decides whether or not to call |:MpvOpen| or report an error. Can be
         used in visual mode to open a playlist.
 
+        The special key specified by |g:mpv_playlist_key| will NOT be sent to
+        mpv, and instead sets the current playlist item to the one on the line
+        of the cursor.
+
         Giving a count beforehand will be acknowledged, with the key repeatedly
         sent to mpv that number of times.
 
@@ -275,12 +279,12 @@ g:mpv_draw_playlist_extmarks                            *g:mpv_draw_playlist_ext
 
 g:mpv_on_playlist_update                                *g:mpv_on_playlist_update*
 
-        String which is either `"stay"`, `"paste"`, `"paste_one"`, or 
+        String which is either `"stay"`, `"paste"`, `"paste_one"`, or
         `"new_one"`. Controls what happens when mpv dynamically loads a
         playlist.
         The default value is `"stay"`.
 
-        For `"stay"`, the playlist "file" will be retained in the buffer and 
+        For `"stay"`, the playlist "file" will be retained in the buffer and
         the tile of the current file will be drawn in an extmark below.
         For `"paste"`, the dynamic content is inserted in place of the playlist
         "file". All items in the playlist are queued and displayed in the
@@ -291,6 +295,14 @@ g:mpv_on_playlist_update                                *g:mpv_on_playlist_updat
         For `"new_one"`, a single-item playlist will paste the dynamic content
         in a new split. All content is queued and the player is moved to the
         new buffer.
+
+g:mpv_playlist_key                                      *g:mpv_playlist_key*
+
+        A special key (stored in a string) which changes the functionality of
+        the omnikey. When waiting for a keypress to send to mpv, if this key
+        is pressed, the key will NOT be sent, and instead scrolls the current
+        mpv item to the one at the row of the cursor.
+        The default value is backslash (i.e., `"\\"`).
 
 
 --------------------------------------------------------------------------------

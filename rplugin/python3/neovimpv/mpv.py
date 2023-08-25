@@ -6,6 +6,7 @@ import logging
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
@@ -353,7 +354,7 @@ class MpvPlaylist:
         # bind the new extmarks to their mpv ids
         for mpv, extmark_id in zip(new_playlist, new_extmarks):
             self.mpv_id_to_extmark_id[mpv["id"]] = extmark_id
-            self.mpv_id_to_extra_data[mpv["id"]] = (mpv["filename"], False)
+            self.mpv_id_to_extra_data[mpv["id"]] = (mpv["filename"], False, use_markdown)
 
     def _new_playlist_buffer(self, new_playlist, playlist_mpv_id):
         '''Create a new buffer and paste the playlist items'''
@@ -436,6 +437,42 @@ class MpvPlaylist:
                 [i for i in data["playlist"] if i["id"] in range(start, end)],
                 self.mpv_id_to_extmark_id.get(original_entry),
             )
+
+    def set_current_by_playlist_extmark(self, playlist_item):
+        '''Set the current file to the mpv file specified by the extmark `playlist_item`'''
+        # try to remap the extmark to the one it came from
+        try_remap = next(
+            (j for i, j in self.mpv_id_remap.items() if j == playlist_item),
+            playlist_item
+        )
+        # then get the mpv id from it
+        mpv_id = next(
+            (i for i,j in self.mpv_id_to_extmark_id.items() if j == playlist_item),
+            None
+        )
+        # then index into the current playlist
+        index = next((index
+            for index, item in enumerate(self.parent.protocol.data.get("playlist", []))
+            if item["id"] == mpv_id
+        ), None)
+
+        log.debug(
+            "Setting current playlist item!\n" \
+            "playlist_item: %s\n" \
+            "try_remap: %s\n" \
+            "mpv_id: %s\n" \
+            "index: %s",
+            playlist_item,
+            try_remap,
+            mpv_id,
+            index,
+        )
+
+        if index is None:
+            self.parent.plugin.show_error("Could not find mpv item!")
+            return
+
+        self.parent.protocol.send_command("playlist-play-index", index)
 
     def forward_deletions(self, removed_items):
         '''Forward deletions to mpv'''

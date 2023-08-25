@@ -50,10 +50,10 @@ function neovimpv.get_player_by_line(buffer, start, end_)
     )[1]
 
     if playlist_item == nil or dict == nil then
-      return
+      return {}
     end
 
-    return dict[tostring(playlist_item[1])]
+    return {dict[tostring(playlist_item[1])], playlist_item[1]}
   end)
 end
 

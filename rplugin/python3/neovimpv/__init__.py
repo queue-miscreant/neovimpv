@@ -17,6 +17,7 @@ KEYPRESS_LOOKUP = {
     "kr": "right",
     "ku": "up",
     "kd": "down",
+    "kb": "bs",
 }
 
 def translate_keypress(key):
@@ -146,6 +147,23 @@ class Neovimpv:
             if (real_key := translate_keypress(key)):
                 self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
 
+    @pynvim.function("MpvSetPlaylist", sync=True)
+    def mpv_set_playlist(self, args):
+        '''Receive updated playlist extmark positions from nvim'''
+        if len(args) == 2:
+            player, playlist_item = args
+        else:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
+
+        mpv_instance = self._mpv_instances.get(
+            (self.nvim.current.buffer.number, int(player))
+        )
+        if mpv_instance is not None:
+            self.nvim.loop.call_soon(
+                mpv_instance.playlist.set_current_by_playlist_extmark,
+                playlist_item
+            )
+
     @pynvim.function("MpvForwardDeletions", sync=True)
     def mpv_forward_deletions(self, args):
         '''Receive updated playlist extmark positions from nvim'''
@@ -198,15 +216,16 @@ class Neovimpv:
         Get the mpv instance on the current line of the buffer, if such an
         instance exists.
         '''
-        player_id = self.nvim.lua.neovimpv.get_player_by_line(
+        try_get_mpv = self.nvim.lua.neovimpv.get_player_by_line(
             buffer.number,
             line
         )
-        if player_id is None:
+        if not try_get_mpv:
             if show_error:
                 self.show_error("No mpv found running on that line")
             return None
 
+        player_id, _ = try_get_mpv
         return self._mpv_instances[(buffer.number, player_id)]
 
     def remove_mpv_instance(self, instance):

@@ -161,8 +161,13 @@ current line. If there is no instance, `g:mpv_omni_open_new_if_empty`
 decides whether or not to call `:MpvOpen` or report an error. Can be
 used in visual mode to open a playlist.
 
+The special key specified by `g:mpv_playlist_key` will NOT be sent to
+mpv, and instead sets the current playlist item to the one on the line
+of the cursor.
+
 Giving a count beforehand will be acknowledged, with the key repeatedly
 sent to mpv that number of times.
+
 
 ### `<Plug>(mpv_youtube_prompt)`
 
@@ -314,7 +319,7 @@ The default value is `"multiple"`.
 
 ### `g:mpv_on_playlist_update`
 
-String which is either `"stay"`, `"paste"`, `"paste_one"`, or 
+String which is either `"stay"`, `"paste"`, `"paste_one"`, or
 `"new_one"`. Controls what happens when mpv dynamically loads a
 playlist.
 
@@ -326,6 +331,17 @@ The default value is `"stay"`.
 | `"paste"`     | The dynamic content is inserted in place of the playlist file. All items in the playlist are queued and displayed in the buffer.
 | `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"paste"` mode.
 | `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer.
+
+
+
+### `g:mpv_playlist_key`
+
+A special key (stored in a string) which changes the functionality of
+the omnikey. When waiting for a keypress to send to mpv, if this key
+is pressed, the key will NOT be sent, and instead scrolls the current
+mpv item to the one at the row of the cursor.
+
+The default value is backslash (i.e., `"\\"`).
 
 
 Highlights

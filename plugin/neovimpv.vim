@@ -24,6 +24,9 @@ let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multip
 " Controls how playlist updates from mpv can affect changes in the buffer
 let g:mpv_on_playlist_update = get(g:, "mpv_on_playlist_update", "stay")
 
+" Key for scrolling a player to a playlist index
+let g:mpv_playlist_key = "\\"
+
 " do lua setup
 lua require('neovimpv')
 

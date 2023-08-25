@@ -1,10 +1,10 @@
 " Omni-function for sending keys to mpv
 function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
-  let playlist_item = luaeval(
+  let try_get_mpv = luaeval(
         \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ")")
 
-  if playlist_item == v:null
+  if try_get_mpv == []
     " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
       execute ":" . a:firstline . "," . a:lastline . "MpvOpen"
@@ -14,6 +14,7 @@ function neovimpv#omnikey(is_visual) range
       echohl None
     endif
   elseif !a:is_visual
+    let [player, playlist_item] = try_get_mpv
     " mpv found, get key to send
     let temp_ns = nvim_create_namespace("")
     let new_extmark = nvim_buf_set_extmark(
@@ -28,7 +29,11 @@ function neovimpv#omnikey(is_visual) range
     redraw
     try
       let temp = getcharstr()
-      call MpvSendNvimKeys(playlist_item, temp, v:count)
+      if temp ==# g:mpv_playlist_key
+        call MpvSetPlaylist(player, playlist_item)
+      else
+        call MpvSendNvimKeys(player, temp, v:count)
+      endif
     finally
       call nvim_buf_del_extmark(0, temp_ns, new_extmark)
     endtry
