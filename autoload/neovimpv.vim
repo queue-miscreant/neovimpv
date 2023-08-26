@@ -8,10 +8,6 @@ function neovimpv#omnikey(is_visual) range
     " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
       execute ":" . a:firstline . "," . a:lastline . "MpvOpen"
-    else
-      echohl ErrorMsg
-      echo "No mpv found running on that line"
-      echohl None
     endif
   elseif !a:is_visual
     let [player, playlist_item] = try_get_mpv

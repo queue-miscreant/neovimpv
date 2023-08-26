@@ -7,8 +7,9 @@ import os.path
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvInstance
-from neovimpv.youtube import open_results_buffer, open_playlist_results, WARN_LXML
+from neovimpv.mpv import MpvInstance, log as mpv_logger
+from neovimpv.protocol import log as protocol_logger
+from neovimpv.youtube import open_results_buffer, open_playlist_results, log as youtube_logger, WARN_LXML
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +59,11 @@ class Neovimpv:
 
         self._mpv_instances = {}
 
-    @pynvim.command("MpvOpen", nargs="*", range="")
+    @pynvim.command(
+        "MpvOpen",
+        nargs="*",
+        range=""
+    )
     def open_in_mpv(self, args, range_):
         '''Open current line as a file in mpv.'''
         start, end = range_
@@ -80,7 +85,12 @@ class Neovimpv:
         if target is not None:
             self._mpv_instances[(target.buffer, target.id)] = target
 
-    @pynvim.command("MpvPause", nargs="?", range="")
+    @pynvim.command(
+        "MpvPause",
+        nargs="?",
+        range="",
+        complete="customlist,neovimpv#mpv_close_pause"
+    )
     def pause_mpv(self, args, range):
         '''Pause/unpause the mpv instance on the current line'''
         if args and args[0] == "all":
@@ -93,7 +103,12 @@ class Neovimpv:
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.toggle_pause()
 
-    @pynvim.command("MpvClose", nargs="?", range="")
+    @pynvim.command(
+        "MpvClose",
+        nargs="?",
+        range="",
+        complete="customlist,neovimpv#mpv_close_pause"
+    )
     def close_mpv(self, args, range):
         '''Close mpv instance on the current line'''
         if args and args[0] == "all":
@@ -106,14 +121,45 @@ class Neovimpv:
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.protocol.send_command("quit")
 
-    @pynvim.command("MpvSetProperty", nargs="+", range="")
+    @pynvim.command(
+        "MpvSetProperty",
+        nargs="+",
+        range="",
+        complete="customlist,neovimpv#complete#mpv_set_property"
+    )
     def mpv_set_property(self, args, range):
         '''Send commands to the mpv instance on the current line'''
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.protocol.set_property(*[try_json(i) for i in args])
 
-    @pynvim.command("MpvSend", nargs="+", range="")
+    @pynvim.command(
+        "MpvGetProperty",
+        nargs="1",
+        range="",
+        complete="customlist,neovimpv#complete#mpv_get_property"
+    )
+    def mpv_get_property(self, args, range):
+        '''Send commands to the mpv instance on the current line'''
+        if len(args) != 1:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
+
+        property_name = args[0]
+        line = range[0]
+        if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)) is None:
+            return
+
+        async def get_property():
+            result = await target.protocol.wait_property(property_name)
+            self.nvim.async_call(self.nvim.api.notify, str(result), 0, {})
+        self.nvim.loop.create_task(get_property())
+
+    @pynvim.command(
+        "MpvSend",
+        nargs="+",
+        range="",
+        complete="customlist,neovimpv#complete#mpv_command"
+    )
     def send_mpv_command(self, args, range):
         '''Send commands to the mpv instance on the current line'''
         line = range[0]
@@ -130,6 +176,23 @@ class Neovimpv:
         self.nvim.loop.create_task(
             open_results_buffer(self.nvim, args[0])
         )
+
+    @pynvim.command(
+        "MpvLogLevel",
+        nargs="+",
+        range="",
+        complete="customlist,neovimpv#complete#log_level"
+    )
+    def mpv_log_level(self, args, range):
+        logger_name, level = args
+
+        # TODO: loggers aren't necessarily bound to a file!
+        if logger_name == "mpv":
+            mpv_logger.setLevel(level)
+        elif logger_name == "protocol":
+            protocol_logger.setLevel(level)
+        elif logger_name == "youtube":
+            youtube_logger.setLevel(level)
 
     @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
@@ -204,12 +267,10 @@ class Neovimpv:
         )
 
     def get_mpvs_in_buffer(self, buffer):
-        '''Get mpv mpv instances that the buffer currently knows about'''
-        return [i for i in
-            (self._mpv_instances.get((buffer.number, i))
-                for i in self.nvim.lua.neovimpv.get_players_in_buffer(buffer.number))
-            if i
-        ]
+        '''Get mpv instances that we currently know about'''
+        return [mpv_instance
+            for (i, j), mpv_instance in self._mpv_instances
+            if i == buffer]
 
     def get_mpv_by_line(self, buffer, line, show_error=True):
         '''
@@ -221,8 +282,6 @@ class Neovimpv:
             line
         )
         if not try_get_mpv:
-            if show_error:
-                self.show_error("No mpv found running on that line")
             return None
 
         player_id, _ = try_get_mpv

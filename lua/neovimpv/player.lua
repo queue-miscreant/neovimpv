@@ -50,6 +50,11 @@ function neovimpv.get_player_by_line(buffer, start, end_)
     )[1]
 
     if playlist_item == nil or dict == nil then
+      vim.api.nvim_notify(
+        "No mpv found running on that line",
+        4,
+        {}
+      )
       return {}
     end
 
