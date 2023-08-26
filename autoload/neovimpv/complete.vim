@@ -1,22 +1,37 @@
+" Get first argument to command
 function s:get_subcommand(cmd_line, cursor_pos)
   let cmd_partial = a:cmd_line[:a:cursor_pos + 1]
   let cmd_split_by_space = filter(split(cmd_partial, " "), "v:val != ''")
   return get(cmd_split_by_space, 1, "")
 endfunction
 
+" Get current argument number
 function s:get_argnum(cmd_line, cursor_pos)
   let cmd_partial = a:cmd_line[:a:cursor_pos + 1]
   let cmd_split_by_space = filter(split(cmd_partial, " "), "v:val != ''")
   return len(cmd_split_by_space) - 1 + (cmd_partial[-1:] == " ")
 endfunction
 
+" Find entries of `list` which start with `partial` and sort them
 function s:match_partial(list, partial)
   return sort(filter(a:list, "v:val =~ '^" . a:partial . "'"))
 endfunction
 
+" 
 function neovimpv#complete#log_level(arg_lead, cmd_line, cursor_pos)
-  " return ["DEBUG", "NOTSET"]
-  return ["mpv", "protocol"]
+  let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
+
+  if argnumber == 1
+    return s:match_partial(
+          \ ["mpv", "protocol", "youtube"],
+          \ a:arg_lead
+          \ )
+  elseif argnumber == 2
+    return s:match_partial(
+          \ ["INFO", "DEBUG", "WARNING", "WARN", "ERROR", "FATAL", "NOTSET"],
+          \ a:arg_lead
+          \ )
+  endif
 endfunction
 
 function neovimpv#complete#mpv_close_pause(arg_lead, cmd_line, cursor_pos)
@@ -355,6 +370,7 @@ let s:mpv_commands = {
       \ }
 " End mpv commands -------------------------------------------------------------
 
+" Complete mpv command
 function neovimpv#complete#mpv_command(arg_lead, cmd_line, cursor_pos)
   let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
 
@@ -368,9 +384,8 @@ function neovimpv#complete#mpv_command(arg_lead, cmd_line, cursor_pos)
   return s:match_partial(get(command_completer, argnumber - 2, []), a:arg_lead)
 endfunction
 
+" Complete readable properties
 function neovimpv#complete#mpv_get_property(arg_lead, cmd_line, cursor_pos)
-  let cmd_partial = a:cmd_line[:a:cursor_pos + 1]
-  let cmd_split_by_space = filter(split(cmd_partial, " "), "v:val != ''")
   let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
 
   if argnumber == 1
@@ -379,6 +394,7 @@ function neovimpv#complete#mpv_get_property(arg_lead, cmd_line, cursor_pos)
   return []
 endfunction
 
+" Complete writable properties
 function neovimpv#complete#mpv_set_property(arg_lead, cmd_line, cursor_pos)
   let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
 

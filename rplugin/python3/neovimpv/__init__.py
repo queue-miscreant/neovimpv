@@ -9,7 +9,11 @@ import pynvim
 from neovimpv.format import Formatter
 from neovimpv.mpv import MpvInstance, log as mpv_logger
 from neovimpv.protocol import log as protocol_logger
-from neovimpv.youtube import open_results_buffer, open_playlist_results, log as youtube_logger, WARN_LXML
+from neovimpv.youtube import \
+    open_results_buffer, \
+    open_playlist_results, \
+    log as youtube_logger, \
+    WARN_LXML
 
 log = logging.getLogger(__name__)
 
