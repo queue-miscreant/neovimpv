@@ -206,6 +206,12 @@ Giving a count beforehand will be acknowledged, with the key repeatedly
 sent to mpv that number of times.
 
 
+### `<Plug>(mpv_omnikey_video)`
+
+Same as `<Plug>(mpv_omnikey)`, but opens the line with `--video=auto`
+appended to the mpv arguments.
+
+
 ### `<Plug>(mpv_youtube_prompt)`
 
 Open a prompt for a YouTube search. This is equivalent to using the
