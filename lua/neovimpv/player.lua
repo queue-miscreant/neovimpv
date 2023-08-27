@@ -34,7 +34,7 @@ end
 
 -- Try to get the playlist extmarks from `start` to `end` in a `buffer`.
 -- Returns the id of the first player the playlist item belongs to.
-function neovimpv.get_player_by_line(buffer, start, end_)
+function neovimpv.get_player_by_line(buffer, start, end_, no_message)
   if end_ == nil then
     end_ = start
   end
@@ -50,12 +50,14 @@ function neovimpv.get_player_by_line(buffer, start, end_)
     )[1] or {}
     local player = dict[tostring(playlist_item[1])]
 
-    if playlist_item == {} or player == nil then
-      vim.api.nvim_notify(
-        "No mpv found running on that line",
-        4,
-        {}
-      )
+    if #playlist_item == 0 or player == nil then
+      if not no_message then
+        vim.api.nvim_notify(
+          "No mpv found running on that line",
+          4,
+          {}
+        )
+      end
       return {}
     end
 
@@ -65,11 +67,20 @@ end
 
 -- Update an extmark's content without changing its row or column
 function neovimpv.update_extmark(buffer, extmark_id, content)
-  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, DISPLAY_NAMESPACE, extmark_id, {})
+  local loc = vim.api.nvim_buf_get_extmark_by_id(
+    buffer,
+    DISPLAY_NAMESPACE,
+    extmark_id,
+    {}
+  )
   if loc ~= nil then
-    pcall(function()
-      vim.api.nvim_buf_set_extmark(buffer, DISPLAY_NAMESPACE, loc[1], loc[2], content)
-    end)
+    vim.api.nvim_buf_set_extmark(
+      buffer,
+      DISPLAY_NAMESPACE,
+      loc[1],
+      loc[2],
+      content
+    )
   end
 end
 
@@ -207,6 +218,9 @@ end
 -- Delete extmarks in the displays and playlists namespace. Also, clear up
 -- playlist information in the buffer.
 function neovimpv.remove_player(buffer, display_id)
+  -- buffer already deleted
+  if #vim.call("getbufinfo", buffer) == 0 then return end
+
   vim.api.nvim_buf_del_extmark(
     buffer,
     DISPLAY_NAMESPACE,

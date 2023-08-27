@@ -107,11 +107,15 @@ class MpvInstance:
             display["virt_text"] = [["[ Window ]", "MpvDefault"]]
             self.no_draw = True
 
-        self.plugin.nvim.lua.neovimpv.update_extmark(
-            self.buffer,
-            self.id,
-            display
-        )
+        # this method is called asynchronously, so protect against errors
+        try:
+            self.plugin.nvim.lua.neovimpv.update_extmark(
+                self.buffer,
+                self.id,
+                display
+            )
+        except:
+            pass
 
     # ==========================================================================
     # The following methods do not assume that nvim is in an interactable state
@@ -134,6 +138,7 @@ class MpvInstance:
             self.protocol = protocol
             self.no_draw = True
 
+            log.debug("Spawned mpv with args %s", mpv_args)
             # default event handling
             protocol.add_event("error", lambda _, err: self._show_error(err))
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))

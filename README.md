@@ -454,6 +454,5 @@ The following highlights are used for extra video info in YouTube results:
 TODOs
 -----
 
-- YouTube playlists
 - Improve sending keys
 - Folds?

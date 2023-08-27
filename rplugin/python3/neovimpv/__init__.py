@@ -216,6 +216,14 @@ class Neovimpv:
             extmark_id, key, count = args
         else:
             raise TypeError(f"Expected 3 arguments, got {len(args)}")
+        log.debug(
+            "Received keypress: %s\n" \
+            "Sending to buffer %s.%s\n" \
+            "mpv_instances: %s",
+            repr(key),
+            self.nvim.current.buffer.number, extmark_id,
+            self._mpv_instances
+        )
         if (target := self._mpv_instances.get(
             (self.nvim.current.buffer.number, extmark_id)
         )):
@@ -223,7 +231,9 @@ class Neovimpv:
                 self.show_error("Mpv not ready yet")
                 return
             if (real_key := translate_keypress(key)):
-                self.nvim.loop.create_task(target.protocol.send_keypress(real_key, count=count or 1))
+                self.nvim.loop.create_task(
+                    target.protocol.send_keypress(real_key, count=count or 1)
+                )
 
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):
@@ -262,7 +272,7 @@ class Neovimpv:
 
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):
-        '''Receive updated playlist extmark positions from nvim'''
+        '''(Deprecated) Make a new buffer for a YouTube playlist object'''
         if len(args) == 2:
             playlist, extra = args
         else:
@@ -324,11 +334,31 @@ class Neovimpv:
         Delete an MpvInstance and its extmark. This is invoked by default when
         the file is closed.
         '''
-        del self._mpv_instances[(instance.buffer, instance.id)]
-        self.nvim.lua.neovimpv.remove_player(
-            instance.buffer,
-            instance.id
-        )
+        try:
+            instance.no_draw = True
+            del self._mpv_instances[(instance.buffer, instance.id)]
+            self.nvim.lua.neovimpv.remove_player(
+                instance.buffer,
+                instance.id
+            )
+        except Exception as e:
+            self.show_error(
+                "Unknown error occurred: " \
+                "could not delete player %s.%s" % \
+                (instance.buffer, instance.id)
+            )
+            log.error(
+                "Unknown error occurred: " \
+                "could not delete player %s.%s\n" \
+                "mpv_instances: %s\n" \
+                "%s",
+                instance.buffer,
+                instance.id,
+                self._mpv_instances,
+                e,
+                stack_info=True
+            )
+            pass
 
     def set_new_buffer(self, instance, new_buffer, new_display):
         '''

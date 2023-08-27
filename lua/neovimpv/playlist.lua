@@ -139,11 +139,6 @@ function neovimpv.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
       )
 
       save_extmarks[i] = extmark_id
-      vim.cmd(
-        "let b:mpv_playlists_to_displays" ..
-        "[" .. tostring(extmark_id) .. "] = " ..
-        tostring(display_id)
-      )
     end
   end)
 
@@ -174,6 +169,12 @@ function neovimpv.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
           sign_text="|",
           sign_hl_group="MpvPlaylistSign"
         }
+      )
+
+      vim.cmd(
+        "let b:mpv_playlists_to_displays" ..
+        "[" .. tostring(extmark_id) .. "] = " ..
+        tostring(new_id)
       )
     end
   end, 0)

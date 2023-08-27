@@ -1,17 +1,17 @@
 " Omni-function for sending keys to mpv
-function neovimpv#omnikey(is_visual) range
+function neovimpv#omnikey(is_visual, ...) range
+  let extra_args = ""
+  if a:0 >= 1
+    let extra_args = a:1
+  endif
   " Try to find mpv on the line
-  let try_get_mpv = []
-  try
-    let try_get_mpv = luaeval(
-          \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ")")
-  catch
-  endtry
+  let try_get_mpv = luaeval(
+        \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ", true)")
 
   if try_get_mpv == []
     " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
-      execute ":" . a:firstline . "," . a:lastline . "MpvOpen"
+      execute ":" . a:firstline . "," . a:lastline . "MpvOpen " . extra_args
     endif
   elseif !a:is_visual
     let [player, playlist_item] = try_get_mpv
