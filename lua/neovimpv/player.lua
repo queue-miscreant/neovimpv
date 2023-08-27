@@ -40,16 +40,17 @@ function neovimpv.get_player_by_line(buffer, start, end_)
   end
 
   return vim.api.nvim_buf_call(buffer, function()
-    local dict = vim.b["mpv_playlists_to_displays"]
+    local dict = vim.b["mpv_playlists_to_displays"] or {}
     local playlist_item = vim.api.nvim_buf_get_extmarks(
       buffer,
       PLAYLIST_NAMESPACE,
       {start - 1, 0},
       {end_ - 1, -1},
       {}
-    )[1]
+    )[1] or {}
+    local player = dict[tostring(playlist_item[1])]
 
-    if playlist_item == nil or dict == nil then
+    if playlist_item == {} or player == nil then
       vim.api.nvim_notify(
         "No mpv found running on that line",
         4,
@@ -58,7 +59,7 @@ function neovimpv.get_player_by_line(buffer, start, end_)
       return {}
     end
 
-    return {dict[tostring(playlist_item[1])], playlist_item[1]}
+    return {player, playlist_item[1]}
   end)
 end
 
@@ -215,8 +216,10 @@ function neovimpv.remove_player(buffer, display_id)
   vim.api.nvim_buf_call(buffer, function()
     -- get the playlist extmarks associated to this player
     local playlist_ids = {}
-    for playlist, display in pairs(vim.b["mpv_playlists_to_displays"]) do
-      if display == display_id then table.insert(playlist_ids, tonumber(playlist)) end
+    for playlist, display in pairs(vim.b["mpv_playlists_to_displays"] or {}) do
+      if display == display_id then
+        table.insert(playlist_ids, tonumber(playlist)) 
+      end
     end
     -- delete them
     for _, playlist_id in pairs(playlist_ids) do

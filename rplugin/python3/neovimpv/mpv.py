@@ -6,10 +6,10 @@ import logging
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
+YTDL_YOUTUBE_SEARCH = re.compile(r"^ytdl://\s*ytsearch(\d*):")
 DEFAULT_MPV_ARGS = ["--no-video"]
 
 def args_open_window(args):
@@ -47,10 +47,6 @@ class MpvInstance:
         self.buffer = buffer
         self.id = -1
 
-        mpv_args = self.MPV_ARGS + extra_args
-        self.no_draw = False
-        self.has_window = args_open_window(mpv_args)
-
         self.playlist = MpvPlaylist(self, filenames, line_numbers, unmarkdown)
         if not self.playlist:
             self.plugin.show_error(
@@ -58,10 +54,46 @@ class MpvInstance:
                 "Line does not contain a file path or valid URL"
             )
 
+        mpv_args = self._parse_args(extra_args)
+        self.has_window = args_open_window(mpv_args)
+        self.no_draw = False
+
         plugin.nvim.loop.create_task(self.spawn(mpv_args))
 
+    def _parse_args(self, args):
+        '''
+        Parse arguments `args` retrieved from MpvOpen.
+        Arguments preceding "--", if they exist, are considered local, and
+        control local functionality, like determining if dynamic playlists
+        should use non-global options.
+        '''
+        mpv_args = args
+        local_args = []
+        try:
+            split = args.index("--")
+            local_args = args[:split]
+            mpv_args = args[split+1:]
+        except ValueError:
+            pass
+
+        if "stay" in local_args:
+            self.playlist.update_action = "stay"
+        elif "paste" in local_args:
+            self.playlist.update_action = "paste"
+        elif "new" in local_args:
+            if len(self.playlist) != 1:
+                raise ValueError(
+                    f"Cannot create new buffer for playlist of initial size {len(self.playlist)}!"
+                )
+            self.playlist.update_action = "new_one"
+
+        if "video" in local_args:
+            mpv_args += "--video=auto"
+
+        return self.MPV_ARGS + mpv_args
+
     def _draw_update(self):
-        '''Rerender the extmark that this mpv instance corresponds to'''
+        '''Rerender the player extmark to which this mpv instance corresponds'''
         if self.no_draw:
             return
 
@@ -219,12 +251,19 @@ class MpvPlaylist:
         self.mpv_id_to_extra_data = {}      # extra data about initial information provided, like whether to
                                             #   replace a line with markdown when we get a title
         self.mpv_id_remap = {}              # remaps from one mpv id to another
+        self.update_action = self.parent.plugin.on_playlist_update
 
         playlist_item_lines = self._construct_playlist(filenames, line_numbers, unmarkdown)
         if not playlist_item_lines:
             return None
         log.debug("Found playlist items: %s", self.mpv_id_to_extra_data)
         self._init_extmarks(playlist_item_lines)
+
+    def __len__(self):
+        # number of extmarks plus number of remaps minus unique remap targets
+        return len(self.mpv_id_to_extmark_id) + \
+                len(self.mpv_id_remap) - \
+                len(set(self.mpv_id_remap.values()))
 
     def _construct_playlist(self, filenames, line_numbers, unmarkdown):
         '''
@@ -248,6 +287,10 @@ class MpvPlaylist:
             playlist[i + 1] = (filename, write_markdown, unmarkdown)
             playlist_item_lines.append(line_number)
         self.mpv_id_to_extra_data = playlist
+
+        if len(playlist) == 1 and self.parent.plugin.smart_youtube:
+            self._try_smart_youtube(playlist[1][0])
+
         return playlist_item_lines
 
     def _init_extmarks(self, lines):
@@ -371,12 +414,13 @@ class MpvPlaylist:
             write_lines
         )
 
-        new_buffer_id, new_display, new_extmarks = self.parent.plugin.nvim.lua.neovimpv.new_playlist_buffer(
-            self.parent.buffer,
-            self.parent.id,
-            self.mpv_id_to_extmark_id.get(playlist_mpv_id),
-            write_lines
-        )
+        new_buffer_id, new_display, new_extmarks = \
+            self.parent.plugin.nvim.lua.neovimpv.new_playlist_buffer(
+                self.parent.buffer,
+                self.parent.id,
+                self.mpv_id_to_extmark_id.get(playlist_mpv_id),
+                write_lines
+            )
         log.debug(
             "Got new playlist buffer\n" \
             "new_buffer_id: %s\n" \
@@ -418,24 +462,24 @@ class MpvPlaylist:
         end = start + data["new"]["playlist_insert_num_entries"]
 
         # "stay" if we've been told to or we're not a single playlist
-        do_stay = self.parent.plugin.on_playlist_update == "stay" or \
-                len(self.mpv_id_to_extmark_id) > 1 and self.parent.plugin.on_playlist_update in ("paste_one", "new_one")
+        do_stay = self.update_action == "stay" or \
+                len(self.mpv_id_to_extmark_id) > 1 and self.update_action in ("paste_one", "new_one")
 
         if do_stay:
             for i in range(start, end):
                 self.mpv_id_remap[i] = original_entry
-        elif self.parent.plugin.on_playlist_update in ("paste", "paste_one"):
+        elif self.update_action in ("paste", "paste_one"):
             self.parent.no_draw = True
             self.parent.plugin.nvim.async_call(
                 self._paste_playlist,
                 [i for i in data["playlist"] if i["id"] in range(start, end)],
                 original_entry,
             )
-        elif self.parent.plugin.on_playlist_update == "new_one":
+        elif self.update_action == "new_one":
             self.parent.plugin.nvim.async_call(
                 self._new_playlist_buffer,
                 [i for i in data["playlist"] if i["id"] in range(start, end)],
-                self.mpv_id_to_extmark_id.get(original_entry),
+                original_entry,
             )
 
     def set_current_by_playlist_extmark(self, playlist_item):
@@ -499,3 +543,11 @@ class MpvPlaylist:
         removed_indices.sort(reverse=True)
         for index in removed_indices:
             self.parent.protocol.send_command("playlist-remove", index)
+
+    def _try_smart_youtube(self, filename):
+        '''Smart Youtube playlist actions: typically `new_one` and `stay`'''
+        is_search = YTDL_YOUTUBE_SEARCH.match(filename)
+        if is_search and is_search.group(1) in ("", "1"):
+            self.update_action = "stay"
+            return
+        self.update_action = "new_one"

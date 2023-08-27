@@ -104,7 +104,9 @@ end
 -- on its contents. Return the buffer, the new player extmark, and the new
 -- playlist extmarks.
 -- TODO: user chooses open in split, open in vert split, open in new tab
+-- FIXME: sometimes the first buf_call fails?
 function neovimpv.new_playlist_buffer(buffer, display_id, old_playlist_id, new_playlist)
+  if old_playlist_id == vim.NIL then return end
   -- free up the old playlist map
   vim.api.nvim_buf_call(buffer, function()
     vim.cmd(
@@ -121,17 +123,10 @@ function neovimpv.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
   -- set buffer content
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_playlist)
 
-  -- set options for new buffer/window
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(
-    buf,
-    "filetype",
-    vim.api.nvim_buf_get_option(buffer, "filetype")
-  )
-
   local save_extmarks = {}
   vim.api.nvim_buf_call(buf, function()
     vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+    vim.call("neovimpv#bind_autocmd", true)
     for i = 1, #new_playlist do
       -- And create a playlist extmark for it
       -- Need to be back in main loop for the actual line numbers
@@ -151,6 +146,15 @@ function neovimpv.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
       )
     end
   end)
+
+  -- set options for new buffer/window
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(
+    buf,
+    "filetype",
+    vim.api.nvim_buf_get_option(buffer, "filetype")
+  )
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
 
   -- "Move" player extmark between buffers.
   neovimpv.remove_player(buffer, display_id)

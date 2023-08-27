@@ -109,6 +109,7 @@ class YoutubeRenderer:
                 for video in ret["raw_videos"]
             ) if i]
             ret["link"] = f"https://youtube.com/playlist?list={ret['playlist_id']}"
+            ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
             del ret["raw_videos"]
         except KeyError:
             return None

@@ -21,13 +21,13 @@ function neovimpv#youtube#callback(extra)
   let current = b:selection[line(".") - 1]
   let window = b:calling_window
   " Close the youtube buffer and return the calling window
-  quit
+  quit!
   call win_gotoid(window)
 
-  if exists("current.playlist_id")
-    call MpvOpenYoutubePlaylist(current, a:extra)
-    return
-  endif
+  " if exists("current.playlist_id")
+  "   call MpvOpenYoutubePlaylist(current, a:extra)
+  "   return
+  " endif
 
   let insert_link = current["link"]
   if index(g:mpv_markdown_writable, &l:filetype) >= 0

@@ -60,7 +60,7 @@ nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
 Commands
 --------
 
-### `:MpvOpen [mpv-args]`
+### `:MpvOpen [{mpv-args}]`
 
 Open an mpv instance using the string on the current line, as if invoking `mpv`
 from the command line with the `--no-video` flag. URLs may be used if youtube-dl
@@ -75,16 +75,30 @@ Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
 calling `:MpvOpen --video=auto`
 
-If {mpv-args} overrides the default `--no-video` flag (i.e., if a
+If `{mpv-args}` overrides the default `--no-video` flag (i.e., if a
 window is anticipated to open), the media data will NOT be rendered in
 an extmark.
 
+{local-args}, if given (by placing them before a `--` in the command),
+apply local settings to the plugin mpv handler. They include
 
-### `:MpvClose [all]`
+
+| Local argument  | Description
+|-----------------|-------------------------|---------------------------
+| `video`         | Will open the buffer as a video. Same as supplying `--video=auto`.
+| `stay`          | Override `g:mpv_on_playlist_update` to `stay` for this player.
+| `paste`         | Override `g:mpv_on_playlist_update` to `paste` for this player.
+| `new`           | Override `g:mpv_on_playlist_update` to `new_one` for this player. If the initial playlist is longer than one entry, an error is thrown.
+
+
+### `:MpvClose [{buffer}]`
 
 Close an mpv instance displayed on the current line.
 
-If `all` is specified, every mpv instance bound to the current buffer is closed.
+If `{buffer}` is specified and a number, it closes all mpvs which were
+bound to that buffer number. `0` signifies the current buffer.
+`{buffer}` can also be `all`, in which case all known mpv instances are
+closed.
 
 
 ### `:MpvSend command-name [...command-args]`
@@ -117,18 +131,41 @@ Some useful example properties:
 
 This command is equivalent to using MpvSend with first argument `set_property`.
 
+### `:MpvGetProperty {property-name}`
 
-### `:MpvPause [all]`
+Get a property of the mpv instance running on the current line. The
+result will be displayed as if the `echo` command had been used.
 
-Toggle the pause status of the mpv instance running on the current line. If `all` is
-specified, every mpv instance bound to the current buffer is paused (NOT toggled).
+See [this](https://mpv.io/manual/stable/#property-list) part of
+the mpv documentation for more information about properties.
+
+This command is NOT equivalent to using MpvSend with first argument
+`get_property`. In this command, the response from mpv is not ignored.
+
+
+### `:MpvPause [{buffer}]`
+
+Toggle the pause status of the mpv instance running on the current line.
+
+If {buffer} is specified and a number, it pauses (NOT toggles) all mpvs which
+were bound to that buffer number. `0` signifies the current buffer.
+{buffer} can also be `all`, in which case all known mpv instances are
+paused.
 
 This command is equivalent to `:MpvSend set_property pause <not pause state>`
+
 
 ### `:MpvYoutubeSearch {query}`
 
 Do a YouTube search for `{query}`, then open a split containing the
 results. See YouTube splits below for info.
+
+
+### `:MpvLogLevel {logger} {level}`
+
+Set the logging level for a Python logger.
+`{logger}` should be one of `mpv`, `protocol`, `youtube`, or `all`.
+`{level}` should be a valid Python `logging` level.
 
 
 Functions
@@ -215,6 +252,21 @@ the video using `MpvOpen`.
 
 Same as `<enter>`, but calls `:MpvOpen` with `--video=auto` instead, which opens
 the result with video rather than audio only.
+
+
+### `p`, `P`
+
+Same as `<enter>`, but works as though `g:mpv_on_playlist_update` was set to
+"paste", which pastes playlists into the buffer.
+
+`P` opens the results with video.
+
+
+### `n`, `N`
+Same as `<enter>`, but works as though `g:mpv_on_playlist_update` was set to
+"new", which opens a new buffer for the playlist contents.
+
+`N` opens the results with video.
 
 
 ### `i`
@@ -342,6 +394,15 @@ is pressed, the key will NOT be sent, and instead scrolls the current
 mpv item to the one at the row of the cursor.
 
 The default value is backslash (i.e., `"\\"`).
+
+
+### `g:mpv_smart_youtube_playlist`
+
+A boolean value which affects the `g:mpv_on_playlist_update` semantics
+for opening a single YouTube playlist.
+Playlists from "ytsearch{count}:" will open as 'stay' if count is not
+given or 1.
+Other single-item playlists are opened as `new_one`.
 
 
 Highlights

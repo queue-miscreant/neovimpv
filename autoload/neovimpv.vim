@@ -1,8 +1,12 @@
 " Omni-function for sending keys to mpv
 function neovimpv#omnikey(is_visual) range
   " Try to find mpv on the line
-  let try_get_mpv = luaeval(
-        \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ")")
+  let try_get_mpv = []
+  try
+    let try_get_mpv = luaeval(
+          \ "neovimpv.get_player_by_line(0," . a:firstline . "," . a:lastline . ")")
+  catch
+  endtry
 
   if try_get_mpv == []
     " no playlist on that line found, trying to open
@@ -176,6 +180,11 @@ endfunction
 
 " TODO remove autocmd when last player exits?
 " TODO use lua callback instead
-function neovimpv#bind_autocmd()
-  autocmd TextChanged <buffer> call s:undo_for_change_count()
+function neovimpv#bind_autocmd(...)
+  let no_text_changed = a:0
+  if !no_text_changed
+    autocmd TextChanged <buffer> call s:undo_for_change_count()
+  endif
+  execute "autocmd BufHidden <buffer> :MpvClose " . bufnr()
+  execute "autocmd BufDelete <buffer> :MpvClose " . bufnr()
 endfunction

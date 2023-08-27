@@ -7,7 +7,7 @@ endif
 
 setlocal nowrap
 setlocal cursorline
-setlocal nohidden
+setlocal bufhidden="wipe"
 
 " Additional video data as extmarks
 function s:set_youtube_extmark()
@@ -68,6 +68,18 @@ nnoremap <buffer> <silent> <s-enter> :call
 
 nnoremap <buffer> <silent> v :call
       \ neovimpv#youtube#callback("--video=auto")<cr>
+
+nnoremap <buffer> <silent> p :call
+      \ neovimpv#youtube#callback("paste --")<cr>
+
+nnoremap <buffer> <silent> P :call
+      \ neovimpv#youtube#callback("paste -- --video=auto")<cr>
+
+nnoremap <buffer> <silent> n :call
+      \ neovimpv#youtube#callback("new --")<cr>
+
+nnoremap <buffer> <silent> N :call
+      \ neovimpv#youtube#callback("new -- --video=auto")<cr>
 
 nnoremap <buffer> <silent> i :call
       \ neovimpv#youtube#open_thumbnail()<cr>

@@ -30,8 +30,7 @@ def translate_keypress(key):
         #TODO: handle ctrl (\udcfc\x04, then original keypress)
         #TODO: handle alt (\udcfc\x08, then original keypress)
         #TODO: special (ctrl-right?)
-        # log.debug("Filtered out")
-        # log.debug(repr(key))
+        log.debug(f"Special key sequence found: {repr(key)}")
         return KEYPRESS_LOOKUP.get(key[1:], None)
     return key
 
@@ -51,6 +50,7 @@ class Neovimpv:
         self.formatter = Formatter(nvim)
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
         self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
+        self.smart_youtube = nvim.api.get_var("mpv_smart_youtube_playlist")
         MpvInstance.setDefaultArgs(nvim.api.get_var("mpv_default_args"))
 
         # setup temp dir
@@ -98,7 +98,7 @@ class Neovimpv:
     def pause_mpv(self, args, range):
         '''Pause/unpause the mpv instance on the current line'''
         if args and args[0] == "all":
-            targets = self.get_mpvs_in_buffer(self.nvim.current.buffer)
+            targets = self.query_mpvs(args[0])
             for target in targets:
                 target.protocol.set_property("pause", True)
             return
@@ -115,8 +115,8 @@ class Neovimpv:
     )
     def close_mpv(self, args, range):
         '''Close mpv instance on the current line'''
-        if args and args[0] == "all":
-            targets = self.get_mpvs_in_buffer(self.nvim.current.buffer)
+        if args:
+            targets = self.query_mpvs(args[0])
             for target in targets:
                 target.protocol.send_command("quit")
             return
@@ -188,15 +188,26 @@ class Neovimpv:
         complete="customlist,neovimpv#complete#log_level"
     )
     def mpv_log_level(self, args, range):
-        logger_name, level = args
+        '''Set logging level from vim'''
+        if len(args) == 2:
+            logger_name, level = args
+        else:
+            raise TypeError(f"Expected 3 arguments, got {len(args)}")
 
-        # TODO: loggers aren't necessarily bound to a file!
+        if logger_name not in ["mpv", "protocol", "youtube", "all"]:
+            raise ValueError(f"Invalid logger name given: {logger_name}")
+
+        if level not in ["INFO", "DEBUG", "WARNING", "WARN", "ERROR", "FATAL", "NOTSET"]:
+            raise ValueError(f"Invalid logging level given: {level}")
+
         if logger_name == "mpv":
             mpv_logger.setLevel(level)
         elif logger_name == "protocol":
             protocol_logger.setLevel(level)
         elif logger_name == "youtube":
             youtube_logger.setLevel(level)
+        elif logger_name == "all":
+            log.setLevel(level)
 
     @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
@@ -270,10 +281,27 @@ class Neovimpv:
             {}
         )
 
+    def query_mpvs(self, arg):
+        '''
+        Interpret a string `arg` as either a buffer number or 'all'.
+        Return mpv instances in the buffer, or all of them.
+        '''
+        if arg == "all":
+            return self._mpv_instances.values()
+        else:
+            try:
+                buffnum = int(arg)
+            except:
+                return []
+
+            return self.get_mpvs_in_buffer(
+                buffnum or self.nvim.current.buffer.number
+            )
+
     def get_mpvs_in_buffer(self, buffer):
         '''Get mpv instances that we currently know about'''
         return [mpv_instance
-            for (i, j), mpv_instance in self._mpv_instances
+            for (i, j), mpv_instance in self._mpv_instances.items()
             if i == buffer]
 
     def get_mpv_by_line(self, buffer, line, show_error=True):

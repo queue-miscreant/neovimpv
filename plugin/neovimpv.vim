@@ -24,6 +24,9 @@ let g:mpv_draw_playlist_extmarks = get(g:, "mpv_draw_playlist_extmarks", "multip
 " Controls how playlist updates from mpv can affect changes in the buffer
 let g:mpv_on_playlist_update = get(g:, "mpv_on_playlist_update", "stay")
 
+" Whether or not YouTube playlists are opened 'smartly'.
+let g:mpv_smart_youtube_playlist = get(g:, "mpv_youtube_playlist_always_new", 1)
+
 " Key for scrolling a player to a playlist index
 let g:mpv_playlist_key = "\\"
 
