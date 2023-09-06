@@ -31,7 +31,7 @@ Installation
 
 Place the following in `~/.config/nvim/init.vim`:
 ```vim
-Plugin 'queue-miscreant/neovimpv', {'do', ':UpdateRemotePlugins'}
+Plugin 'queue-miscreant/neovimpv'
 ```
 Make sure the file is sourced and run `:PluginInstall`.
 
@@ -462,3 +462,6 @@ TODOs
 
 - Improve sending keys
 - Folds?
+- Play by searching selection (or line) for URL
+- Close audio-only content and reopen with video
+- close invisible players (those with no extmarks found)
