@@ -147,6 +147,17 @@ function neovimpv#buffer_change_callback(...)
     call MpvForwardDeletions(new_playlists)
     let s:old_extmark = []
   endif
+  let invisible_extmarks = nvim_buf_get_extmarks(
+        \ 0,
+        \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
+        \ [line("$"), 0],
+        \ [-1, -1],
+        \ {}
+        \ )
+  " Close all players which fell outside the bounds
+  for i in invisible_extmarks
+    call MpvSendNvimKeys(i[0], "q", 1)
+  endfor
 endfunction
 
 " Remove playlist items in `removed_playlist` and clean up the map to the player.

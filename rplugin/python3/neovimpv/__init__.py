@@ -227,10 +227,13 @@ class Neovimpv:
         if (target := self._mpv_instances.get(
             (self.nvim.current.buffer.number, extmark_id)
         )):
-            if target.protocol is None:
+            real_key = translate_keypress(key)
+
+            if real_key == "q":
+                self.nvim.loop.create_task(target.close_async())
+            elif target.protocol is None:
                 self.show_error("Mpv not ready yet")
-                return
-            if (real_key := translate_keypress(key)):
+            elif target.protocol is not None:
                 self.nvim.loop.create_task(
                     target.protocol.send_keypress(real_key, count=count or 1)
                 )
@@ -282,12 +285,12 @@ class Neovimpv:
             open_playlist_results(self.nvim, playlist, extra)
         )
 
-    def show_error(self, error):
+    def show_error(self, error, level=4):
         '''Show an error to nvim'''
         self.nvim.async_call(
             self.nvim.api.notify,
             error,
-            4,
+            level,
             {}
         )
 
@@ -336,11 +339,12 @@ class Neovimpv:
         '''
         try:
             instance.no_draw = True
-            del self._mpv_instances[(instance.buffer, instance.id)]
             self.nvim.lua.neovimpv.remove_player(
                 instance.buffer,
                 instance.id
             )
+            if (instance.buffer, instance.id) in self._mpv_instances:
+                del self._mpv_instances[(instance.buffer, instance.id)]
         except Exception as e:
             self.show_error(
                 "Unknown error occurred: " \
@@ -358,7 +362,6 @@ class Neovimpv:
                 e,
                 stack_info=True
             )
-            pass
 
     def set_new_buffer(self, instance, new_buffer, new_display):
         '''

@@ -243,6 +243,12 @@ class MpvInstance:
         self.protocol.send_command("quit") # just in case
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
 
+    async def close_async(self, sleep_duration_seconds=0.1):
+        '''Wait for mpv to be open for communication, then close it'''
+        while self.protocol is None or self.protocol.transport is None:
+            await asyncio.sleep(sleep_duration_seconds)
+        self.close()
+
 
 class MpvPlaylist:
     '''
@@ -500,8 +506,14 @@ class MpvPlaylist:
             None
         )
         # then index into the current playlist
+        playlist = self.parent.protocol.data.get("playlist", [])
+        if len(playlist) <= 1:
+            self.parent.plugin.show_error("Refusing to set playlist index on small playlist!", 3)
+            log.debug("Refusing to set playlist index on small playlist!")
+            return
+
         index = next((index
-            for index, item in enumerate(self.parent.protocol.data.get("playlist", []))
+            for index, item in enumerate(playlist)
             if item["id"] == mpv_id
         ), None)
 

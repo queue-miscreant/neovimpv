@@ -1,4 +1,8 @@
-" check that we have callbacks
+" Close buffer on q
+nnoremap <buffer> <silent> q :q<cr>
+
+" Check that we have callbacks
+" TODO: name these better
 if !exists("b:selection") ||
       \ !exists("b:calling_window") ||
       \ len(b:selection) ==# 0
@@ -10,8 +14,14 @@ setlocal cursorline
 setlocal bufhidden="wipe"
 
 " Additional video data as extmarks
+let s:prev_line = -1
 function s:set_youtube_extmark()
-  let current = b:selection[line(".") - 1]
+  if s:prev_line ==# line(".")
+    return
+  endif
+  let s:prev_line = line(".")
+
+  let current = b:selection[s:prev_line - 1]
   if exists("current.video_id")
     call nvim_buf_set_extmark(
           \ 0,
@@ -83,8 +93,6 @@ nnoremap <buffer> <silent> N :call
 
 nnoremap <buffer> <silent> i :call
       \ neovimpv#youtube#open_thumbnail()<cr>
-
-nnoremap <buffer> <silent> q :q<cr>
 
 autocmd CursorMoved <buffer> call s:set_youtube_extmark()
 autocmd TextYankPost <buffer> call s:yank_youtube_link(v:event)

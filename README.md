@@ -31,7 +31,7 @@ Installation
 
 Place the following in `~/.config/nvim/init.vim`:
 ```vim
-Plugin 'queue-miscreant/neovimpv'
+Plugin 'queue-miscreant/neovimpv', {'do': ':UpdateRemotePlugins'}
 ```
 Make sure the file is sourced and run `:PluginInstall`.
 
@@ -84,7 +84,7 @@ apply local settings to the plugin mpv handler. They include
 
 
 | Local argument  | Description
-|-----------------|-------------------------|---------------------------
+|-----------------|-----------------------------------------------------
 | `video`         | Will open the buffer as a video. Same as supplying `--video=auto`.
 | `stay`          | Override `g:mpv_on_playlist_update` to `stay` for this player.
 | `paste`         | Override `g:mpv_on_playlist_update` to `paste` for this player.
@@ -464,4 +464,3 @@ TODOs
 - Folds?
 - Play by searching selection (or line) for URL
 - Close audio-only content and reopen with video
-- close invisible players (those with no extmarks found)
