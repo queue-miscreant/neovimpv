@@ -159,7 +159,8 @@ class Youtube:
     def _extract_youtube_response(cls, response):
         '''Extract JSON from curl of YouTube results page'''
         log.debug("Parsing YouTube response...")
-        parsed = lxml.html.parse(response)
+        parser = lxml.html.HTMLParser(encoding="utf-8")
+        parsed = lxml.html.fromstring(response, parser=parser)
         for tag in parsed.iter("script"):
             content = tag.text_content()
             if not isinstance(content, str) \
@@ -175,7 +176,7 @@ class Youtube:
         '''Run youtube curl and parse result'''
         log.debug(f"Curling {url}...")
         with urllib.request.urlopen(url) as a:
-            return cls._extract_youtube_response(a)
+            return cls._extract_youtube_response(a.read())
 
     @classmethod
     def _search(cls, query):
@@ -275,3 +276,7 @@ async def open_playlist_results(nvim, playlist, extra):
         results,
         extra
     )
+
+if __name__ == "__main__":
+    import sys
+    print(json.dumps(Youtube.search(sys.argv[1])))
