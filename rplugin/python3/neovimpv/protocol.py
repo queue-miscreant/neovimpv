@@ -29,6 +29,7 @@ class MpvProtocol(asyncio.Protocol):
         self._event_handlers = {}
         self._waiting_properties = {}
         self._ignore_errors = []
+        self._waiting_events = {}
         # playlist support
         self._playlist_request = -1
         self._playlist_new = None
@@ -60,6 +61,11 @@ class MpvProtocol(asyncio.Protocol):
         '''Internal function for calling all event handlers for a given `event_name`'''
         for handler in self._event_handlers.get(event_name, []):
             handler(self, json_data)
+        # set futures
+        for future in self._waiting_events.get(event_name, []):
+            future.set_result(True)
+        self._waiting_events[event_name] = []
+
         if event_name != "property-change":
             log.debug("Received event %s: %s", event_name, json_data)
 
@@ -161,6 +167,14 @@ class MpvProtocol(asyncio.Protocol):
             ignore_error=ignore_error
         )
         self._last_property += 1
+        return await future
+
+    async def next_event(self, event_name, ignore_error=False):
+        future = asyncio.get_event_loop().create_future()
+        if self._waiting_events.get(event_name) is None:
+            self._waiting_events[event_name] = []
+
+        self._waiting_events[event_name].append(future)
         return await future
 
     def fetch_subscribed(self):

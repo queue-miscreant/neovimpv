@@ -54,11 +54,12 @@ class MpvInstance:
                 "Line does not contain a file path or valid URL"
             )
 
-        mpv_args = self._parse_args(extra_args)
-        self.has_window = args_open_window(mpv_args)
+        self._mpv_args = self._parse_args(extra_args)
         self.no_draw = False
+        self._old_video = False
+        self._transitioning_players = False
 
-        plugin.nvim.loop.create_task(self.spawn(mpv_args))
+        plugin.nvim.loop.create_task(self.spawn(self._mpv_args))
 
     def _parse_args(self, args):
         '''
@@ -94,18 +95,22 @@ class MpvInstance:
 
     def _draw_update(self):
         '''Rerender the player extmark to which this mpv instance corresponds'''
-        if self.no_draw:
+        video = self.protocol.data.get("video")
+        if self.no_draw or (video and self._old_video):
             return
+        self._old_video = video
 
         display = {
             "id": self.id,
-            "virt_text": self.plugin.formatter.format(self.protocol.data),
             "virt_text_pos": "eol",
         }
 
-        if self.has_window:
+        if video:
             display["virt_text"] = [["[ Window ]", "MpvDefault"]]
-            self.no_draw = True
+        elif self._transitioning_players:
+            display["virt_text"] = [["[...]", "MpvDefault"]]
+        else:
+            display["virt_text"] = self.plugin.formatter.format(self.protocol.data)
 
         # this method is called asynchronously, so protect against errors
         try:
@@ -143,7 +148,7 @@ class MpvInstance:
             protocol.add_event("error", lambda _, err: self._show_error(err))
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
             protocol.add_event("file-loaded", lambda _, data: self._preamble(data))
-            protocol.add_event("close", lambda _, __: self.close())
+            protocol.add_event("close", lambda _, __: self.close(False))
             protocol.add_event(
                 "property-change",
                 lambda _, __: self.plugin.nvim.async_call(self._draw_update)
@@ -154,6 +159,8 @@ class MpvInstance:
             protocol.observe_property("pause")
             # necessary for retaining playlist position
             protocol.observe_property("playlist")
+            # for drawing [Window] instead, toggling video
+            protocol.observe_property("video")
             # observe everything we need to draw the format string
             for i in self.plugin.formatter.groups:
                 protocol.observe_property(i)
@@ -186,9 +193,42 @@ class MpvInstance:
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
-    async def toggle_video(self, *args):
+    async def toggle_video(self):
         '''Close mpv, then reopen with the same playlist and with video'''
-        raise NotImplementedError
+        if self._transitioning_players:
+            self.plugin.show_error(f"Already attempting to show video!")
+            return
+
+        track_list = await self.protocol.wait_property("track-list")
+        has_video_track = any(map(lambda x: x.get("type") == "video", track_list))
+        if has_video_track:
+            log.info("Player has video track. Cycling video instead.")
+            self.protocol.send_command("cycle", "video")
+            self._old_video = False
+            self._draw_update()
+            return
+
+        current_position = await self.protocol.wait_property("playlist-pos")
+        current_time = await self.protocol.wait_property("playback-time")
+
+        log.info("Beginning transition...")
+        self._transitioning_players = True
+        self.protocol.send_command("quit")
+        self._draw_update()
+        await asyncio.sleep(0.1)
+
+        log.info("Spawning player...")
+        await self.spawn(self._mpv_args + ["--video=auto"])
+        self._transitioning_players = False
+
+        log.info("Transition finished! Setting playlist index...")
+        self.protocol.send_command("playlist-play-index", current_position)
+
+        log.info("Waiting for file to be loaded...")
+        await self.protocol.next_event("file-loaded")
+
+        log.info("File loaded! Seeking...")
+        self.protocol.send_command("seek", current_time)
 
     def _show_error(self, err):
         '''Report error contents to nvim'''
@@ -199,6 +239,7 @@ class MpvInstance:
         self.plugin.show_error(
             f"mpv responded '{err.get('error')}'{additional_info}",
         )
+        log.error("Error occurred: %s", err)
 
     def _on_end_file(self, arg):
         '''Report an error to nvim if the file ended because of an error.'''
@@ -242,8 +283,10 @@ class MpvInstance:
                 self.playlist.mpv_id_to_extmark_id[current_mpv_id]
             ))
 
-    def close(self):
+    def close(self, force=True):
         '''Defer to the plugin to remove the extmark'''
+        if self._transitioning_players and not force:
+            return
         self.protocol.send_command("quit") # just in case
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
 

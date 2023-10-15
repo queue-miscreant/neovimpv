@@ -240,11 +240,11 @@ class Neovimpv:
 
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):
-        '''Receive updated playlist extmark positions from nvim'''
+        '''Set currently playing item'''
         if len(args) == 2:
             player, playlist_item = args
         else:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
+            raise TypeError(f"Expected 2 arguments, got {len(args)}")
 
         mpv_instance = self._mpv_instances.get(
             (self.nvim.current.buffer.number, int(player))
@@ -272,6 +272,20 @@ class Neovimpv:
                     mpv_instance.playlist.forward_deletions,
                     removed_items
                 )
+
+    @pynvim.function("MpvToggleVideo", sync=True)
+    def mpv_toggle_video(self, args):
+        '''Turn an audio player into a video player and vice-versa'''
+        if len(args) == 1:
+            player, = args
+        else:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
+
+        mpv_instance = self._mpv_instances.get(
+            (self.nvim.current.buffer.number, int(player))
+        )
+        if mpv_instance is not None:
+            self.nvim.loop.create_task(mpv_instance.toggle_video())
 
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):
