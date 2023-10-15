@@ -115,6 +115,7 @@ class MpvProtocol(asyncio.Protocol):
             elif request_id is not None and request_id in self._waiting_properties:
                 # we received a message about something we're waiting for
                 type, property_name, future = self._waiting_properties[request_id]
+                del self._waiting_properties[request_id]
 
                 if type == self.GET:
                     self.data[property_name] = datum.get("data")
@@ -128,6 +129,11 @@ class MpvProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         '''Process communication closed. Call close event.'''
+        for _, __, future in self._waiting_properties.values():
+            future.cancel()
+        for event in self._waiting_events.values():
+            for future in event:
+                future.cancel()
         self._try_handle_event("close", {})
 
     def send_command(self, *args, request_id=0, ignore_error=False):

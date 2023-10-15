@@ -375,7 +375,7 @@ function neovimpv#complete#mpv_command(arg_lead, cmd_line, cursor_pos)
   let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
 
   if argnumber == 1
-    return s:match_partial(s:mpv_commands, a:arg_lead)
+    return s:match_partial(keys(s:mpv_commands), a:arg_lead)
   endif
 
   " complete a subcommand, using s:mpv_commands
