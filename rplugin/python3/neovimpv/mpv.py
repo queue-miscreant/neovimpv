@@ -186,6 +186,10 @@ class MpvInstance:
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
+    async def toggle_video(self, *args):
+        '''Close mpv, then reopen with the same playlist and with video'''
+        raise NotImplementedError
+
     def _show_error(self, err):
         '''Report error contents to nvim'''
         additional_info = ""
@@ -562,9 +566,9 @@ class MpvPlaylist:
             self.parent.protocol.send_command("playlist-remove", index)
 
     def _try_smart_youtube(self, filename):
-        '''Smart Youtube playlist actions: typically `new_one` and `stay`'''
+        '''Smart Youtube playlist actions: typically `new_one` and `paste`'''
         is_search = YTDL_YOUTUBE_SEARCH.match(filename)
         if is_search and is_search.group(1) in ("", "1"):
-            self.update_action = "stay"
+            self.update_action = "paste"
             return
         self.update_action = "new_one"

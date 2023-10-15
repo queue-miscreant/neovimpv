@@ -31,6 +31,8 @@ function neovimpv#omnikey(is_visual, ...) range
       let temp = getcharstr()
       if temp ==# g:mpv_playlist_key
         call MpvSetPlaylist(player, playlist_item)
+      elseif temp ==# g:mpv_playlist_key_video && g:mpv_playlist_key_video !=# ""
+        " TODO
       else
         call MpvSendNvimKeys(player, temp, v:count)
       endif

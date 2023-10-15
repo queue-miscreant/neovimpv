@@ -28,7 +28,20 @@ let g:mpv_on_playlist_update = get(g:, "mpv_on_playlist_update", "stay")
 let g:mpv_smart_youtube_playlist = get(g:, "mpv_youtube_playlist_always_new", 1)
 
 " Key for scrolling a player to a playlist index
-let g:mpv_playlist_key = "\\"
+let g:mpv_playlist_key = get(g:, "mpv_playlist_key", "\\")
+let g:mpv_playlist_key_video = get(g:, "mpv_playlist_key", "")
+if g:mpv_playlist_key_video ==# ""
+  if g:mpv_playlist_key ==# "\\"
+    let g:mpv_playlist_key_video = "<bar>"
+  elseif g:mpv_playlist_key ==# ","
+    let g:mpv_playlist_key_video = "."
+  elseif g:mpv_playlist_key ==# "~"
+    let g:mpv_playlist_key_video = "`"
+  else
+  endif
+endif
+
+" Bind things in `g:mpv_markdown_writable` filetypes
 let g:mpv_smart_bindings = get(g:, "mpv_smart_bindings", 0)
 
 " do lua setup
@@ -60,27 +73,16 @@ hi default link MpvYoutubePlaylistVideo MpvDefault
 hi default link MpvPlaylistSign SignColumn
 
 function s:bind_smart_keys()
-  let modified_key = "<leader>"
-  if g:mpv_playlist_key == "\\"
-    let modified_key = "<bar>"
-  elseif g:mpv_playlist_key == ","
-    let modified_key = "."
-  elseif g:mpv_playlist_key == "~"
-    let modified_key = "`"
-  else
-    " let shifted_key = toupper(shifted_key)
-  endif
-
   exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
   exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
-  if shifted_key != g:mpv_playlist_key
-    exe "nnoremap <silent><buffer> <leader>" . modified_key . " <Plug>(mpv_omnikey_video)"
-    exe "nnoremap <silent><buffer> <leader>" . modified_key . " <Plug>(mpv_omnikey_video)"
+  if g:mpv_playlist_key_video !=# "" && g:mpv_playlist_key_video !=# g:mpv_playlist_key
+    exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
+    exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
   endif
 
-  nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)";
-  nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)";
-  nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)";
+  nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
+  nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
+  nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
 endfunction
 
 if g:mpv_smart_bindings
