@@ -15,6 +15,21 @@ it will be removed from the playlist. Undoing will not restore the playlist.
 Note that playlist content comes from the content of the lines when mpv is first
 opened -- updating lines will NOT change the playlist.
 
+
+Features
+--------
+- Open mpv with or without video from nvim buffer
+- Draw configurable mpv attributes (position, duration, etc) as extmarks
+- Interface with mpv keybinds using "omnikey"
+    - Smart bindings available based on `<leader>` (see `g:mpv_smart_bindings`)
+- Interface with mpv playlists when opening multiple lines at once
+    - Change current playlist item (see `g:mpv_playlist_key`)
+- Can replace paths and URLs with a markdown link to the content with the title as the displayed text
+    - This is intended to display the title in filetypes which conceal the actual link
+- Dynamic playlist updates (e.g., YouTube playlists when using mpv's yt-dlp plugin).
+    - Several options available, see `g:mpv_on_playlist_update`
+
+
 Dependencies
 ------------
 
@@ -36,8 +51,7 @@ Plugin 'queue-miscreant/neovimpv', {'do': ':UpdateRemotePlugins'}
 Make sure the file is sourced and run `:PluginInstall`.
 
 
-Suggested Use
--------------
+### Suggested Use
 
 For the least amount of setup possible, create a keybind in your `init.vim` to
 the omnikey. This allows you to open an mpv instance the first time the
@@ -221,6 +235,14 @@ sent to mpv that number of times.
 Same as `<Plug>(mpv_omnikey)`, but opens the line with `--video=auto`
 appended to the mpv arguments.
 
+When the cursor is on a line with a playlist and this sequence is
+typed, this attempts to toggle the mpv playlist between video and
+audio modes. This is mostly equivalent to the `_` keybind in mpv.
+However, when mpv uses the youtube-dl plugin in audio-only mode, it
+will typically try to download a stream without video. To get around
+this, the plugin will close the player and reopen it with the same
+playlist (with changes to reflect dynamic updates).
+
 
 ### `<Plug>(mpv_youtube_prompt)`
 
@@ -397,8 +419,8 @@ The default value is `"stay"`.
 |---------------|-----------------------------------------------------
 | `"stay"`      | The playlist "file" will be retained in the buffer and the title of the current file will be drawn in an extmark below.
 | `"paste"`     | The dynamic content is inserted in place of the playlist file. All items in the playlist are queued and displayed in the buffer.
-| `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"paste"` mode.
-| `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer.
+| `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"stay"` mode.
+| `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer. Otherwise, it behaves in `"stay"` mode.
 
 
 ### `g:mpv_playlist_key`
@@ -501,7 +523,6 @@ The following highlights are used for extra video info in YouTube results:
 TODOs
 -----
 
-- Close audio-only content and reopen with video
 - Improve sending keys
 - Folds?
 - Play by searching selection (or line) for URL

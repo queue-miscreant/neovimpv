@@ -109,7 +109,7 @@ class MpvInstance:
         if video:
             display["virt_text"] = [["[ Window ]", "MpvDefault"]]
         elif self._transitioning_players:
-            display["virt_text"] = [["[ ... ]", "MpvDefault"]]
+            display["virt_text"] = None
         else:
             display["virt_text"] = self.plugin.formatter.format(self.protocol.data)
 
