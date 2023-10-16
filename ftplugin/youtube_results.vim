@@ -1,8 +1,8 @@
 " Close buffer on q
 nnoremap <buffer> <silent> q :q<cr>
 
-" Check that we have callbacks
-" TODO: name these better
+" TODO: make sure these buffer variable names are more unique
+" check that we have callbacks
 if !exists("b:selection") ||
       \ !exists("b:calling_window") ||
       \ len(b:selection) ==# 0

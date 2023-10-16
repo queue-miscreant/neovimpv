@@ -15,6 +15,12 @@ function neovimpv#omnikey(is_visual, ...) range
     endif
   elseif !a:is_visual
     let [player, playlist_item] = try_get_mpv
+
+    if extra_args =~# "--video=auto"
+      call MpvToggleVideo(player)
+      return
+    endif
+
     " mpv found, get key to send
     let temp_ns = nvim_create_namespace("")
     let new_extmark = nvim_buf_set_extmark(

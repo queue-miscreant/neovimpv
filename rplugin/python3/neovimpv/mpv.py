@@ -6,6 +6,7 @@ import logging
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
+log.setLevel("DEBUG")
 
 # the most confusing regex possible: [group1](group2)
 MARKDOWN_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
@@ -54,11 +55,12 @@ class MpvInstance:
                 "Line does not contain a file path or valid URL"
             )
 
-        mpv_args = self._parse_args(extra_args)
-        self.has_window = args_open_window(mpv_args)
+        self._mpv_args = self._parse_args(extra_args)
         self.no_draw = False
+        self._old_video = False
+        self._transitioning_players = False
 
-        plugin.nvim.loop.create_task(self.spawn(mpv_args))
+        plugin.nvim.loop.create_task(self.spawn(self._mpv_args))
 
     def _parse_args(self, args):
         '''
@@ -94,18 +96,22 @@ class MpvInstance:
 
     def _draw_update(self):
         '''Rerender the player extmark to which this mpv instance corresponds'''
-        if self.no_draw:
+        video = self.protocol.data.get("video")
+        if self.no_draw or (video and self._old_video):
             return
+        self._old_video = video
 
         display = {
             "id": self.id,
-            "virt_text": self.plugin.formatter.format(self.protocol.data),
             "virt_text_pos": "eol",
         }
 
-        if self.has_window:
+        if video:
             display["virt_text"] = [["[ Window ]", "MpvDefault"]]
-            self.no_draw = True
+        elif self._transitioning_players:
+            display["virt_text"] = None
+        else:
+            display["virt_text"] = self.plugin.formatter.format(self.protocol.data)
 
         # this method is called asynchronously, so protect against errors
         try:
@@ -143,7 +149,7 @@ class MpvInstance:
             protocol.add_event("error", lambda _, err: self._show_error(err))
             protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
             protocol.add_event("file-loaded", lambda _, data: self._preamble(data))
-            protocol.add_event("close", lambda _, __: self.close())
+            protocol.add_event("close", lambda _, __: self.close(False))
             protocol.add_event(
                 "property-change",
                 lambda _, __: self.plugin.nvim.async_call(self._draw_update)
@@ -154,12 +160,17 @@ class MpvInstance:
             protocol.observe_property("pause")
             # necessary for retaining playlist position
             protocol.observe_property("playlist")
+            # for drawing [Window] instead, toggling video
+            protocol.observe_property("video")
             # observe everything we need to draw the format string
             for i in self.plugin.formatter.groups:
                 protocol.observe_property(i)
 
+            log.info("Loading playlist!")
+            log.debug(list(self.playlist.playlist_id_to_extra_data.items()))
+
             #start playing the files
-            for _, file in sorted(self.playlist.mpv_id_to_extra_data.items(), key=lambda x: x[0]):
+            for _, file in sorted(self.playlist.playlist_id_to_extra_data.items(), key=lambda x: x[0]):
                 protocol.send_command("loadfile", file[0], "append-play")
         except MpvError as e:
             self.plugin.show_error(e.args[0])
@@ -186,6 +197,51 @@ class MpvInstance:
     def toggle_pause(self):
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
+    async def toggle_video(self):
+        '''Close mpv, then reopen with the same playlist and with video'''
+        if self._transitioning_players:
+            self.plugin.show_error(f"Already attempting to show video!")
+            return
+
+        track_list = await self.protocol.wait_property("track-list")
+        has_video_track = any(map(lambda x: x.get("type") == "video", track_list))
+        if has_video_track:
+            log.info("Player has video track. Cycling video instead.")
+            self.protocol.send_command("cycle", "video")
+            self._old_video = False
+            self._draw_update()
+            return
+
+        current_position = await self.protocol.wait_property("playlist-pos")
+        current_time = await self.protocol.wait_property("playback-time")
+        old_playlist = self.protocol.data.get("playlist", [])
+
+        log.info("Beginning transition...")
+        self._transitioning_players = True
+        self.protocol.send_command("quit")
+        self._draw_update()
+        self.playlist.reorder_by_index(old_playlist)
+        await asyncio.sleep(0.1)
+
+        log.info("Spawning player...")
+        await self.spawn(self._mpv_args + ["--video=auto"])
+        self._transitioning_players = False
+        self._old_video = False
+        self._draw_update()
+
+        log.info(
+            "Transition finished! Setting playlist index to %s...",
+            current_position
+        )
+        self.protocol.send_command("playlist-play-index", current_position)
+        self.protocol.get_property("playlist")
+
+        log.info("Waiting for file to be loaded...")
+        await self.protocol.next_event("file-loaded")
+
+        log.info("File loaded! Seeking...")
+        self.protocol.send_command("seek", current_time)
+
     def _show_error(self, err):
         '''Report error contents to nvim'''
         additional_info = ""
@@ -195,6 +251,7 @@ class MpvInstance:
         self.plugin.show_error(
             f"mpv responded '{err.get('error')}'{additional_info}",
         )
+        log.error("Error occurred: %s", err)
 
     def _on_end_file(self, arg):
         '''Report an error to nvim if the file ended because of an error.'''
@@ -207,39 +264,41 @@ class MpvInstance:
         Move the player to new playlist item and suspend drawing until complete.
         '''
         self.no_draw = True
-        current_mpv_id = self.protocol.last_playlist_entry_id
+        current_playlist_id = self.protocol.last_playlist_entry_id
         override_markdown = False
-        redirected_mpv_id = self.playlist.mpv_id_remap.get(current_mpv_id)
-        if redirected_mpv_id is not None:
+        redirected_playlist_id = self.playlist.playlist_id_remap.get(current_playlist_id)
+        if redirected_playlist_id is not None:
             self.plugin.nvim.async_call(
                 self.playlist.update_currently_playing,
-                current_mpv_id,
-                redirected_mpv_id
+                current_playlist_id,
+                redirected_playlist_id
             )
             # use the extmark of this mpv id to move the player
-            current_mpv_id = redirected_mpv_id
+            current_playlist_id = redirected_playlist_id
             override_markdown = True
-        elif current_mpv_id not in self.playlist.mpv_id_to_extmark_id:
+        elif current_playlist_id not in self.playlist.playlist_id_to_extmark_id:
             self.plugin.show_error("Playlist transition failed!")
             log.debug(
                 "Playlist transition failed! Mpv id %s does not exist in %s",
-                current_mpv_id,
-                self.playlist.mpv_id_to_extmark_id
+                current_playlist_id,
+                self.playlist.playlist_id_to_extmark_id
             )
             self.no_draw = False
             return
 
-        self.plugin.nvim.async_call(self.playlist.move_player_extmark, current_mpv_id)
+        self.plugin.nvim.async_call(self.playlist.move_player_extmark, current_playlist_id)
 
-        filename, write_markdown, _ = self.playlist.mpv_id_to_extra_data[current_mpv_id]
+        filename, write_markdown, _ = self.playlist.playlist_id_to_extra_data[current_playlist_id]
         if write_markdown and not override_markdown:
             self.plugin.nvim.loop.create_task(self.update_markdown(
                 filename,
-                self.playlist.mpv_id_to_extmark_id[current_mpv_id]
+                self.playlist.playlist_id_to_extmark_id[current_playlist_id]
             ))
 
-    def close(self):
+    def close(self, force=True):
         '''Defer to the plugin to remove the extmark'''
+        if self._transitioning_players and not force:
+            return
         self.protocol.send_command("quit") # just in case
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
 
@@ -258,23 +317,59 @@ class MpvPlaylist:
     def __init__(self, parent, filenames, line_numbers, unmarkdown):
         self.parent = parent
 
-        self.mpv_id_to_extmark_id = {}      # mapping from mpv ids to playlist extmark ids
-        self.mpv_id_to_extra_data = {}      # extra data about initial information provided, like whether to
-                                            #   replace a line with markdown when we get a title
-        self.mpv_id_remap = {}              # remaps from one mpv id to another
+        self.playlist_id_to_extmark_id = {}     # mapping from mpv playlist ids to extmark playlist ids
+        self.playlist_id_to_extra_data = {}     # extra data about initial information provided, like whether to
+                                                #   replace a line with markdown when we get a title
+        self.playlist_id_remap = {}             # remaps from one mpv id to another
         self.update_action = self.parent.plugin.on_playlist_update
+        self._updated_indices = {}              # for "stay" mode, map the old playlist id to first new item
+
+        self._new_extra_data = None             # temporary object containing `playlist_id_to_extra_data` for reopening the player
+        self._loaded_titles = {}                # dict mapping filenames to titles, in case we have to reopen the player
 
         playlist_item_lines = self._construct_playlist(filenames, line_numbers, unmarkdown)
         if not playlist_item_lines:
             return None
-        log.debug("Found playlist items: %s", self.mpv_id_to_extra_data)
+        log.debug("Found playlist items: %s", self.playlist_id_to_extra_data)
         self._init_extmarks(playlist_item_lines)
 
     def __len__(self):
         # number of extmarks plus number of remaps minus unique remap targets
-        return len(self.mpv_id_to_extmark_id) + \
-                len(self.mpv_id_remap) - \
-                len(set(self.mpv_id_remap.values()))
+        return len(self.playlist_id_to_extmark_id) + \
+                len(self.playlist_id_remap) - \
+                len(set(self.playlist_id_remap.values()))
+
+    def reorder_by_index(self, old_playlist):
+        '''Reorder playlist_ids by their index in the playlist'''
+        new_remap = {}
+        new_extmark_ids = {}
+        mapped = set()
+        for i, item in enumerate(old_playlist):
+            playlist_id = item.get("id")
+            if playlist_id in self.playlist_id_remap:
+                new_remap[i + 1] = self.playlist_id_remap[playlist_id]
+                mapped.add(self.playlist_id_remap[playlist_id])
+            if playlist_id in self.playlist_id_to_extmark_id:
+                new_extmark_ids[i + 1] = self.playlist_id_to_extmark_id[playlist_id]
+
+        for i in mapped:
+            find_remap = next(
+                (new_playlist_id for new_playlist_id, extmark_id in new_remap.items() if extmark_id == i),
+                None
+            )
+            if find_remap is not None:
+                new_extmark_ids[find_remap] = i
+
+        log.info("Reordered playlist!")
+        log.debug("playlist_id_remap: %s\nnew_extmark_ids: %s", new_remap, new_extmark_ids)
+
+        if self._new_extra_data is not None:
+            self.playlist_id_to_extra_data = self._new_extra_data
+            self._new_extra_data = None
+
+        self.playlist_id_remap = new_remap
+        self.playlist_id_to_extmark_id = new_extmark_ids
+        self._updated_indices.clear()
 
     def _construct_playlist(self, filenames, line_numbers, unmarkdown):
         '''
@@ -297,7 +392,7 @@ class MpvPlaylist:
                 continue
             playlist[i + 1] = (filename, write_markdown, unmarkdown)
             playlist_item_lines.append(line_number)
-        self.mpv_id_to_extra_data = playlist
+        self.playlist_id_to_extra_data = playlist
 
         if len(playlist) == 1 and self.parent.plugin.smart_youtube:
             self._try_smart_youtube(playlist[1][0])
@@ -311,72 +406,96 @@ class MpvPlaylist:
             [i for i in lines] # only the line number, not the file name
         )
         # initial mpv ids are 1-indexed, but match the playlist
-        self.mpv_id_to_extmark_id = {(i + 1): j for i, j in enumerate(playlist_ids)}
+        self.playlist_id_to_extmark_id = {(i + 1): j for i, j in enumerate(playlist_ids)}
         log.debug(
             "Initialized extmarks!\n" \
-            "mpv_id_to_extmark_id = %s",
-            self.mpv_id_to_extmark_id
+            "playlist_id_to_extmark_id = %s",
+            self.playlist_id_to_extmark_id
         )
 
-    def move_player_extmark(self, playlist_mpv_id, show_text=None):
+    def move_player_extmark(self, playlist_id, show_text=None):
         '''Invoke the Lua callback for moving the player to the line of a playlist extmark.'''
         log.debug(
             "Moving player!\n" \
-            "playlist_mpv_id: %s\n" \
-            "mpv_id_to_extmark_id: %s\n" \
-            "mpv_id_remap: %s",
-            playlist_mpv_id,
-            self.mpv_id_to_extmark_id,
-            self.mpv_id_remap,
+            "playlist_id: %s\n" \
+            "playlist_id_to_extmark_id: %s\n" \
+            "playlist_id_remap: %s",
+            playlist_id,
+            self.playlist_id_to_extmark_id,
+            self.playlist_id_remap,
         )
         success = self.parent.plugin.nvim.lua.neovimpv.move_player(
             self.parent.buffer,
             self.parent.id,
-            self.mpv_id_to_extmark_id[playlist_mpv_id],
+            self.playlist_id_to_extmark_id[playlist_id],
             show_text
         )
         if not success:
             try:
-                filename = self.mpv_id_to_extra_data[playlist_mpv_id][0]
+                filename = self.playlist_id_to_extra_data[playlist_id][0]
             except IndexError:
                 filename = None
             self.parent.plugin.show_error(f"Could not move the player (current file: {filename})!")
             log.debug(
                 "Could not move the player!\n" \
                 "filename: %s\n" \
-                "playlist_mpv_id: %s\n" \
+                "playlist_id: %s\n" \
                 "playlist: %s",
                 filename,
-                playlist_mpv_id,
+                playlist_id,
                 self.parent.protocol.data.get('playlist')
             )
         self.parent.no_draw = False
+        self.parent._old_video = False
 
-    def update_currently_playing(self, current_mpv_id, redirected_mpv_id):
+    def update_currently_playing(self, current_playlist_id, redirected_playlist_id):
         '''Invoke the Lua callback for updating the currently playing text'''
         playlist = self.parent.protocol.data.get("playlist", [])
         current_title = next(
-            (item.get("title") for item in playlist if item.get("id") == current_mpv_id),
+            # attempt to get the title of the content
+            # if it's been loaded before, use the entry specified by the filename as backup
+            (item.get("title", self._loaded_titles.get(item.get("filename")))
+                for item in playlist if item.get("id") == current_playlist_id),
             None
         )
-        playlist_item = self.mpv_id_to_extmark_id.get(redirected_mpv_id)
         log.debug(
-            "Updating currently playing!\n" \
-            "current_mpv_id: %s, current_title: %s\n" \
-            "redirected_mpv_id: %s\n" \
-            "mpv_id_to_extmark_id: %s\n",
-            current_mpv_id, current_title,
-            redirected_mpv_id,
-            self.mpv_id_to_extmark_id,
+            "current_playlist_id: %s\n" \
+            "redirected_playlist_id: %s\n" \
+            "playlist: %s\n",
+            current_playlist_id,
+            redirected_playlist_id,
+            playlist
         )
+
+        extmark_id = self.playlist_id_to_extmark_id.get(redirected_playlist_id)
+        log.info("Updating currently playing!")
+        log.debug(
+            "current_playlist_id: %s, current_title: %s\n" \
+            "redirected_playlist_id: %s\n" \
+            "playlist_id_to_extmark_id: %s\n",
+            current_playlist_id, current_title,
+            redirected_playlist_id,
+            self.playlist_id_to_extmark_id,
+        )
+
+        if current_title is None:
+            log.info(
+                "Currently playing title is None.\nIgnoring currently playing update!"
+            )
+            return
+
+        if extmark_id is None:
+            self.parent.plugin.show_error("Error updating currently playing title!")
+            log.error("Could not find extmark id from mpv playlist_id")
+            return
 
         self.parent.plugin.nvim.lua.neovimpv.show_playlist_current(
             self.parent.buffer,
-            playlist_item,
+            extmark_id,
             current_title
         )
 
-    def _paste_playlist(self, new_playlist, playlist_mpv_id):
+    def _paste_playlist(self, new_playlist, playlist_id):
         '''Paste the playlist items on top of the playlist'''
         # make sure we get the right index for currently-playing
         playlist_current = next(
@@ -384,7 +503,7 @@ class MpvPlaylist:
             None
         )
         # get markdown, if applicable
-        use_markdown = self.mpv_id_to_extra_data.get(playlist_mpv_id, ["", False, False])[2]
+        use_markdown = self.playlist_id_to_extra_data.get(playlist_id, ["", False, False])[2]
         write_lines = [i["filename"] for i in new_playlist] if not use_markdown \
             else [
                 f"[{i['title'].replace('[', '(').replace(']',')')}]({i['filename']})"
@@ -399,7 +518,7 @@ class MpvPlaylist:
         new_extmarks = self.parent.plugin.nvim.lua.neovimpv.paste_playlist(
             self.parent.buffer,
             self.parent.id,
-            self.mpv_id_to_extmark_id.get(playlist_mpv_id),
+            self.playlist_id_to_extmark_id.get(playlist_id),
             write_lines,
             playlist_current + 1,
         )
@@ -407,13 +526,13 @@ class MpvPlaylist:
 
         # bind the new extmarks to their mpv ids
         for mpv, extmark_id in zip(new_playlist, new_extmarks):
-            self.mpv_id_to_extmark_id[mpv["id"]] = extmark_id
-            self.mpv_id_to_extra_data[mpv["id"]] = (mpv["filename"], False, use_markdown)
+            self.playlist_id_to_extmark_id[mpv["id"]] = extmark_id
+            self.playlist_id_to_extra_data[mpv["id"]] = (mpv["filename"], False, use_markdown)
 
-    def _new_playlist_buffer(self, new_playlist, playlist_mpv_id):
+    def _new_playlist_buffer(self, new_playlist, playlist_id):
         '''Create a new buffer and paste the playlist items'''
         # get markdown, if applicable
-        use_markdown = self.mpv_id_to_extra_data.get(playlist_mpv_id, ["", False, False])[2]
+        use_markdown = self.playlist_id_to_extra_data.get(playlist_id, ["", False, False])[2]
         write_lines = [i["filename"] for i in new_playlist] if not use_markdown \
             else [
                 f"[{i['title'].replace('[', '(').replace(']',')')}]({i['filename']})"
@@ -429,7 +548,7 @@ class MpvPlaylist:
             self.parent.plugin.nvim.lua.neovimpv.new_playlist_buffer(
                 self.parent.buffer,
                 self.parent.id,
-                self.mpv_id_to_extmark_id.get(playlist_mpv_id),
+                self.playlist_id_to_extmark_id.get(playlist_id),
                 write_lines
             )
         log.debug(
@@ -445,11 +564,15 @@ class MpvPlaylist:
         self.parent.plugin.set_new_buffer(self.parent, new_buffer_id, new_display)
 
         # bind the new extmarks to their mpv ids
-        self.mpv_id_to_extmark_id.clear()
-        self.mpv_id_to_extra_data.clear()
-        for mpv, extmark_id in zip(new_playlist, new_extmarks):
-            self.mpv_id_to_extmark_id[mpv["id"]] = extmark_id
-            self.mpv_id_to_extra_data[mpv["id"]] = (mpv["filename"], False, use_markdown)
+        self.playlist_id_to_extmark_id.clear()
+        self.playlist_id_to_extra_data.clear()
+        for playlist_item, extmark_id in zip(new_playlist, new_extmarks):
+            self.playlist_id_to_extmark_id[playlist_item["id"]] = extmark_id
+            self.playlist_id_to_extra_data[playlist_item["id"]] = (
+                playlist_item["filename"],
+                False,
+                use_markdown
+            )
 
     # ==========================================================================
     # The following methods do not assume that nvim is in an interactable state
@@ -467,18 +590,42 @@ class MpvPlaylist:
         )
 
         # the mpv video id which triggered the new playlist
-        # should correspond to the index in self.mpv_id_to_extmark_id
+        # should correspond to the index in self.playlist_id_to_extmark_id
         original_entry = data["new"]["playlist_entry_id"]
         start = data["new"]["playlist_insert_id"]
         end = start + data["new"]["playlist_insert_num_entries"]
 
         # "stay" if we've been told to or we're not a single playlist
         do_stay = self.update_action == "stay" or \
-                len(self.mpv_id_to_extmark_id) > 1 and self.update_action in ("paste_one", "new_one")
+                len(self.playlist_id_to_extmark_id) > 1 and self.update_action in ("paste_one", "new_one")
+
+        # map the old playlist id to the first item in the new one
+        self._updated_indices[original_entry] = start
+
+        # prepare for the user reopening the player for video
+        new_extra_data = {}
+        for i, playlist_entry in enumerate(data["playlist"]):
+            if (playlist_id := playlist_entry["id"]) not in range(start, end):
+                # Carry over the old playlist
+                new_extra_data[i + 1] = self.playlist_id_to_extra_data.get(playlist_id)
+                continue
+            # add in the new playlist items
+            new_extra_data[i + 1] = [
+                playlist_entry["filename"],
+                False,
+                False
+            ]
+            self._loaded_titles[playlist_entry["filename"]] = playlist_entry["title"]
+
+        self._new_extra_data = new_extra_data
+
+        log.info("Prepared extra data from playlist update!")
+        log.debug("_new_extra_data: %s", self._new_extra_data)
 
         if do_stay:
+            # add remaps (i.e., old playlist id to new playlist id)
             for i in range(start, end):
-                self.mpv_id_remap[i] = original_entry
+                self.playlist_id_remap[i] = original_entry
         elif self.update_action in ("paste", "paste_one"):
             self.parent.no_draw = True
             self.parent.plugin.nvim.async_call(
@@ -493,67 +640,72 @@ class MpvPlaylist:
                 original_entry,
             )
 
-    def set_current_by_playlist_extmark(self, playlist_item):
+    def set_current_by_playlist_extmark(self, extmark_id):
         '''Set the current file to the mpv file specified by the extmark `playlist_item`'''
         # try to remap the extmark to the one it came from
         try_remap = next(
-            (j for i, j in self.mpv_id_remap.items() if j == playlist_item),
-            playlist_item
+            (j for i, j in self.playlist_id_remap.items() if j == extmark_id),
+            extmark_id
         )
         # then get the mpv id from it
-        mpv_id = next(
-            (i for i,j in self.mpv_id_to_extmark_id.items() if j == playlist_item),
+        playlist_id = next(
+            (i for i, j in self.playlist_id_to_extmark_id.items() if j == try_remap),
             None
         )
+
+        # adjustment for updated playlists
+        if playlist_id in self._updated_indices:
+            playlist_id = self._updated_indices[playlist_id]
+
         # then index into the current playlist
         playlist = self.parent.protocol.data.get("playlist", [])
         if len(playlist) <= 1:
             self.parent.plugin.show_error("Refusing to set playlist index on small playlist!", 3)
-            log.debug("Refusing to set playlist index on small playlist!")
             return
 
-        index = next((index
+        playlist_index = next((index
             for index, item in enumerate(playlist)
-            if item["id"] == mpv_id
+            if item["id"] == playlist_id
         ), None)
 
         log.debug(
             "Setting current playlist item!\n" \
-            "playlist_item: %s\n" \
+            "extmark_id: %s\n" \
             "try_remap: %s\n" \
-            "mpv_id: %s\n" \
-            "index: %s",
-            playlist_item,
+            "playlist_id: %s\n" \
+            "playlist_index: %s",
+            extmark_id,
             try_remap,
-            mpv_id,
-            index,
+            playlist_id,
+            playlist_index,
         )
 
-        if index is None:
+        if playlist_index is None:
             self.parent.plugin.show_error("Could not find mpv item!")
+            log.error("Entry %s does not exist in playlist!\n%s", playlist_id, playlist)
             return
 
-        self.parent.protocol.send_command("playlist-play-index", index)
+        self.parent.protocol.send_command("playlist-play-index", playlist_index)
 
     def forward_deletions(self, removed_items):
         '''Forward deletions to mpv'''
-        mpv_ids = [i for i,j in self.mpv_id_to_extmark_id.items() if j in removed_items]
+        playlist_ids = [i for i,j in self.playlist_id_to_extmark_id.items() if j in removed_items]
 
         # reverse-lookup for remapped extmarks
-        static_deletions = [j for i in removed_items for j, k in self.mpv_id_remap.items() if k == i]
-        mpv_ids += static_deletions
+        static_deletions = [j for i in removed_items for j, k in self.playlist_id_remap.items() if k == i]
+        playlist_ids += static_deletions
 
         # get deleted indexes
         removed_indices = [index
             for index, item in enumerate(self.parent.protocol.data.get("playlist", []))
-            if item["id"] in mpv_ids
+            if item["id"] in playlist_ids
         ]
 
         log.debug(
             "Removing mpv ids!\n" \
-            "mpv_ids: %s\n" \
+            "playlist_ids: %s\n" \
             "playlist: %s",
-            mpv_ids,
+            playlist_ids,
             self.parent.protocol.data.get('playlist')
         )
 
@@ -562,9 +714,9 @@ class MpvPlaylist:
             self.parent.protocol.send_command("playlist-remove", index)
 
     def _try_smart_youtube(self, filename):
-        '''Smart Youtube playlist actions: typically `new_one` and `stay`'''
+        '''Smart Youtube playlist actions: typically `new_one` and `paste`'''
         is_search = YTDL_YOUTUBE_SEARCH.match(filename)
         if is_search and is_search.group(1) in ("", "1"):
-            self.update_action = "stay"
+            self.update_action = "paste"
             return
         self.update_action = "new_one"

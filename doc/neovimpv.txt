@@ -34,6 +34,20 @@ playlist, and its corresponding extmark is deleted. Undoing will not restore
 the playlist or extmark. Line contents are NOT tracked, and the file opened
 will correspond to the contents of the line at the time mpv was opened.
 
+-------------------------------------------------------------------------------
+FEATURES
+
+- Open mpv with or without video from nvim buffer
+- Draw configurable mpv attributes (position, duration, etc) as extmarks
+- Interface with mpv keybinds using "omnikey"
+    - Smart bindings available based on <leader> (see |g:mpv_smart_bindings|)
+- Interface with mpv playlists when opening multiple lines at once
+    - Change current playlist item (see |g:mpv_playlist_key|)
+- Can replace paths and URLs with a markdown link to the content with the title as the displayed text
+    - This is intended to display the title in filetypes which conceal the actual link
+- Dynamic playlist updates (e.g., YouTube playlists when using mpv's YouTube plugin).
+    - Several options available, see |g:mpv_on_playlist_update|
+
 --------------------------------------------------------------------------------
 COMMANDS                                                *neovimpv-command*
 
@@ -165,6 +179,14 @@ KEYS                                                    *neovimpv-keys*
 
         Same as <Plug>(mpv_omnikey), but opens the line with `--video=auto`
         appended to the mpv arguments.
+
+        When the cursor is on a line with a playlist and this sequence is
+        typed, this attempts to toggle the mpv playlist between video and
+        audio modes. This is mostly equivalent to the `_` keybind in mpv.
+        However, when mpv uses the youtube-dl plugin in audio-only mode, it
+        will typically try to download a stream without video. To get around
+        this, the plugin will close the player and reopen it with the same
+        playlist (with changes to reflect dynamic updates).
 
 <Plug>(mpv_youtube_prompt)
 
@@ -343,11 +365,11 @@ g:mpv_on_playlist_update                                *g:mpv_on_playlist_updat
         "file". All items in the playlist are queued and displayed in the
         buffer.
         For `"paste_one"`, the plugin behaves in `"paste"` mode when the
-        initial playlist has only one item. Otherwise, it behaves in `"paste"`
+        initial playlist has only one item. Otherwise, it behaves in `"stay"`
         mode.
         For `"new_one"`, a single-item playlist will paste the dynamic content
         in a new split. All content is queued and the player is moved to the
-        new buffer.
+        new buffer. Otherwise, it behaves in `"stay"` mode.
 
 g:mpv_playlist_key                                      *g:mpv_playlist_key*
 
@@ -357,11 +379,40 @@ g:mpv_playlist_key                                      *g:mpv_playlist_key*
         mpv item to the one at the row of the cursor.
         The default value is backslash (i.e., `"\\"`).
 
+g:mpv_playlist_key_video                                *g:mpv_playlist_key_video*
+
+        A second special key (stored in a string) which acts as a video
+        counterpart to the omnikey (i.e., |g:mpv_playlist_key|).
+
+        The default value depends on the value of |g:mpv_playlist_key|:
+
+        g:mpv_playlist_key  |   g:mpv_playlist_key_video
+        ________________________________________________________________________
+        "\\"                |   "<bar>" (i.e., "|" as a key)
+        ","                 |   "."
+        "~"                 |   "`"
+        (Other)             |   "" (Unused)
+
+g:mpv_smart_bindings                                    *g:mpv_smart_bindings*
+
+        Boolean value which, when true, attempts to set smart bindings in filetypes
+        included in |g:mpv_markdown_writable|.
+
+        Binding                            | Description
+        ________________________________________________________________________
+        <leader>`[g:mpv_playlist_key]`       | Omnikey
+        <leader>`[g:mpv_playlist_key_video]` | Omnikey (video)
+        <leader>yt                         | Open YouTube search
+        <leader>[                          | Move cursor to earlier line with mpv instance
+        <leader>]                          | Move cursor to later line with mpv instance
+
+        Default value is 0 (false).
+
 g:mpv_smart_youtube_playlist                            *g:mpv_smart_youtube_playlist*
 
         A boolean value which affects the |g:mpv_on_playlist_update| semantics
         for opening a single YouTube playlist.
-        Playlists from "ytsearch[{count}]:" will open as `stay` if {count} is
+        Playlists from "ytsearch[{count}]:" will open as `paste` if {count} is
         not given or 1.
         Other single-item playlists are opened as `new_one`.
 
@@ -402,11 +453,11 @@ with "MpvDefault" (instead of "MpvPlaybackTime"):
 
 The following highlights are used for extra video info in YouTube results:
 
-| PROPERTY NAME | HIGHLIGHT NAME        | EXPLANATION
-_______________________________________________________________________
-| length        | MpvYoutubeLength      | Length of the video
-| channel_name  | MpvYoutubeChannelName | Channel name of uploader
-| views         | MpvYoutubeViews       | View count of the video
+PROPERTY NAME | HIGHLIGHT NAME        | EXPLANATION
+_____________________________________________________________________
+length        | MpvYoutubeLength      | Length of the video
+channel_name  | MpvYoutubeChannelName | Channel name of uploader
+views         | MpvYoutubeViews       | View count of the video
 
 ================================================================================
 vim:tw=80:nosta:ft=help:fen:

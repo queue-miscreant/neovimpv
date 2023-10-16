@@ -15,7 +15,22 @@ it will be removed from the playlist. Undoing will not restore the playlist.
 Note that playlist content comes from the content of the lines when mpv is first
 opened -- updating lines will NOT change the playlist.
 
-Requirements
+
+Features
+--------
+- Open mpv with or without video from nvim buffer
+- Draw configurable mpv attributes (position, duration, etc) as extmarks
+- Interface with mpv keybinds using "omnikey"
+    - Smart bindings available based on `<leader>` (see `g:mpv_smart_bindings`)
+- Interface with mpv playlists when opening multiple lines at once
+    - Change current playlist item (see `g:mpv_playlist_key`)
+- Can replace paths and URLs with a markdown link to the content with the title as the displayed text
+    - This is intended to display the title in filetypes which conceal the actual link
+- Dynamic playlist updates (e.g., YouTube playlists when using mpv's yt-dlp plugin).
+    - Several options available, see `g:mpv_on_playlist_update`
+
+
+Dependencies
 ------------
 
 - mpv (other media players not supported, nor planned to be supported)
@@ -36,13 +51,12 @@ Plugin 'queue-miscreant/neovimpv', {'do': ':UpdateRemotePlugins'}
 Make sure the file is sourced and run `:PluginInstall`.
 
 
-Suggested Use
--------------
+### Suggested Use
 
 For the least amount of setup possible, create a keybind in your `init.vim` to
-omnikey. This allows you to open an mpv instance the first time the sequence is
-pressed. Pressing the same sequence again (without moving to another line) will
-attempt to capture a keypress to send to mpv.
+the omnikey. This allows you to open an mpv instance the first time the
+sequence is pressed. Pressing the same sequence again (without moving to
+another line) will attempt to capture a keypress to send to mpv.
 
 ```vim
 nnoremap <silent> <leader>\ <Plug>(mpv_omnikey)
@@ -55,6 +69,16 @@ nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
 nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
 nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
 ```
+
+Alternatively, set `g:mpv_smart_bindings` to 1 and specify a filetype in
+`g:mpv_markdown_writable`. For example,
+
+```vim
+g:mpv_smart_bindings = 1
+g:mpv_markdown_writable = ["markdown"]
+```
+
+This will set the same bindings as above in files with the given filetypes.
 
 
 Commands
@@ -210,6 +234,14 @@ sent to mpv that number of times.
 
 Same as `<Plug>(mpv_omnikey)`, but opens the line with `--video=auto`
 appended to the mpv arguments.
+
+When the cursor is on a line with a playlist and this sequence is
+typed, this attempts to toggle the mpv playlist between video and
+audio modes. This is mostly equivalent to the `_` keybind in mpv.
+However, when mpv uses the youtube-dl plugin in audio-only mode, it
+will typically try to download a stream without video. To get around
+this, the plugin will close the player and reopen it with the same
+playlist (with changes to reflect dynamic updates).
 
 
 ### `<Plug>(mpv_youtube_prompt)`
@@ -387,9 +419,8 @@ The default value is `"stay"`.
 |---------------|-----------------------------------------------------
 | `"stay"`      | The playlist "file" will be retained in the buffer and the title of the current file will be drawn in an extmark below.
 | `"paste"`     | The dynamic content is inserted in place of the playlist file. All items in the playlist are queued and displayed in the buffer.
-| `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"paste"` mode.
-| `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer.
-
+| `"paste_one"` | The plugin behaves in `"paste"` mode when the initial playlist has only one item. Otherwise, it behaves in `"stay"` mode.
+| `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer. Otherwise, it behaves in `"stay"` mode.
 
 
 ### `g:mpv_playlist_key`
@@ -402,11 +433,43 @@ mpv item to the one at the row of the cursor.
 The default value is backslash (i.e., `"\\"`).
 
 
+### `g:mpv_playlist_key_video`
+
+A second special key (stored in a string) which changes the functionality of
+the omnikey. This key is intended to be the "video" counterpart to
+`g:mpv_playlist_key`.
+
+The default value depends on the value of `g:mpv_playlist_key`:
+
+| `g:mpv_playlist_key` | `g:mpv_playlist_key_video`
+|----------------------|-----------------------------------------------------
+| `"\\"`               | `"<bar>"` (i.e., `|` as a key)
+| `","`                | `"."`
+| `"~"`                | `"``"`
+| (Other)              | `""` (Unused)
+
+
+### `g:mpv_smart_bindings`
+
+Boolean value which, when true, attempts to set smart bindings in filetypes
+included in `g:mpv_markdown_writable`.
+
+| Binding                              | Description
+|--------------------------------------|-----------------------------------------------
+| `<leader>[g:mpv_playlist_key]`       | Omnikey
+| `<leader>[g:mpv_playlist_key_video]` | Omnikey (video)
+| `<leader>yt`                         | Open YouTube search
+| `<leader>[`                          | Move cursor to earlier line with mpv instance
+| `<leader>]`                          | Move cursor to later line with mpv instance
+
+Default value is 0 (false).
+
+
 ### `g:mpv_smart_youtube_playlist`
 
 A boolean value which affects the `g:mpv_on_playlist_update` semantics
 for opening a single YouTube playlist.
-Playlists from "ytsearch{count}:" will open as 'stay' if count is not
+Playlists from "ytsearch{count}:" will open as 'paste' if count is not
 given or 1.
 Other single-item playlists are opened as `new_one`.
 
@@ -463,4 +526,3 @@ TODOs
 - Improve sending keys
 - Folds?
 - Play by searching selection (or line) for URL
-- Close audio-only content and reopen with video
