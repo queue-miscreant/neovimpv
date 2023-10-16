@@ -29,7 +29,7 @@ let g:mpv_smart_youtube_playlist = get(g:, "mpv_youtube_playlist_always_new", 1)
 
 " Key for scrolling a player to a playlist index
 let g:mpv_playlist_key = get(g:, "mpv_playlist_key", "\\")
-let g:mpv_playlist_key_video = get(g:, "mpv_playlist_key", "")
+let g:mpv_playlist_key_video = get(g:, "mpv_playlist_key_video", "")
 if g:mpv_playlist_key_video ==# ""
   if g:mpv_playlist_key ==# "\\"
     let g:mpv_playlist_key_video = "<bar>"
@@ -37,7 +37,6 @@ if g:mpv_playlist_key_video ==# ""
     let g:mpv_playlist_key_video = "."
   elseif g:mpv_playlist_key ==# "~"
     let g:mpv_playlist_key_video = "`"
-  else
   endif
 endif
 
@@ -72,7 +71,7 @@ hi default link MpvYoutubePlaylistVideo MpvDefault
 
 hi default link MpvPlaylistSign SignColumn
 
-function s:bind_smart_keys()
+function s:mpv_bind_smart_keys()
   exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
   exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
   if g:mpv_playlist_key_video !=# "" && g:mpv_playlist_key_video !=# g:mpv_playlist_key

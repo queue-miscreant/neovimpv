@@ -109,7 +109,7 @@ class MpvInstance:
         if video:
             display["virt_text"] = [["[ Window ]", "MpvDefault"]]
         elif self._transitioning_players:
-            display["virt_text"] = [["[...]", "MpvDefault"]]
+            display["virt_text"] = [["[ ... ]", "MpvDefault"]]
         else:
             display["virt_text"] = self.plugin.formatter.format(self.protocol.data)
 
@@ -165,6 +165,9 @@ class MpvInstance:
             # observe everything we need to draw the format string
             for i in self.plugin.formatter.groups:
                 protocol.observe_property(i)
+
+            log.info("Loading playlist!")
+            log.debug(list(self.playlist.playlist_id_to_extra_data.items()))
 
             #start playing the files
             for _, file in sorted(self.playlist.playlist_id_to_extra_data.items(), key=lambda x: x[0]):
@@ -223,6 +226,8 @@ class MpvInstance:
         log.info("Spawning player...")
         await self.spawn(self._mpv_args + ["--video=auto"])
         self._transitioning_players = False
+        self._old_video = False
+        self._draw_update()
 
         log.info(
             "Transition finished! Setting playlist index to %s...",
@@ -312,16 +317,15 @@ class MpvPlaylist:
     def __init__(self, parent, filenames, line_numbers, unmarkdown):
         self.parent = parent
 
-        self.playlist_id_to_extmark_id = {}      # mapping from mpv ids to playlist extmark ids
-        self.playlist_id_to_extra_data = {}      # extra data about initial information provided, like whether to
-                                            #   replace a line with markdown when we get a title
-        self.playlist_id_remap = {}              # remaps from one mpv id to another
+        self.playlist_id_to_extmark_id = {}     # mapping from mpv playlist ids to extmark playlist ids
+        self.playlist_id_to_extra_data = {}     # extra data about initial information provided, like whether to
+                                                #   replace a line with markdown when we get a title
+        self.playlist_id_remap = {}             # remaps from one mpv id to another
         self.update_action = self.parent.plugin.on_playlist_update
+        self._updated_indices = {}              # for "stay" mode, map the old playlist id to first new item
 
-        self._new_extra_data = None
-        self._loaded_titles = {}
-
-        self._updated_indices = {}
+        self._new_extra_data = None             # temporary object containing `playlist_id_to_extra_data` for reopening the player
+        self._loaded_titles = {}                # dict mapping filenames to titles, in case we have to reopen the player
 
         playlist_item_lines = self._construct_playlist(filenames, line_numbers, unmarkdown)
         if not playlist_item_lines:
@@ -442,6 +446,7 @@ class MpvPlaylist:
                 self.parent.protocol.data.get('playlist')
             )
         self.parent.no_draw = False
+        self.parent._old_video = False
 
     def update_currently_playing(self, current_playlist_id, redirected_playlist_id):
         '''Invoke the Lua callback for updating the currently playing text'''
@@ -594,29 +599,33 @@ class MpvPlaylist:
         do_stay = self.update_action == "stay" or \
                 len(self.playlist_id_to_extmark_id) > 1 and self.update_action in ("paste_one", "new_one")
 
+        # map the old playlist id to the first item in the new one
+        self._updated_indices[original_entry] = start
+
+        # prepare for the user reopening the player for video
+        new_extra_data = {}
+        for i, playlist_entry in enumerate(data["playlist"]):
+            if (playlist_id := playlist_entry["id"]) not in range(start, end):
+                # Carry over the old playlist
+                new_extra_data[i + 1] = self.playlist_id_to_extra_data.get(playlist_id)
+                continue
+            # add in the new playlist items
+            new_extra_data[i + 1] = [
+                playlist_entry["filename"],
+                False,
+                False
+            ]
+            self._loaded_titles[playlist_entry["filename"]] = playlist_entry["title"]
+
+        self._new_extra_data = new_extra_data
+
+        log.info("Prepared extra data from playlist update!")
+        log.debug("_new_extra_data: %s", self._new_extra_data)
+
         if do_stay:
-            # remap lower and higher ids
-            self._new_extra_data = { (i if i <= original_entry else i + end - start - 1): j \
-                    for i, j in self.playlist_id_to_extra_data.items() }
-            # add remaps
+            # add remaps (i.e., old playlist id to new playlist id)
             for i in range(start, end):
                 self.playlist_id_remap[i] = original_entry
-
-            for i in data["playlist"]:
-                if (playlist_id := i["id"]) not in range(start, end):
-                    continue
-                # add in the new playlist items
-                self._new_extra_data[playlist_id - start + original_entry] = [
-                    i["filename"],
-                    False,
-                    False
-                ]
-                self._loaded_titles[i["filename"]] = i["title"]
-
-            self._updated_indices[original_entry] = start
-
-            log.info("Prepared extra data from playlist update!")
-            log.debug("_new_extra_data: %s", self._new_extra_data)
         elif self.update_action in ("paste", "paste_one"):
             self.parent.no_draw = True
             self.parent.plugin.nvim.async_call(
