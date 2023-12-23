@@ -523,9 +523,7 @@ The following highlights are used for extra video info in YouTube results:
 TODOs
 -----
 
-- Improve sending keys
+- Improve sending keys to mpv
 - Folds?
 - Play by searching selection (or line) for URL
 - Close invisible players
-- Occasionally, getting video data fails
-- youtube search results pasted in originating buffer

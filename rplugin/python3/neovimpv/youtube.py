@@ -42,6 +42,8 @@ class YoutubeRenderer:
         "video_id": ["videoId"],
         "length": ["lengthText", "simpleText"],
         "views": ["viewCountText", "simpleText"],
+        "stream_badge": ["badges", 0, "metadataBadgeRenderer", "label"],
+        "stream_views": ["viewCountText", "runs", 0, "text"],
         "channel_name": ["longBylineText", "runs", 0, "text"],
     }
 
@@ -83,6 +85,16 @@ class YoutubeRenderer:
             ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
         except KeyError:
             return None
+        if ret.get("views") is None:
+            views = "(Error getting views)"
+            if (stream_views := ret.get("stream_views")) is not None:
+                views = f"{stream_views} viewers"
+            ret["views"] = views
+        if ret.get("length") is None:
+            length = "(Error getting length)"
+            if (stream_badge := ret.get("stream_badge")) is not None:
+                length = stream_badge
+            ret["length"] = length
         log.debug("Successfully parsed video: %s", ret)
         return ret
 
@@ -193,8 +205,10 @@ class Youtube:
         return try_follow_path(results, cls.PLAYLIST_CONTENTS_PATH) or []
 
     @classmethod
-    def search(cls, query):
+    def search(cls, query, raw=False):
         results = cls._search(query)
+        if raw:
+            return results
         videos = [i for i in (
             YoutubeRenderer.video(result.get("videoRenderer"))
             for result in results
@@ -280,4 +294,4 @@ async def open_playlist_results(nvim, playlist, extra):
 
 if __name__ == "__main__":
     import sys
-    print(json.dumps(Youtube.search(sys.argv[1])))
+    print(json.dumps(Youtube.search(sys.argv[1], sys.argv[2] == "--raw" if len(sys.argv) > 2 else False)))
