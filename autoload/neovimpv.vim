@@ -199,7 +199,7 @@ endfunction
 " TODO use lua callback instead
 function neovimpv#bind_autocmd(...)
   let no_text_changed = a:0
-  if !no_text_changed
+  if !no_text_changed && &modifiable
     autocmd TextChanged <buffer> call s:undo_for_change_count()
   endif
   execute "autocmd BufHidden <buffer> :MpvClose " . bufnr()

@@ -52,7 +52,7 @@ class MpvInstance:
         if not self.playlist:
             self.plugin.show_error(
                 ("Lines do" if len(filenames) > 1 else "Line does") + \
-                "not contain a file path or valid URL"
+                " not contain a file path or valid URL"
             )
 
         self._mpv_args = self._parse_args(extra_args)

@@ -32,10 +32,10 @@ def find_closest_link(line, column):
     last = None
     count = 0
     for i in LINK_RE.finditer(line):
+        count += 1
         if column < i.start():
             break
         last = i
-        count += 1
     if last == None:
         # only one result
         if count > 0:
