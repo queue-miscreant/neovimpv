@@ -325,9 +325,9 @@ g:mpv_style                                             *g:mpv_style*
 
 g:mpv_markdown_writable                                 *g:mpv_markdown_writable*
 
-        List of |filetype|s which, when a line is opened using |:MpvOpen|,
-        will format the line into markdown, if it isn't already. The format
-        used is `[{mpv-title}]({original-link})`.
+        List of |filetype|s (strings) which, when a line is opened using
+        |:MpvOpen|, will format the line into markdown, if it isn't already.
+        The format used is `[{mpv-title}]({original-link})`.
 
         This option is best used in files which support syntax that conceals
         link contents.
@@ -404,10 +404,9 @@ g:mpv_playlist_key_video                                *g:mpv_playlist_key_vide
         "~"                 |   "`"
         (Other)             |   "" (Unused)
 
-g:mpv_smart_bindings                                    *g:mpv_smart_bindings*
+g:mpv_smart_filetypes                                   *g:mpv_smart_filetypes*
 
-        Boolean value which, when true, attempts to set smart bindings in filetypes
-        included in |g:mpv_markdown_writable|.
+        A list of filetypes (strings) which should have smart default bindings set.
 
         Binding                            | Description
         ________________________________________________________________________
@@ -417,7 +416,22 @@ g:mpv_smart_bindings                                    *g:mpv_smart_bindings*
         <leader>[                          | Move cursor to earlier line with mpv instance
         <leader>]                          | Move cursor to later line with mpv instance
 
+        Default value is [] (no filetypes).
+
+g:mpv_markdown_smart_bindings                           *g:mpv_markdown_smart_bindings*
+
+        Boolean value which, when true, attempts to set smart bindings in filetypes
+        included in |g:mpv_markdown_writable|.
+
         Default value is 0 (false).
+
+g:mpv_smart_youtube_playlist                            *g:mpv_smart_youtube_playlist*
+
+        A boolean value which affects the |g:mpv_on_playlist_update| semantics
+        for opening a single YouTube playlist.
+        Playlists from "ytsearch[{count}]:" will open as `paste` if {count} is
+        not given or 1.
+        Other single-item playlists are opened as `new_one`.
 
 g:mpv_smart_youtube_playlist                            *g:mpv_smart_youtube_playlist*
 

@@ -41,7 +41,18 @@ if g:mpv_playlist_key_video ==# ""
 endif
 
 " Bind things in `g:mpv_markdown_writable` filetypes
-let g:mpv_smart_bindings = get(g:, "mpv_smart_bindings", 0)
+let g:mpv_markdown_smart_bindings = get(g:, "mpv_markdown_smart_bindings", 0)
+
+" Filetypes which should have smart bindings added by default
+let g:mpv_smart_filetypes = get(g:, "mpv_smart_filetypes", [])
+call add(g:mpv_smart_filetypes, "youtube_playlist")
+
+if g:mpv_markdown_smart_bindings
+  for i in g:mpv_markdown_writable
+    call add(g:mpv_smart_filetypes, i)
+  endfor
+  call uniq(sort(g:mpv_smart_filetypes))
+endif
 
 " do lua setup
 lua require('neovimpv')
@@ -84,10 +95,8 @@ function! s:mpv_bind_smart_keys()
   nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
 endfunction
 
-if g:mpv_smart_bindings
-  augroup MpvSmartBindings
-    for i in g:mpv_markdown_writable
-      exe "autocmd Filetype " . i . " call s:mpv_bind_smart_keys()"
-    endfor
-  augroup end
-endif
+augroup MpvSmartBindings
+  for i in g:mpv_smart_filetypes
+    exe "autocmd Filetype " . i . " call s:mpv_bind_smart_keys()"
+  endfor
+augroup end

@@ -376,7 +376,7 @@ The default value is `"unicode"`
 
 ### `g:mpv_markdown_writable`
 
-List of filetypes which, when a line is opened using `:MpvOpen`,
+List of filetypes (strings) which, when a line is opened using `:MpvOpen`,
 will format the line into markdown, if it isn't already. The format
 used is `[{mpv-title}]({original-link})`.
 
@@ -460,10 +460,9 @@ The default value depends on the value of `g:mpv_playlist_key`:
 | (Other)              | `""` (Unused)
 
 
-### `g:mpv_smart_bindings`
+### `g:mpv_smart_filetypes`
 
-Boolean value which, when true, attempts to set smart bindings in filetypes
-included in `g:mpv_markdown_writable`.
+A list of filetypes (strings) which should have smart default bindings set.
 
 | Binding                              | Description
 |--------------------------------------|-----------------------------------------------
@@ -472,6 +471,13 @@ included in `g:mpv_markdown_writable`.
 | `<leader>yt`                         | Open YouTube search
 | `<leader>[`                          | Move cursor to earlier line with mpv instance
 | `<leader>]`                          | Move cursor to later line with mpv instance
+
+Default value is `[]` (empty).
+
+### `g:mpv_markdown_smart_bindings`
+
+Boolean value which, when true, attempts to set smart bindings in filetypes
+included in |g:mpv_markdown_writable|.
 
 Default value is 0 (false).
 
