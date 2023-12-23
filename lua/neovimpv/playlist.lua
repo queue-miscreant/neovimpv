@@ -10,6 +10,11 @@ local PLAYLIST_NAMESPACE = neovimpv.PLAYLIST_NAMESPACE
 
 -- Set the contents of the line of a playlist item with id `playist_id` in a `buffer` to `content`
 function neovimpv.write_line_of_playlist_item(buffer, playlist_id, content)
+  -- Don't bother if not modifiable
+  if not vim.api.nvim_buf_get_option(buffer, "modifiable") then
+    return
+  end
+
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
     PLAYLIST_NAMESPACE,
