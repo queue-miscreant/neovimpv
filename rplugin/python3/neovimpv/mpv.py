@@ -51,8 +51,8 @@ class MpvInstance:
         self.playlist = MpvPlaylist(self, filenames, line_numbers, unmarkdown)
         if not self.playlist:
             self.plugin.show_error(
-                "Lines do not contain a file path or valid URL" if len(filenames) > 1 else
-                "Line does not contain a file path or valid URL"
+                ("Lines do" if len(filenames) > 1 else "Line does") + \
+                "not contain a file path or valid URL"
             )
 
         self._mpv_args = self._parse_args(extra_args)

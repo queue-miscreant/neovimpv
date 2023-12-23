@@ -4,6 +4,8 @@ import logging
 import json
 import os
 import os.path
+import re
+import shlex
 
 import pynvim
 from neovimpv.format import Formatter
@@ -24,6 +26,29 @@ KEYPRESS_LOOKUP = {
     "kd": "down",
     "kb": "bs",
 }
+
+LINK_RE = re.compile("(https?://.+?\\.[^`\\s]+)")
+def find_closest_link(line, column):
+    last = None
+    count = 0
+    for i in LINK_RE.finditer(line):
+        if column < i.start():
+            break
+        last = i
+        count += 1
+    if last == None:
+        # only one result
+        if count > 0:
+            return i.group()
+        else:
+            return None
+    else:
+        dist_from_last = column - last.end()
+        dist_to_next = column - i.start()
+        if abs(dist_from_last) > abs(dist_to_next):
+            return i.group()
+        else:
+            return last.group()
 
 def translate_keypress(key):
     if key[0] == "\udc80":
@@ -63,31 +88,48 @@ class Neovimpv:
 
         self._mpv_instances = {}
 
-    @pynvim.command(
-        "MpvOpen",
-        nargs="*",
-        range=""
-    )
-    def open_in_mpv(self, args, range_):
-        '''Open current line as a file in mpv.'''
-        start, end = range_
+    def create_mpv_instance(self, files, start, end, args):
+        '''Create an MpvInstance and register it in `self._mpv_instances`'''
         if start == end and self.get_mpv_by_line(self.nvim.current.buffer, start, show_error=False):
             self.show_error("Mpv is already open on this line!")
             return
 
-        lines = self.nvim.current.buffer[start-1:end] # end+1 for inclusive
         current_filetype = self.nvim.current.buffer.api.get_option("filetype")
 
         target = MpvInstance(
             self,
             self.nvim.current.buffer.number,
-            lines,
-            range(start, end + 1),
+            files,
+            range(start, end + 1), # end+1 for inclusive
             args,
             current_filetype in self.do_markdowns
         )
         if target is not None:
             self._mpv_instances[(target.buffer, target.id)] = target
+
+    @pynvim.command("MpvOpen", nargs="*", range="")
+    def open_in_mpv(self, args, range_):
+        '''Open current line as a file in mpv.'''
+        start, end = range_
+        args = shlex.split(" ".join(args))
+        lines = self.nvim.current.buffer[start-1:end]
+        # if we only have the one line and we're not in visual mode, search it for links
+        mode = self.nvim.api.get_mode()
+        if start == end and mode.get("mode") != 'v':
+            _, cursor_col = self.nvim.current.window.cursor
+            link = find_closest_link(lines[0], cursor_col)
+            if link is not None:
+                lines = [link]
+        self.create_mpv_instance(lines, start, end, args)
+
+    @pynvim.command("MpvNewAtLine", nargs="*", range="")
+    def new_mpv_at_line(self, args, range_):
+        '''Open current line as a file in mpv.'''
+        start, end = range_
+        # For some reason, vim sends the args over space-delimited, instead of with quotes interpreted
+        args = shlex.split(" ".join(args))
+        target_link = [args[0]]
+        self.create_mpv_instance(target_link, start, end, args[1:])
 
     @pynvim.command(
         "MpvPause",

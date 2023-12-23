@@ -84,16 +84,20 @@ This will set the same bindings as above in files with the given filetypes.
 Commands
 --------
 
-### `:MpvOpen [{mpv-args}]`
+### `:MpvOpen [{local-args}] [-- {mpv-args}]`
 
 Open an mpv instance using the string on the current line, as if invoking `mpv`
-from the command line with the `--no-video` flag. URLs may be used if youtube-dl
-or yt-dlp has been set up.
+from the command line with the `--no-video` flag. URLs may be used if
+youtube-dl or yt-dlp has been set up.
 
-To decrease reliance on IPC, some rudimentary checks are performed to ensure that
-the file exists or is a URL.
+To decrease reliance on IPC, some rudimentary checks are performed to ensure 
+that the file exists or is a URL.
+
+If the line contains multiple URLs, the one closest to the current cursor
+position is used as an argument.
 
 A range can also be passed, in which case the lines are opened as a playlist.
+The previous remark about searching for links does not apply.
 
 Optionally `mpv-args` may be given, which are passed as command line
 arguments. This can be used to override `--no-video`, for example, by
@@ -103,7 +107,7 @@ If `{mpv-args}` overrides the default `--no-video` flag (i.e., if a
 window is anticipated to open), the media data will NOT be rendered in
 an extmark.
 
-{local-args}, if given (by placing them before a `--` in the command),
+`{local-args}`, if given (by placing them before a `--` in the command),
 apply local settings to the plugin mpv handler. They include
 
 
@@ -113,6 +117,13 @@ apply local settings to the plugin mpv handler. They include
 | `stay`          | Override `g:mpv_on_playlist_update` to `stay` for this player.
 | `paste`         | Override `g:mpv_on_playlist_update` to `paste` for this player.
 | `new`           | Override `g:mpv_on_playlist_update` to `new_one` for this player. If the initial playlist is longer than one entry, an error is thrown.
+
+
+### `:MpvNewAtLine file [{mpv-args}] [-- {local-args}]`
+
+Similar to `MpvOpen`, but the file is specified as part of the command.
+The Mpv instance is opened at the current line of the cursor, and `{mpv-args}`
+and `{local-args}` behave the same as `MpvOpen`.
 
 
 ### `:MpvClose [{buffer}]`

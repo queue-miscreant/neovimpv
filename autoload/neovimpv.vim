@@ -45,7 +45,7 @@ function neovimpv#omnikey(is_visual, ...) range
     endtry
   else
     echohl ErrorMsg
-    echo "Given range includes playlist; ignoring"
+    echo "Given range includes playlist! Ignoring..."
     echohl None
   endif
 endfunction

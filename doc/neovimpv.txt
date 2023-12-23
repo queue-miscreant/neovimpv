@@ -61,8 +61,12 @@ COMMANDS                                                *neovimpv-command*
         To decrease reliance on IPC, some rudimentary checks are performed to
         ensure that the file exists or is a URL.
 
+        If the line contains multiple URLs, the one closest to the current cursor
+        position is used as an argument.
+
         A range can also be passed, in which case the lines are opened as a
-        playlist (see |neovimpv-playlist|).
+        playlist (see |neovimpv-playlist|). The previous remark about searching
+        for links does not apply.
 
         Optionally {mpv-args} may be given, which are passed as command line
         arguments. This can be used to override `--no-video`, for example, by
@@ -84,6 +88,13 @@ COMMANDS                                                *neovimpv-command*
         `new`                   Override |g:mpv_on_playlist_update| to `new_one`
                               for this player. If the initial playlist is
                               longer than one entry, an error is thrown.
+
+:MpvNewAtLine file [{mpv-args}]                         *MpvNewAtLine*
+:MpvNewAtLine file [{local-args}] [-- {mpv-args}]
+
+        Similar to |MpvOpen|, but the file is specified as part of the command.
+        The Mpv instance is opened at the current line of the cursor, and
+        {mpv-args} and {local-args} behave the same as |MpvOpen|.
 
 :MpvClose [{buffer}]                                    *MpvClose*
 
