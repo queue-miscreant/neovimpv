@@ -526,3 +526,6 @@ TODOs
 - Improve sending keys
 - Folds?
 - Play by searching selection (or line) for URL
+- Close invisible players
+- Occasionally, getting video data fails
+- youtube search results pasted in originating buffer

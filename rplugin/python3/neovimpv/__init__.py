@@ -178,7 +178,7 @@ class Neovimpv:
             self.show_error("Python module lxml not detected. Cannot open YouTube results.")
             return
         self.nvim.loop.create_task(
-            open_results_buffer(self.nvim, args[0])
+            open_results_buffer(self.nvim, args[0], self.nvim.current.window)
         )
 
     @pynvim.command(

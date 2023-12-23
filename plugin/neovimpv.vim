@@ -71,7 +71,7 @@ hi default link MpvYoutubePlaylistVideo MpvDefault
 
 hi default link MpvPlaylistSign SignColumn
 
-function s:mpv_bind_smart_keys()
+function! s:mpv_bind_smart_keys()
   exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
   exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
   if g:mpv_playlist_key_video !=# "" && g:mpv_playlist_key_video !=# g:mpv_playlist_key

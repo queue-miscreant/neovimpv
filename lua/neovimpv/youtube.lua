@@ -16,11 +16,12 @@
 --      The filetype of the buffer to open in a split. There should be an
 --      autocommand for this filetype that establishes callbacks for each of the lines.
 --
+-- `old_window` (optional)
+--      The window 
+--
 -- `height` (optional)
 --      The height of the split
---
-function neovimpv.open_select_split(input, filetype, height)
-  local old_window = vim.api.nvim_get_current_win()
+function neovimpv.open_select_split(input, filetype, old_window, height)
   -- parse input
   local buf_lines = {}
   local content = {}
@@ -42,8 +43,12 @@ function neovimpv.open_select_split(input, filetype, height)
 
   -- set buffer content
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, buf_lines)
-  vim.api.nvim_buf_set_var(buf, "selection", content)
-  vim.api.nvim_buf_set_var(buf, "calling_window", old_window)
+  vim.api.nvim_buf_set_var(buf, "mpv_selection", content)
+  if type(old_window) ~= "number" then
+    old_window = vim.api.nvim_get_current_win()
+  end
+  vim.api.nvim_buf_set_var(buf, "mpv_calling_window", old_window)
+
   if type(height) == "number" then
     vim.cmd("resize " .. tostring(height))
   end
@@ -55,8 +60,7 @@ function neovimpv.open_select_split(input, filetype, height)
 end
 
 -- TODO: user chooses to paste in whole playlist, open in split, open in vert split, open in new tab
-function neovimpv.open_playlist_results(playlist, extra)
-  local old_window = vim.api.nvim_get_current_win()
+function neovimpv.open_playlist_results(playlist, extra, old_window)
   -- parse input
   local buf_lines = {}
   local content = {}
@@ -78,8 +82,11 @@ function neovimpv.open_playlist_results(playlist, extra)
 
   -- set buffer content
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, buf_lines)
-  -- vim.api.nvim_buf_set_var(buf, "selection", content)
-  vim.api.nvim_buf_set_var(buf, "calling_window", old_window)
+  -- vim.api.nvim_buf_set_var(buf, "mpv_selection", content)
+  if type(old_window) ~= "number" then
+    old_window = vim.api.nvim_get_current_win()
+  end
+  vim.api.nvim_buf_set_var(buf, "mpv_calling_window", old_window)
 
   -- set options for new buffer/window
   vim.api.nvim_win_set_option(win, "number", false)

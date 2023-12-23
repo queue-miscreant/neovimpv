@@ -3,9 +3,11 @@ nnoremap <buffer> <silent> q :q<cr>
 
 " TODO: make sure these buffer variable names are more unique
 " check that we have callbacks
-if !exists("b:selection") ||
-      \ !exists("b:calling_window") ||
-      \ len(b:selection) ==# 0
+if !exists("b:mpv_selection") ||
+      \ !exists("b:mpv_calling_window") ||
+      \ len(b:mpv_selection) ==# 0
+  echoerr "No data found when opening YouTube results buffer! Closing window..."
+  quit
   finish
 endif
 
@@ -21,7 +23,7 @@ function s:set_youtube_extmark()
   endif
   let s:prev_line = line(".")
 
-  let current = b:selection[s:prev_line - 1]
+  let current = b:mpv_selection[s:prev_line - 1]
   if exists("current.video_id")
     call nvim_buf_set_extmark(
           \ 0,
@@ -66,7 +68,7 @@ function s:yank_youtube_link(event)
     return
   endif
 
-  let current = b:selection[line(".") - 1]
+  let current = b:mpv_selection[line(".") - 1]
   call setreg(a:event["regname"], current["link"])
 endfunction
 

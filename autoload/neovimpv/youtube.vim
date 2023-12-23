@@ -18,8 +18,8 @@ endfunction
 " paste the link where the cursor is, then call MpvOpen.
 " Writes markdown if the buffer's filetype supports markdown.
 function neovimpv#youtube#callback(extra)
-  let current = b:selection[line(".") - 1]
-  let window = b:calling_window
+  let current = b:mpv_selection[line(".") - 1]
+  let window = b:mpv_calling_window
   " Close the youtube buffer and return the calling window
   quit!
   call win_gotoid(window)
@@ -43,7 +43,7 @@ endfunction
 " Callback for youtube results buffers.
 " Opens the thumbnail of result under the cursor in the system viewer.
 function neovimpv#youtube#open_thumbnail()
-  let current = b:selection[line(".") - 1]
+  let current = b:mpv_selection[line(".") - 1]
 
   if !exists("current.thumbnail")
     return

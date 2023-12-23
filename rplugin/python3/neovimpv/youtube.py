@@ -231,7 +231,7 @@ def format_result(result):
         ret = "☰ " + ret # clearly, playlists are heavenly
     return ret
 
-async def open_results_buffer(nvim, youtube_query):
+async def open_results_buffer(nvim, youtube_query, old_window):
     '''Run search query in YouTube, then pass scraped results to Lua'''
     # don't block the event loop while waiting for results
     def executor():
@@ -253,6 +253,7 @@ async def open_results_buffer(nvim, youtube_query):
         nvim.lua.neovimpv.open_select_split,
         results,
         "youtube_results",
+        old_window,
         5
     )
 
