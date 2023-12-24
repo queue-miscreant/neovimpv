@@ -264,12 +264,34 @@ async def open_results_buffer(nvim, youtube_query, old_window):
     results = [[format_result(i), i] for i in results["all"]]
 
     nvim.async_call(
-        nvim.lua.neovimpv.open_select_split,
+        lambda x,y,z,w: nvim.lua.neovimpv.open_select_split(x,y,z,w),
         results,
         "youtube_results",
         old_window,
         5
     )
+
+async def open_first_result(nvim, youtube_query, old_window):
+    '''Run search query in YouTube, then pass scraped results to Lua'''
+    def executor():
+        try:
+            return Youtube.search(youtube_query)
+        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            nvim.show_error(f"An error occurred when fetching results: {e}")
+            log.error(f"An error occurred when fetching results: {e}", stack_info=True)
+            return None
+
+    results = await nvim.loop.run_in_executor(None, executor)
+    if results is None:
+        return
+
+    if len(results["all"]) == 0:
+        return
+
+    def open_result():
+        nvim.lua.neovimpv.paste_result(results["all"][0]["link"], old_window, True)
+        nvim.api.command("MpvOpen")
+    nvim.async_call(open_result)
 
 async def open_playlist_results(nvim, playlist, extra):
     '''Scrape playlist page and pass results to Lua'''
@@ -287,7 +309,7 @@ async def open_playlist_results(nvim, playlist, extra):
         return
 
     nvim.async_call(
-        nvim.lua.neovimpv.open_playlist_results,
+        lambda x,y: nvim.lua.neovimpv.open_playlist_results(x,y),
         results,
         extra
     )

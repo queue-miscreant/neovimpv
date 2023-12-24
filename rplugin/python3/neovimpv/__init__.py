@@ -13,6 +13,7 @@ from neovimpv.mpv import MpvInstance, log as mpv_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
+    open_first_result, \
     open_playlist_results, \
     log as youtube_logger, \
     WARN_LXML
@@ -212,12 +213,18 @@ class Neovimpv:
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.protocol.send_command(*[try_json(i) for i in args])
 
-    @pynvim.command("MpvYoutubeSearch", nargs="?", range="")
-    def mpv_youtube_search(self, args, range):
+    @pynvim.command("MpvYoutubeSearch", nargs="?", bang=True, range="")
+    def mpv_youtube_search(self, args, range, bang):
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
         if WARN_LXML:
             self.show_error("Python module lxml not detected. Cannot open YouTube results.")
+            return
+
+        if bang:
+            self.nvim.loop.create_task(
+                open_first_result(self.nvim, args[0], self.nvim.current.window)
+            )
             return
         self.nvim.loop.create_task(
             open_results_buffer(self.nvim, args[0], self.nvim.current.window)
@@ -236,9 +243,11 @@ class Neovimpv:
         else:
             raise TypeError(f"Expected 3 arguments, got {len(args)}")
 
+        logger_name = logger_name.lower()
         if logger_name not in ["mpv", "protocol", "youtube", "all"]:
             raise ValueError(f"Invalid logger name given: {logger_name}")
 
+        level = level.upper()
         if level not in ["INFO", "DEBUG", "WARNING", "WARN", "ERROR", "FATAL", "NOTSET"]:
             raise ValueError(f"Invalid logging level given: {level}")
 

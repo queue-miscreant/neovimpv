@@ -83,10 +83,14 @@ function neovimpv#goto_relative_mpv(direction)
 endfunction
 
 " Open search prompt
-function neovimpv#youtube_search_prompt()
+function neovimpv#youtube_search_prompt(first_result)
   let query = input("YouTube Search: ")
   if len(query) != 0
-    execute ":MpvYoutubeSearch " . query
+    if a:first_result == 0
+      execute "MpvYoutubeSearch " . query
+    else
+      execute "MpvYoutubeSearch! " . query
+    endif
   endif
 endfunction
 

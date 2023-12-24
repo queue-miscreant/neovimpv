@@ -63,7 +63,8 @@ nnoremap <silent> <Plug>(mpv_omnikey_video) :<c-u>call neovimpv#omnikey(0, "--vi
 vnoremap <silent> <Plug>(mpv_omnikey_video) :call neovimpv#omnikey(1, "--video=auto")<cr>
 nnoremap <silent> <Plug>(mpv_goto_earlier) :<c-u>call neovimpv#goto_relative_mpv(-1)<cr>
 nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1)<cr>
-nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt()<cr>
+nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt(0)<cr>
+nnoremap <silent> <Plug>(mpv_youtube_prompt_lucky) :<c-u>call neovimpv#youtube_search_prompt(1)<cr>
 
 let g:mpv_defaulted_highlights = ["MpvPauseTrue", "MpvPauseFalse", "MpvPlaybackTime", "MpvDuration", "MpvTitle"]
 hi default link MpvDefault LineNr
@@ -91,6 +92,7 @@ function! s:mpv_bind_smart_keys()
   endif
 
   nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
+  nnoremap <silent><buffer> <leader>Yt <Plug>(mpv_youtube_prompt_lucky)
   nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
   nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
 endfunction

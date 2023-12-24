@@ -195,6 +195,9 @@ This command is equivalent to `:MpvSend set_property pause <not pause state>`
 Do a YouTube search for `{query}`, then open a split containing the
 results. See YouTube splits below for info.
 
+As a !-command (`MpvYoutubeSearch!`), retrieves the first result and pastes it
+in the current window.
+
 
 ### `:MpvLogLevel {logger} {level}`
 
@@ -469,6 +472,7 @@ A list of filetypes (strings) which should have smart default bindings set.
 | `<leader>[g:mpv_playlist_key]`       | Omnikey
 | `<leader>[g:mpv_playlist_key_video]` | Omnikey (video)
 | `<leader>yt`                         | Open YouTube search
+| `<leader>Yt`                         | Open YouTube search and paste first result
 | `<leader>[`                          | Move cursor to earlier line with mpv instance
 | `<leader>]`                          | Move cursor to later line with mpv instance
 

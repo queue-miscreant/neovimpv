@@ -95,3 +95,21 @@ function neovimpv.open_playlist_results(playlist, extra, old_window)
 
   vim.cmd("%MpvOpen " .. extra)
 end
+
+function neovimpv.paste_result(text, window_number, move_cursor)
+  -- Insert `value` at the line of the current cursor, if it's empty.
+  -- Otherwise, insert it a line below the current line.
+  local buffer_number = vim.call("winbufnr", window_number)
+  local cursor_row = vim.call("line", ".", window_number)
+  -- append the text only if the current line isn't blank
+  local append_line = vim.call("getbufoneline", buffer_number, row) ~= ""
+
+  if append_line then
+    vim.call("appendbufline", buffer_number, cursor_row, text)
+    if type(move_cursor) ~= "nil" then
+      vim.cmd("normal j")
+    end
+  else
+    vim.call("setbufline", buffer_number, cursor_row, text)
+  end
+end
