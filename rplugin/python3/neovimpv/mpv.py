@@ -77,6 +77,7 @@ class MpvInstance:
             mpv_args = args[split+1:]
         except ValueError:
             pass
+        mpv_args = self.MPV_ARGS + mpv_args
 
         if "stay" in local_args:
             self.playlist.update_action = "stay"
@@ -90,9 +91,10 @@ class MpvInstance:
             self.playlist.update_action = "new_one"
 
         if "video" in local_args:
-            mpv_args += "--video=auto"
+            mpv_args = [i for i in mpv_args if not i.startswith("--vid") and i != "--no-video"]
+            mpv_args.append("--video=auto")
 
-        return self.MPV_ARGS + mpv_args
+        return mpv_args
 
     def _draw_update(self):
         '''Rerender the player extmark to which this mpv instance corresponds'''

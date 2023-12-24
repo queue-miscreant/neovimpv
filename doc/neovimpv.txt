@@ -493,7 +493,7 @@ mpv). Add the following to your `.vimrc` if you want <Enter> to run |MpvOpen|:
 " Open vimwiki links to youtube in Mpv
 function! VimwikiLinkHandler(link)
   if a:link =~ "\\mhttps\\?://\\(www\\.\\)\\?youtu\\(\\.be/\\|be\\.com/\\)"
-    execute "MpvOpen video"
+    execute "MpvOpen video --"
     return 1
   endif
 endfunction
