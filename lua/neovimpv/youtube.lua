@@ -104,6 +104,12 @@ function neovimpv.paste_result(text, window_number, move_cursor)
   -- append the text only if the current line isn't blank
   local append_line = vim.call("getbufoneline", buffer_number, row) ~= ""
 
+  local modifiable = vim.api.nvim_buf_get_option(buffer_number, "modifiable")
+  if not modifiable then
+    vim.command("echo 'Buffer is modifiable. Cannot paste result.'")
+    return
+  end
+
   if append_line then
     vim.call("appendbufline", buffer_number, cursor_row, text)
     if type(move_cursor) ~= "nil" then

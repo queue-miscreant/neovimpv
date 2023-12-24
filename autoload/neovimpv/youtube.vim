@@ -24,6 +24,13 @@ function neovimpv#youtube#callback(extra)
   quit!
   call win_gotoid(window)
 
+  if ! &modifiable
+    echohl ErrorMsg
+    echo "Buffer is modifiable. Cannot paste result."
+    echohl None
+    return
+  endif
+
   " if exists("current.playlist_id")
   "   call MpvOpenYoutubePlaylist(current, a:extra)
   "   return

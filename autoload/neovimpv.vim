@@ -84,6 +84,13 @@ endfunction
 
 " Open search prompt
 function neovimpv#youtube_search_prompt(first_result)
+  if ! &modifiable
+    echohl ErrorMsg
+    echo "Cannot search YouTube from non-modifiable buffer!"
+    echohl None
+    return
+  endif
+
   let query = input("YouTube Search: ")
   if len(query) != 0
     if a:first_result == 0
