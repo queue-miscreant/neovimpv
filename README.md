@@ -70,15 +70,37 @@ nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
 nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
 ```
 
-Alternatively, set `g:mpv_smart_bindings` to 1 and specify a filetype in
-`g:mpv_markdown_writable`. For example,
+You can also set these bindings up automatically by, adding a filetype to
+`g:mpv_smart_filetypes`
+It will also work if the filetype is specified in `g:mpv_markdown_writable` and 
+`g:mpv_markdown_smart_bindings` is set to 1.
 
 ```vim
-g:mpv_smart_bindings = 1
-g:mpv_markdown_writable = ["markdown"]
+g:mpv_smart_filetypes = ["markdown"]
+-- Or, if you prefer markdown-styled links
+-- g:mpv_markdown_smart_bindings = 1
+-- g:mpv_markdown_writable = ["markdown"]
 ```
 
 This will set the same bindings as above in files with the given filetypes.
+
+
+#### Vimwiki
+
+It's possible to configure [vimwiki](https://github.com/vimwiki/vimwiki) to
+open YouTube links, assuming you have a youtube-dl equivalent that works with
+mpv. Add the following to your `.vimrc` if you want `<Enter>` to run `MpvOpen`:
+
+
+```vim
+" Open vimwiki links to youtube in Mpv
+function! VimwikiLinkHandler(link)
+  if a:link =~ "\\mhttps\\?://\\(www\\.\\)\\?youtu\\(\\.be/\\|be\\.com/\\)"
+    execute "MpvOpen video"
+    return 1
+  endif
+endfunction
+```
 
 
 Commands

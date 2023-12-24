@@ -40,7 +40,7 @@ FEATURES
 - Open mpv with or without video from nvim buffer
 - Draw configurable mpv attributes (position, duration, etc) as extmarks
 - Interface with mpv keybinds using "omnikey"
-    - Smart bindings available based on <leader> (see |g:mpv_smart_bindings|)
+    - Smart bindings available based on <leader> (see |g:mpv_smart_filetypes|)
 - Interface with mpv playlists when opening multiple lines at once
     - Change current playlist item (see |g:mpv_playlist_key|)
 - Can replace paths and URLs with a markdown link to the content with the title as the displayed text
@@ -425,7 +425,8 @@ g:mpv_smart_filetypes                                   *g:mpv_smart_filetypes*
 g:mpv_markdown_smart_bindings                           *g:mpv_markdown_smart_bindings*
 
         Boolean value which, when true, attempts to set smart bindings in filetypes
-        included in |g:mpv_markdown_writable|.
+        included in |g:mpv_markdown_writable|. Functionally, this just adds
+        them to |g:mpv_smart_filetypes|.
 
         Default value is 0 (false).
 
@@ -479,6 +480,24 @@ _____________________________________________________________________
 length        | MpvYoutubeLength      | Length of the video
 channel_name  | MpvYoutubeChannelName | Channel name of uploader
 views         | MpvYoutubeViews       | View count of the video
+
+--------------------------------------------------------------------------------
+VIMWIKI
+
+It's possible to configure [vimwiki](https://github.com/vimwiki/vimwiki) to
+open YouTube links (assuming you have a youtube-dl equivalent that works with
+mpv). Add the following to your `.vimrc` if you want <Enter> to run |MpvOpen|:
+
+
+```vim
+" Open vimwiki links to youtube in Mpv
+function! VimwikiLinkHandler(link)
+  if a:link =~ "\\mhttps\\?://\\(www\\.\\)\\?youtu\\(\\.be/\\|be\\.com/\\)"
+    execute "MpvOpen video"
+    return 1
+  endif
+endfunction
+```
 
 ================================================================================
 vim:tw=80:nosta:ft=help:fen:
