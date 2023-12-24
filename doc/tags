@@ -1,6 +1,7 @@
 MpvClose	neovimpv.txt	/*MpvClose*
 MpvGetProperty	neovimpv.txt	/*MpvGetProperty*
 MpvLogLevel	neovimpv.txt	/*MpvLogLevel*
+MpvNewAtLine	neovimpv.txt	/*MpvNewAtLine*
 MpvOpen	neovimpv.txt	/*MpvOpen*
 MpvPause	neovimpv.txt	/*MpvPause*
 MpvSend	neovimpv.txt	/*MpvSend*
@@ -12,10 +13,14 @@ g:mpv_default_args	neovimpv.txt	/*g:mpv_default_args*
 g:mpv_draw_playlist_extmarks	neovimpv.txt	/*g:mpv_draw_playlist_extmarks*
 g:mpv_format	neovimpv.txt	/*g:mpv_format*
 g:mpv_loading	neovimpv.txt	/*g:mpv_loading*
+g:mpv_markdown_smart_bindings	neovimpv.txt	/*g:mpv_markdown_smart_bindings*
 g:mpv_markdown_writable	neovimpv.txt	/*g:mpv_markdown_writable*
 g:mpv_on_playlist_update	neovimpv.txt	/*g:mpv_on_playlist_update*
 g:mpv_playlist_key	neovimpv.txt	/*g:mpv_playlist_key*
+g:mpv_playlist_key_video	neovimpv.txt	/*g:mpv_playlist_key_video*
 g:mpv_property_thresholds	neovimpv.txt	/*g:mpv_property_thresholds*
+g:mpv_smart_filetypes	neovimpv.txt	/*g:mpv_smart_filetypes*
+g:mpv_smart_youtube_playlist	neovimpv.txt	/*g:mpv_smart_youtube_playlist*
 g:mpv_style	neovimpv.txt	/*g:mpv_style*
 neovimpv-command	neovimpv.txt	/*neovimpv-command*
 neovimpv-configuration	neovimpv.txt	/*neovimpv-configuration*

@@ -437,14 +437,6 @@ g:mpv_smart_youtube_playlist                            *g:mpv_smart_youtube_pla
         not given or 1.
         Other single-item playlists are opened as `new_one`.
 
-g:mpv_smart_youtube_playlist                            *g:mpv_smart_youtube_playlist*
-
-        A boolean value which affects the |g:mpv_on_playlist_update| semantics
-        for opening a single YouTube playlist.
-        Playlists from "ytsearch[{count}]:" will open as `paste` if {count} is
-        not given or 1.
-        Other single-item playlists are opened as `new_one`.
-
 --------------------------------------------------------------------------------
 HIGHLIGHTS                                              *neovimpv-highlights*
 
