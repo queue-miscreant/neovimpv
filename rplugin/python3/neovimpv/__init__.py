@@ -9,7 +9,7 @@ import shlex
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvInstance, log as mpv_logger
+from neovimpv.mpv import MpvInstance, MARKDOWN_LINK, log as mpv_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
@@ -117,10 +117,16 @@ class Neovimpv:
         # if we only have the one line and we're not in visual mode, search it for links
         mode = self.nvim.api.get_mode()
         if start == end and mode.get("mode") != 'v':
-            _, cursor_col = self.nvim.current.window.cursor
-            link = find_closest_link(lines[0], cursor_col)
-            if link is not None:
-                lines = [link]
+            # make sure the line isn't in markdown beforehand
+            try_markdown = MARKDOWN_LINK.search(lines[0])
+            if try_markdown:
+                lines = [try_markdown.group(2)]
+            else:
+                _, cursor_col = self.nvim.current.window.cursor
+                link = find_closest_link(lines[0], cursor_col)
+                log.error(link)
+                if link is not None:
+                    lines = [link]
         self.create_mpv_instance(lines, start, end, args)
 
     @pynvim.command("MpvNewAtLine", nargs="*", range="")
