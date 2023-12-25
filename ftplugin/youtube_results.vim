@@ -1,13 +1,14 @@
 " Close buffer on q
 nnoremap <buffer> <silent> q :q<cr>
 
-" TODO: make sure these buffer variable names are more unique
 " check that we have callbacks
 if !exists("b:mpv_selection") ||
       \ !exists("b:mpv_calling_window") ||
       \ len(b:mpv_selection) ==# 0
-  echoerr "No data found when opening YouTube results buffer! Closing window..."
-  quit
+  echohl ErrorMsg
+  echo "No data found when opening YouTube results buffer! Closing window..."
+  echohl None
+  quit!
   finish
 endif
 
