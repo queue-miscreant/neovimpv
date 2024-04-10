@@ -9,7 +9,7 @@ import shlex
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvInstance, MARKDOWN_LINK, log as mpv_logger
+from neovimpv.mpv import MpvManager, MARKDOWN_LINK, log as mpv_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
@@ -30,6 +30,7 @@ KEYPRESS_LOOKUP = {
 
 LINK_RE = re.compile("(https?://.+?\\.[^`\\s]+)")
 def find_closest_link(line, column):
+    i = None
     last = None
     count = 0
     for i in LINK_RE.finditer(line):
@@ -37,6 +38,10 @@ def find_closest_link(line, column):
         if column < i.start():
             break
         last = i
+
+    if i is None:
+        return None
+
     if last == None:
         # only one result
         if count > 0:
@@ -77,7 +82,7 @@ class Neovimpv:
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
         self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
         self.smart_youtube = nvim.api.get_var("mpv_smart_youtube_playlist")
-        MpvInstance.setDefaultArgs(nvim.api.get_var("mpv_default_args"))
+        MpvManager.set_default_args(nvim.api.get_var("mpv_default_args"))
 
         # setup temp dir
         tempname = nvim.call("tempname")
@@ -90,23 +95,25 @@ class Neovimpv:
         self._mpv_instances = {}
 
     def create_mpv_instance(self, files, start, end, args):
-        '''Create an MpvInstance and register it in `self._mpv_instances`'''
+        '''Create an MpvManager and register it in `self._mpv_instances`'''
         if start == end and self.get_mpv_by_line(self.nvim.current.buffer, start, show_error=False):
             self.show_error("Mpv is already open on this line!")
             return
 
         current_filetype = self.nvim.current.buffer.api.get_option("filetype")
 
-        target = MpvInstance(
+        target = MpvManager(
             self,
             self.nvim.current.buffer.number,
             files,
             range(start, end + 1), # end+1 for inclusive
-            args,
             current_filetype in self.do_markdowns
         )
-        if target is not None:
-            self._mpv_instances[(target.buffer, target.id)] = target
+        if target is None:
+            return
+
+        self.nvim.loop.create_task(target.spawn(args))
+        self._mpv_instances[(target.buffer, target.id)] = target
 
     @pynvim.command("MpvOpen", nargs="*", range="")
     def open_in_mpv(self, args, range_):

@@ -4,6 +4,7 @@ import logging
 from subprocess import PIPE
 
 log = logging.getLogger(__name__)
+log.setLevel("DEBUG")
 
 # delay between sending a keypress to mpv and rerequesting properties
 KEYPRESS_DELAY = 0.05
@@ -72,6 +73,7 @@ class MpvProtocol(asyncio.Protocol):
 
     def connection_made(self, transport):
         '''Process communication initiated. Save transport and send connected event.'''
+        log.debug("Connected to mpv!")
         self.transport = transport
         self.ready.set()
         self._try_handle_event("connected", {})
