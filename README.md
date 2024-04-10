@@ -567,6 +567,12 @@ TODOs
 -----
 
 - Improve sending keys to mpv
-- Folds?
+    - Floating window getcharstr for no redraw issues
+- Floating windows containing playback information
 - Play by searching selection (or line) for URL
 - Close invisible players
+    - MpvClose tolerates None `target.protocol`
+    - omnikey-q forces extmark cleanup
+- yt-dlp downloading (and file management?)
+    - Perhaps separate plugin for searching downloaded library
+- Folds?

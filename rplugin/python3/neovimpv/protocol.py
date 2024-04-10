@@ -21,6 +21,7 @@ class MpvProtocol(asyncio.Protocol):
     def __init__(self):
         self.transport = None
         self.data = {}
+        self.ready = asyncio.Event()
         # general properties
         self._properties = {}
         self._reverse_properties = {}
@@ -72,12 +73,14 @@ class MpvProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         '''Process communication initiated. Save transport and send connected event.'''
         self.transport = transport
+        self.ready.set()
         self._try_handle_event("connected", {})
 
     def data_received(self, data):
         '''Split out received data into individual JSONs and send to storage'''
         for datum in data.split(b"\n"):
-            if not datum.rstrip(): continue
+            if not datum.rstrip():
+                continue
             # parse response
             datum = json.loads(datum)
             request_id = datum.get("request_id")
@@ -114,14 +117,14 @@ class MpvProtocol(asyncio.Protocol):
                 self._playlist_new = None
             elif request_id is not None and request_id in self._waiting_properties:
                 # we received a message about something we're waiting for
-                type, property_name, future = self._waiting_properties[request_id]
+                type_, property_name, future = self._waiting_properties[request_id]
                 del self._waiting_properties[request_id]
 
-                if type == self.GET:
+                if type_ == self.GET:
                     self.data[property_name] = datum.get("data")
                     log.debug("Got awaited property %s: %s", property_name, datum)
                     future.set_result(datum.get("data"))
-                elif type == self.SET:
+                elif type_ == self.SET:
                     self.data[property_name] = future
                     log.debug("Successfully set %s to %s", property_name, datum)
             else:
@@ -138,7 +141,7 @@ class MpvProtocol(asyncio.Protocol):
 
     def send_command(self, *args, request_id=0, ignore_error=False):
         '''Write a command to the socket'''
-        if self.transport.is_closing():
+        if self.transport is None or self.transport.is_closing():
             return
         command = {
             "command": args,
@@ -247,7 +250,7 @@ class MpvProtocol(asyncio.Protocol):
         self._playlist_request = self._last_property
         self._playlist_new = { i: json_data.get(i)
             for i in ["playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries"] }
-        self.get_property(f"playlist", request_id=self._playlist_request)
+        self.get_property("playlist", request_id=self._playlist_request)
         self._last_property += 1
         self._try_handle_event("pre-got-playlist", {})
 
@@ -268,26 +271,22 @@ async def create_mpv(mpv_args, ipc_path, read_timeout=1, loop=None):
     )
 
     # timeout a read from the subprocess's stdout (for errors)
-    read_task = asyncio.create_task(process.stdout.read())
-    done, _ = await asyncio.wait(
-        [read_task],
-        timeout=read_timeout
-    )
-    if done:
-        error = read_task.result()
+    assert process.stdout is not None
+    try:
+        error = await asyncio.wait_for(process.stdout.read(), timeout=read_timeout)
         raise MpvError(error)
-    else:
-        read_task.cancel()
-        try:
-            await read_task
-        except asyncio.CancelledError:
-            pass
+    except TimeoutError:
+        pass
 
     try:
         _, protocol = await loop.create_unix_connection(
             MpvProtocol,
             path=ipc_path,
         )
+        await asyncio.wait_for(protocol.ready.wait(), timeout=read_timeout)
+
         return process, protocol
     except ConnectionRefusedError as e:
         raise MpvError("Could not connect to mpv!") from e
+    except TimeoutError as e:
+        raise MpvError("Timed out connecting to protocol!") from e

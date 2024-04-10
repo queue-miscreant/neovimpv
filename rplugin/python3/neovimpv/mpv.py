@@ -98,6 +98,10 @@ class MpvInstance:
 
     def _draw_update(self):
         '''Rerender the player extmark to which this mpv instance corresponds'''
+        if self.protocol is None:
+            self.plugin.show_error("Mpv not ready yet!")
+            return
+
         video = self.protocol.data.get("video")
         if self.no_draw or (video and self._old_video):
             return
@@ -184,6 +188,10 @@ class MpvInstance:
         Wait until we've got the title and filename, then format the line where
         mpv is being displayed as markdown.
         '''
+        if self.protocol is None:
+            self.plugin.show_error("Mpv not ready yet!")
+            return
+
         media_title = await self.protocol.wait_property("media-title")
         filename = await self.protocol.wait_property("filename")
         if media_title == filename:
@@ -197,12 +205,19 @@ class MpvInstance:
         )
 
     def toggle_pause(self):
+        if self.protocol is None:
+            self.plugin.show_error("Mpv not ready yet!")
+            return
+
         self.protocol.set_property("pause", not self.protocol.data.get("pause"), update=False)
 
     async def toggle_video(self):
         '''Close mpv, then reopen with the same playlist and with video'''
         if self._transitioning_players:
-            self.plugin.show_error(f"Already attempting to show video!")
+            self.plugin.show_error("Already attempting to show video!")
+            return
+        if self.protocol is None or self.protocol.transport is None:
+            self.plugin.show_error("Mpv not ready yet!")
             return
 
         track_list = await self.protocol.wait_property("track-list")
@@ -297,9 +312,15 @@ class MpvInstance:
                 self.playlist.playlist_id_to_extmark_id[current_playlist_id]
             ))
 
+    def set_property(self, property_name, value, update=True, ignore_error=False):
+        '''Check that the protocol is defined'''
+        if self.protocol is None or self._transitioning_players:
+            return
+        self.protocol.set_property(property_name, value, update, ignore_error) # just in case
+
     def close(self, force=True):
         '''Defer to the plugin to remove the extmark'''
-        if self._transitioning_players and not force:
+        if self.protocol is None or (self._transitioning_players and not force):
             return
         self.protocol.send_command("quit") # just in case
         self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
