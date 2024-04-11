@@ -9,7 +9,7 @@ import shlex
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvManager, MARKDOWN_LINK, log as mpv_logger
+from neovimpv.mpv import MpvManager, create_managed_mpv, MARKDOWN_LINK, log as mpv_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
@@ -100,20 +100,15 @@ class Neovimpv:
             self.show_error("Mpv is already open on this line!")
             return
 
-        current_filetype = self.nvim.current.buffer.api.get_option("filetype")
-
-        target = MpvManager(
+        target = create_managed_mpv(
             self,
-            self.nvim.current.buffer.number,
             files,
             range(start, end + 1), # end+1 for inclusive
-            current_filetype in self.do_markdowns,
             args
         )
         if target is None:
             return
 
-        self.nvim.loop.create_task(target.spawn())
         self._mpv_instances[(target.buffer, target.id)] = target
 
     @pynvim.command("MpvOpen", nargs="*", range="")
@@ -124,6 +119,8 @@ class Neovimpv:
         lines = self.nvim.current.buffer[start-1:end]
         # if we only have the one line and we're not in visual mode, search it for links
         mode = self.nvim.api.get_mode()
+
+        # TODO: move this into create_managed_mpv
         if start == end and mode.get("mode") != 'v':
             # make sure the line isn't in markdown beforehand
             try_markdown = MARKDOWN_LINK.search(lines[0])
@@ -135,6 +132,7 @@ class Neovimpv:
                 log.error(link)
                 if link is not None:
                     lines = [link]
+
         self.create_mpv_instance(lines, start, end, args)
 
     @pynvim.command("MpvNewAtLine", nargs="*", range="")
@@ -175,12 +173,12 @@ class Neovimpv:
         if args:
             targets = self.query_mpvs(args[0])
             for target in targets:
-                target.send_command("quit")
+                target.close()
             return
 
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
-            target.send_command("quit")
+            target.close()
 
     @pynvim.command(
         "MpvSetProperty",

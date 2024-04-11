@@ -566,6 +566,63 @@ class MpvPlaylist:
         for index in removed_indices:
             mpv.protocol.send_command("playlist-remove", index)
 
+def _construct_playlist_items(filenames, line_numbers, unmarkdown):
+    '''
+    Read over the list of lines, skipping those which are not files or URLs.
+    Make note of which need to be turned into markdown.
+    '''
+    playlist_item_lines = []
+    playlist_id_to_extra_data = {}
+    for i, (line_number, filename) in enumerate(zip(line_numbers, filenames)):
+        write_markdown = False
+        # if we've allowed this buffer to read/edit things into markdown
+        if unmarkdown:
+            try_markdown = MARKDOWN_LINK.search(filename)
+            if try_markdown:
+                filename = try_markdown.group(2)
+            else:
+                write_markdown = True
+        filename = validate_link(filename)
+        if filename is None:
+            continue
+        playlist_item_lines.append(line_number)
+        playlist_id_to_extra_data[i + 1] = (filename, write_markdown, unmarkdown)
+
+    return playlist_item_lines, playlist_id_to_extra_data
+
+def create_managed_mpv(plugin, filenames, line_numbers, extra_args):
+    '''
+    The plugin MUST be in a state where its `current` data is accessible, for example, when
+    using async_call or in a command callback.
+    '''
+    current_buffer = plugin.nvim.current.buffer.number
+    current_filetype = plugin.nvim.current.buffer.api.get_option("filetype")
+
+    playlist_item_lines, playlist_id_to_extra_data = _construct_playlist_items(
+        filenames,
+        line_numbers,
+        current_filetype in plugin.do_markdowns,
+    )
+    if not playlist_item_lines:
+        plugin.show_error(
+            ("Lines do" if len(filenames) > 1 else "Line does") + \
+            " not contain a file path or valid URL"
+        )
+        return None
+
+    target = MpvManager(
+        plugin,
+        current_buffer,
+        playlist_item_lines,
+        playlist_id_to_extra_data,
+        plugin.smart_youtube,
+        extra_args,
+    )
+    plugin.nvim.loop.create_task(target.spawn())
+
+    return target
+
+
 class MpvManager:
     '''
     Manager for an mpv instance, containing options and arguments particular to it.
@@ -576,7 +633,7 @@ class MpvManager:
         '''Set the default arguments to be used by new mpv instances'''
         cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
 
-    def __init__(self, plugin, buffer, filenames, line_numbers, unmarkdown, extra_args):
+    def __init__(self, plugin, buffer, playlist_item_lines, playlist_id_to_extra_data, smart_youtube, extra_args):
         self.mpv = None
         self.plugin = plugin
         self.buffer = buffer
@@ -588,53 +645,18 @@ class MpvManager:
         self._extra_args = extra_args
 
         self.update_action = plugin.on_playlist_update
-        playlist = self._construct_playlist(filenames, line_numbers, unmarkdown)
-        if playlist is None:
-            return None
-        self.playlist = playlist
-        log.debug("Found playlist items: %s", self.playlist.playlist_id_to_extra_data)
-
-    def _construct_playlist(self, filenames, line_numbers, unmarkdown):
-        '''
-        Read over the list of lines, skipping those which are not files or URLs.
-        Make note of which need to be turned into markdown.
-        Based on these lines, create extmarks and a playlist manager.
-        '''
-        playlist_id_to_extra_data = {}
-        playlist_item_lines = []
-        for i, (line_number, filename) in enumerate(zip(line_numbers, filenames)):
-            write_markdown = False
-            # if we've allowed this buffer to read/edit things into markdown
-            if unmarkdown:
-                try_markdown = MARKDOWN_LINK.search(filename)
-                if try_markdown:
-                    filename = try_markdown.group(2)
-                else:
-                    write_markdown = True
-            filename = validate_link(filename)
-            if filename is None:
-                continue
-            playlist_id_to_extra_data[i + 1] = (filename, write_markdown, unmarkdown)
-            playlist_item_lines.append(line_number)
-
-        if len(playlist_id_to_extra_data) == 1 and self.plugin.smart_youtube:
+        if len(playlist_id_to_extra_data) == 1 and smart_youtube:
             self._try_smart_youtube(playlist_id_to_extra_data[1][0])
-
-        if not playlist_item_lines:
-            self.plugin.show_error(
-                ("Lines do" if len(filenames) > 1 else "Line does") + \
-                " not contain a file path or valid URL"
-            )
-            return None
 
         playlist_id_to_extmark_id = self._init_extmarks(playlist_item_lines)
 
-        return MpvPlaylist(
+        self.playlist = MpvPlaylist(
             self,
             playlist_item_lines,
             playlist_id_to_extra_data,
             playlist_id_to_extmark_id
         )
+        log.debug("Found playlist items: %s", self.playlist.playlist_id_to_extra_data)
 
     def _try_smart_youtube(self, filename):
         '''Smart Youtube playlist actions: typically `new_one` and `paste`'''
@@ -667,6 +689,7 @@ class MpvManager:
         control local functionality, like determining if dynamic playlists
         should use non-global options.
         '''
+        # TODO: move this closer to create_managed_mpv
         mpv_args = args
         local_args = []
         try:
@@ -800,7 +823,7 @@ class MpvManager:
         self._transitioning_players = True
         self.mpv.protocol.send_command("quit")
         # Draw a filler line
-        self.mpv.manager.playlist.reorder_by_index(old_playlist)
+        self.playlist.reorder_by_index(old_playlist)
         await self.mpv.protocol.next_event("close")
         self.mpv._draw_update("")
 
