@@ -107,12 +107,13 @@ class Neovimpv:
             self.nvim.current.buffer.number,
             files,
             range(start, end + 1), # end+1 for inclusive
-            current_filetype in self.do_markdowns
+            current_filetype in self.do_markdowns,
+            args
         )
         if target is None:
             return
 
-        self.nvim.loop.create_task(target.spawn(args))
+        self.nvim.loop.create_task(target.spawn())
         self._mpv_instances[(target.buffer, target.id)] = target
 
     @pynvim.command("MpvOpen", nargs="*", range="")
@@ -156,7 +157,7 @@ class Neovimpv:
         if args and args[0] == "all":
             targets = self.query_mpvs(args[0])
             for target in targets:
-                target.protocol.set_property("pause", True)
+                target.set_property("pause", True)
             return
 
         line = range[0]
@@ -174,12 +175,12 @@ class Neovimpv:
         if args:
             targets = self.query_mpvs(args[0])
             for target in targets:
-                target.protocol.send_command("quit")
+                target.send_command("quit")
             return
 
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
-            target.protocol.send_command("quit")
+            target.send_command("quit")
 
     @pynvim.command(
         "MpvSetProperty",
@@ -191,7 +192,7 @@ class Neovimpv:
         '''Send commands to the mpv instance on the current line'''
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
-            target.protocol.set_property(*[try_json(i) for i in args])
+            target.set_property(*[try_json(i) for i in args])
 
     @pynvim.command(
         "MpvGetProperty",
@@ -210,7 +211,7 @@ class Neovimpv:
             return
 
         async def get_property():
-            result = await target.protocol.wait_property(property_name)
+            result = await target.wait_property(property_name)
             self.nvim.async_call(self.nvim.api.notify, str(result), 0, {})
         self.nvim.loop.create_task(get_property())
 
@@ -224,7 +225,7 @@ class Neovimpv:
         '''Send commands to the mpv instance on the current line'''
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
-            target.protocol.send_command(*[try_json(i) for i in args])
+            target.send_command(*[try_json(i) for i in args])
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", bang=True, range="")
     def mpv_youtube_search(self, args, range, bang):
@@ -293,14 +294,9 @@ class Neovimpv:
         )):
             real_key = translate_keypress(key)
 
-            if real_key == "q":
-                self.nvim.loop.create_task(target.close_async())
-            elif target.protocol is None:
-                self.show_error("Mpv not ready yet")
-            elif target.protocol is not None:
-                self.nvim.loop.create_task(
-                    target.protocol.send_keypress(real_key, count=count or 1)
-                )
+            self.nvim.loop.create_task(
+                target.send_keypress(real_key, count=count or 1)
+            )
 
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):
@@ -314,10 +310,7 @@ class Neovimpv:
             (self.nvim.current.buffer.number, int(player))
         )
         if mpv_instance is not None:
-            self.nvim.loop.call_soon(
-                mpv_instance.playlist.set_current_by_playlist_extmark,
-                playlist_item
-            )
+            self.nvim.loop.create_task(mpv_instance.set_current_by_playlist_extmark(playlist_item))
 
     @pynvim.function("MpvForwardDeletions", sync=True)
     def mpv_forward_deletions(self, args):
@@ -332,10 +325,7 @@ class Neovimpv:
                 (self.nvim.current.buffer.number, int(player))
             )
             if mpv_instance is not None:
-                self.nvim.loop.call_soon(
-                    mpv_instance.playlist.forward_deletions,
-                    removed_items
-                )
+                self.nvim.loop.create_task(mpv_instance.forward_deletions(removed_items))
 
     @pynvim.function("MpvToggleVideo", sync=True)
     def mpv_toggle_video(self, args):

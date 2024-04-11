@@ -73,11 +73,11 @@ function neovimpv.update_extmark(buffer, extmark_id, content)
     extmark_id,
     {}
   )
-  if content["virt_text"] == vim.NIL then
+  if content["virt_text"] == vim.NIL or content["virt_text"] == "" then
     content["virt_text"] = {{vim.g["mpv_loading"], "MpvDefault"}}
   end
 
-  if loc ~= nil then
+  if loc ~= nil and vim.tbl_count(loc) == 2 then
     vim.api.nvim_buf_set_extmark(
       buffer,
       DISPLAY_NAMESPACE,

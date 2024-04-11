@@ -4,10 +4,7 @@ import logging
 from subprocess import PIPE
 
 log = logging.getLogger(__name__)
-log.setLevel("DEBUG")
-
-# delay between sending a keypress to mpv and rerequesting properties
-KEYPRESS_DELAY = 0.05
+log.setLevel(logging.INFO)
 
 class MpvError(Exception):
     pass
@@ -65,7 +62,9 @@ class MpvProtocol(asyncio.Protocol):
             handler(self, json_data)
         # set futures
         for future in self._waiting_events.get(event_name, []):
-            future.set_result(True)
+            log.info("%s %s %s", event_name, future, future.done())
+            if not future.done():
+                future.set_result(True)
         self._waiting_events[event_name] = []
 
         if event_name != "property-change":
@@ -134,12 +133,12 @@ class MpvProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc):
         '''Process communication closed. Call close event.'''
+        self._try_handle_event("close", {})
         for _, __, future in self._waiting_properties.values():
             future.cancel()
         for event in self._waiting_events.values():
             for future in event:
                 future.cancel()
-        self._try_handle_event("close", {})
 
     def send_command(self, *args, request_id=0, ignore_error=False):
         '''Write a command to the socket'''
@@ -226,19 +225,11 @@ class MpvProtocol(asyncio.Protocol):
             ignore_error=ignore_error
         )
 
-    async def send_keypress(self, keypress, ignore_error=False, count=1):
-        '''Send a keypress and wait for properties to be updated '''
-        for _ in range(count):
-            self.send_command("keypress", keypress, ignore_error=ignore_error)
-        # some delay is necessary for the keypress to take effect
-        await asyncio.sleep(KEYPRESS_DELAY)
-        self.fetch_subscribed()
-
     def _property_change(self, json_data):
         '''Handler for mpv "property-change" events.'''
         property_name = self._reverse_properties.get(json_data.get("id"))
         data = json_data.get("data")
-        if property_name is not None and data is not None:
+        if property_name is not None:
             self.data[property_name] = data
 
     def _remember_playlist_id(self, data):
