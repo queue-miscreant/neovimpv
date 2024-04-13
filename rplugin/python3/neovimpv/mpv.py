@@ -55,13 +55,16 @@ class MpvWrapper:
         self.protocol.add_event("error", lambda _, err: self._show_error(err))
         self.protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
         self.protocol.add_event("start-file", lambda _, data: self._on_start_file(data))
-        self.protocol.add_event("file-loaded", lambda _, data: self._preamble(data))
+        self.protocol.add_event("file-loaded", lambda _, data: self._preamble())
         self.protocol.add_event("close", lambda _, __: self.manager.close())
         self.protocol.add_event(
             "property-change",
             lambda _, __: self.manager.plugin.nvim.async_call(self._draw_update)
         )
-        self.protocol.add_event("got-playlist", lambda _, data: self.manager.playlist.update(self, data))
+        self.protocol.add_event(
+            "got-playlist",
+            lambda _, data: self.manager.playlist.update(self, data)
+        )
 
         # ALWAYS observe this so we can toggle pause
         self.protocol.observe_property("pause")
@@ -99,7 +102,7 @@ class MpvWrapper:
         else:
             display["virt_text"] = self.manager.plugin.formatter.format(self.protocol.data)
 
-        # this method is called asynchronously, so protect against errors
+        # _draw_update is called asynchronously, so protect against errors from this call
         try:
             self.manager.plugin.nvim.lua.neovimpv.update_extmark(
                 self.manager.buffer,
@@ -113,20 +116,32 @@ class MpvWrapper:
     # The following methods do not assume that nvim is in an interactable state
     # ==========================================================================
 
-    async def update_markdown(self, link, playlist_id):
+    async def try_update_markdown(self, playlist_id):
         '''
         Wait until we've got the title and filename, then format the line where
         mpv is being displayed as markdown.
         '''
+        extmark_id = self.manager.playlist.playlist_id_to_extmark_id.get(playlist_id)
+        if extmark_id is None:
+            self.manager.plugin.show_error("Playlist transition failed!")
+            log.debug(
+                "Playlist transition failed! Mpv id %s does not exist in %s",
+                playlist_id,
+                self.manager.playlist.playlist_id_to_extmark_id
+            )
+            return
+
+        link, write_markdown, _ = self.manager.playlist.playlist_id_to_extra_data[playlist_id]
+
         media_title = await self.protocol.wait_property("media-title")
         filename = await self.protocol.wait_property("filename")
-        if media_title == filename:
+        if not write_markdown or media_title == filename or "(" in link or ")" in link:
             return
 
         self.manager.plugin.nvim.async_call(
-            lambda x,y,z: self.manager.plugin.nvim.lua.neovimpv.write_line_of_playlist_item(x,y,z),
+            self.manager.plugin.nvim.lua.neovimpv.write_line_of_playlist_item,
             self.manager.buffer,
-            playlist_id,
+            extmark_id,
             f"[{media_title.replace('[', '(').replace(']',')')}]({link})"
         )
 
@@ -153,10 +168,19 @@ class MpvWrapper:
         Update state after new file started.
         Move the player to new playlist item and suspend drawing until complete.
         '''
+        # Starting the file is enough information to move the player, but not enough
+        # to update the title of the video.
         self.no_draw = True
         current_playlist_id = arg.get("playlist_entry_id")
-        if current_playlist_id is None:
-            current_playlist_id = self.protocol.last_playlist_entry_id
+
+        if (
+            self.protocol.playlist_new is not None
+            and current_playlist_id == self.protocol.playlist_new.get("playlist_insert_id")
+        ):
+            return
+        redirected_playlist_id = self.manager.playlist.playlist_id_remap.get(current_playlist_id)
+        if redirected_playlist_id is not None:
+            return
 
         self.manager.plugin.nvim.async_call(
             self.manager.playlist.move_player_extmark,
@@ -164,38 +188,24 @@ class MpvWrapper:
             current_playlist_id
         )
 
-    def _preamble(self, data):
+    def _preamble(self):
         '''Update buffer text after new file loaded.'''
-        # TODO: playlists vs single-item markdown rewrites differ!
+        # Have enough information to update with video title
         current_playlist_id = self.protocol.last_playlist_entry_id
-        override_markdown = False
         redirected_playlist_id = self.manager.playlist.playlist_id_remap.get(current_playlist_id)
         if redirected_playlist_id is not None:
             self.manager.plugin.nvim.async_call(
                 self.manager.playlist.update_currently_playing,
-                self.protocol.data.get("playlist", []),
+                self,
                 current_playlist_id,
                 redirected_playlist_id
             )
             # use the extmark of this mpv id to move the player
             current_playlist_id = redirected_playlist_id
-            override_markdown = True
-        elif current_playlist_id not in self.manager.playlist.playlist_id_to_extmark_id:
-            self.manager.plugin.show_error("Playlist transition failed!")
-            log.debug(
-                "Playlist transition failed! Mpv id %s does not exist in %s",
-                current_playlist_id,
-                self.manager.playlist.playlist_id_to_extmark_id
+        else:
+            self.manager.plugin.nvim.loop.create_task(
+                self.try_update_markdown(current_playlist_id)
             )
-            self.no_draw = False
-            return
-
-        filename, write_markdown, _ = self.manager.playlist.playlist_id_to_extra_data[current_playlist_id]
-        if write_markdown and not override_markdown:
-            self.manager.plugin.nvim.loop.create_task(self.update_markdown(
-                filename,
-                self.manager.playlist.playlist_id_to_extmark_id[current_playlist_id]
-            ))
 
 
 class MpvPlaylist:
@@ -279,10 +289,11 @@ class MpvPlaylist:
             self.playlist_id_to_extmark_id,
             self.playlist_id_remap,
         )
+
         success = self.manager.plugin.nvim.lua.neovimpv.move_player(
             self.manager.buffer,
             self.manager.id,
-            self.playlist_id_to_extmark_id[playlist_id],
+            self.playlist_id_to_extmark_id.get(playlist_id),
             show_text
         )
         if not success:
@@ -302,8 +313,14 @@ class MpvPlaylist:
             )
         mpv.no_draw = False
 
-    def update_currently_playing(self, playlist_from_mpv, current_playlist_id, redirected_playlist_id):
+    def update_currently_playing(
+        self,
+        mpv: MpvWrapper,
+        current_playlist_id,
+        redirected_playlist_id
+    ):
         '''Invoke the Lua callback for updating the currently playing text'''
+        playlist_from_mpv = mpv.protocol.data.get("playlist", [])
         current_title = next(
             # attempt to get the title of the content
             # if it's been loaded before, use the entry specified by the filename as backup
@@ -313,11 +330,9 @@ class MpvPlaylist:
         )
         log.debug(
             "current_playlist_id: %s\n" \
-            "redirected_playlist_id: %s\n" \
-            "playlist_from_mpv: %s\n",
+            "redirected_playlist_id: %s\n",
             current_playlist_id,
             redirected_playlist_id,
-            playlist_from_mpv
         )
 
         extmark_id = self.playlist_id_to_extmark_id.get(redirected_playlist_id)
@@ -347,6 +362,7 @@ class MpvPlaylist:
             extmark_id,
             current_title
         )
+        mpv.no_draw = False
 
     def _paste_playlist(self, mpv: MpvWrapper, new_playlist, playlist_id):
         '''Paste the playlist items on top of the playlist'''

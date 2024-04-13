@@ -31,7 +31,7 @@ class MpvProtocol(asyncio.Protocol):
         self._waiting_events = {}
         # playlist support
         self._playlist_request = -1
-        self._playlist_new = None
+        self.playlist_new = None
         self.last_playlist_entry_id = -1
         # default events
         self.add_event("property-change", lambda _, data: self._property_change(data))
@@ -112,10 +112,10 @@ class MpvProtocol(asyncio.Protocol):
             elif request_id is not None and request_id == self._playlist_request:
                 self._try_handle_event("got-playlist", {
                     "playlist": datum.get("data"),
-                    "new": self._playlist_new
+                    "new": self.playlist_new
                 })
                 self._playlist_request = -1
-                self._playlist_new = None
+                self.playlist_new = None
             elif request_id is not None and request_id in self._waiting_properties:
                 # we received a message about something we're waiting for
                 type_, property_name, future = self._waiting_properties[request_id]
@@ -241,7 +241,7 @@ class MpvProtocol(asyncio.Protocol):
         if json_data.get("reason") != "redirect":
             return
         self._playlist_request = self._last_property
-        self._playlist_new = { i: json_data.get(i)
+        self.playlist_new = { i: json_data.get(i)
             for i in ["playlist_entry_id", "playlist_insert_id", "playlist_insert_num_entries"] }
         self.get_property("playlist", request_id=self._playlist_request)
         self._last_property += 1

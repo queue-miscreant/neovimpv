@@ -22,7 +22,10 @@ function neovimpv.write_line_of_playlist_item(buffer, playlist_id, content)
     {}
   )
 
-  vim.call("setbufline", buffer, loc[1] + 1, content)
+  -- Update the buffer only on mismatches
+  if content ~= vim.call("getbufline", buffer, loc[1] + 1)[1] then
+    vim.call("setbufline", buffer, loc[1] + 1, content)
+  end
 end
 
 -- Update a playlist extmark to also show the currently playing item
