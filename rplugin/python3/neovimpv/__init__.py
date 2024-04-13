@@ -417,7 +417,7 @@ class Neovimpv:
                 "could not delete player %s.%s" % \
                 (instance.buffer, instance.id)
             )
-            log.error(
+            log.debug(
                 "Unknown error occurred: " \
                 "could not delete player %s.%s\n" \
                 "mpv_instances: %s\n" \

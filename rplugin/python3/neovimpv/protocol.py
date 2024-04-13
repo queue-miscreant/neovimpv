@@ -68,7 +68,7 @@ class MpvProtocol(asyncio.Protocol):
         self._waiting_events[event_name] = []
 
         if event_name != "property-change":
-            log.debug("Received event %s: %s", event_name, json_data)
+            log.info("Received event %s: %s", event_name, json_data)
 
     def connection_made(self, transport):
         '''Process communication initiated. Save transport and send connected event.'''

@@ -6,7 +6,6 @@ import logging
 from neovimpv.protocol import create_mpv, MpvError, MpvProtocol
 
 # TODO: diagram of MpvManager and children
-# TODO: fix omnikey shenanigans
 
 log = logging.getLogger(__name__)
 log.setLevel("DEBUG")
@@ -55,6 +54,7 @@ class MpvWrapper:
         # default event handling
         self.protocol.add_event("error", lambda _, err: self._show_error(err))
         self.protocol.add_event("end-file", lambda _, arg: self._on_end_file(arg))
+        self.protocol.add_event("start-file", lambda _, data: self._on_start_file(data))
         self.protocol.add_event("file-loaded", lambda _, data: self._preamble(data))
         self.protocol.add_event("close", lambda _, __: self.manager.close())
         self.protocol.add_event(
@@ -143,15 +143,30 @@ class MpvWrapper:
 
     def _on_end_file(self, arg):
         '''Report an error to nvim if the file ended because of an error.'''
+        self.no_draw = True
+        self.manager.plugin.nvim.async_call(self._draw_update, "")
         if arg.get("reason") == "error" and (error := arg.get("file_error")):
             self.manager.plugin.show_error(f"File ended: {error}")
 
-    def _preamble(self, data):
+    def _on_start_file(self, arg):
         '''
-        Update state after new file loaded.
+        Update state after new file started.
         Move the player to new playlist item and suspend drawing until complete.
         '''
         self.no_draw = True
+        current_playlist_id = arg.get("playlist_entry_id")
+        if current_playlist_id is None:
+            current_playlist_id = self.protocol.last_playlist_entry_id
+
+        self.manager.plugin.nvim.async_call(
+            self.manager.playlist.move_player_extmark,
+            self,
+            current_playlist_id
+        )
+
+    def _preamble(self, data):
+        '''Update buffer text after new file loaded.'''
+        # TODO: playlists vs single-item markdown rewrites differ!
         current_playlist_id = self.protocol.last_playlist_entry_id
         override_markdown = False
         redirected_playlist_id = self.manager.playlist.playlist_id_remap.get(current_playlist_id)
@@ -174,12 +189,6 @@ class MpvWrapper:
             )
             self.no_draw = False
             return
-
-        self.manager.plugin.nvim.async_call(
-            self.manager.playlist.move_player_extmark,
-            self,
-            current_playlist_id
-        )
 
         filename, write_markdown, _ = self.manager.playlist.playlist_id_to_extra_data[current_playlist_id]
         if write_markdown and not override_markdown:
@@ -590,6 +599,41 @@ def _construct_playlist_items(filenames, line_numbers, unmarkdown):
 
     return playlist_item_lines, playlist_id_to_extra_data
 
+def parse_mpvopen_args(args: list, playlist_length, default_mpv_args: list):
+    '''
+    Parse arguments `args` retrieved from MpvOpen.
+    Arguments preceding "--", if they exist, are considered local, and
+    control local functionality, like determining if dynamic playlists
+    should use non-global options.
+    '''
+    mpv_args = args
+    local_args = []
+    try:
+        split = args.index("--")
+        local_args = args[:split]
+        mpv_args = args[split+1:]
+    except ValueError:
+        pass
+    mpv_args = default_mpv_args + mpv_args
+
+    update_action = None
+    if "stay" in local_args:
+        update_action = "stay"
+    elif "paste" in local_args:
+        update_action = "paste"
+    elif "new" in local_args:
+        if playlist_length != 1:
+            raise ValueError(
+                f"Cannot create new buffer for playlist of initial size {len(playlist_length)}!"
+            )
+        update_action = "new_one"
+
+    if "video" in local_args:
+        mpv_args = [i for i in mpv_args if not i.startswith("--vid") and i != "--no-video"]
+        mpv_args.append("--video=auto")
+
+    return mpv_args, update_action
+
 def create_managed_mpv(plugin, filenames, line_numbers, extra_args):
     '''
     The plugin MUST be in a state where its `current` data is accessible, for example, when
@@ -639,12 +683,12 @@ class MpvManager:
         self.buffer = buffer
         self.id = -1
 
+        self.update_action = plugin.on_playlist_update
+        self._mpv_args = []
         self._not_spawning_player = asyncio.Event()
         self._not_spawning_player.set()
         self._transitioning_players = False
-        self._extra_args = extra_args
 
-        self.update_action = plugin.on_playlist_update
         if len(playlist_id_to_extra_data) == 1 and smart_youtube:
             self._try_smart_youtube(playlist_id_to_extra_data[1][0])
 
@@ -657,6 +701,9 @@ class MpvManager:
             playlist_id_to_extmark_id
         )
         log.debug("Found playlist items: %s", self.playlist.playlist_id_to_extra_data)
+
+        self._mpv_args, new_update_action = parse_mpvopen_args(extra_args, len(self.playlist), self.MPV_ARGS)
+        self.update_action = self.update_action if new_update_action is None else new_update_action
 
     def _try_smart_youtube(self, filename):
         '''Smart Youtube playlist actions: typically `new_one` and `paste`'''
@@ -682,41 +729,6 @@ class MpvManager:
         )
         return playlist_id_to_extmark_id
 
-    def _parse_args(self, args, playlist_length):
-        '''
-        Parse arguments `args` retrieved from MpvOpen.
-        Arguments preceding "--", if they exist, are considered local, and
-        control local functionality, like determining if dynamic playlists
-        should use non-global options.
-        '''
-        # TODO: move this closer to create_managed_mpv
-        mpv_args = args
-        local_args = []
-        try:
-            split = args.index("--")
-            local_args = args[:split]
-            mpv_args = args[split+1:]
-        except ValueError:
-            pass
-        mpv_args = self.MPV_ARGS + mpv_args
-
-        if "stay" in local_args:
-            self.update_action = "stay"
-        elif "paste" in local_args:
-            self.update_action = "paste"
-        elif "new" in local_args:
-            if playlist_length != 1:
-                raise ValueError(
-                    f"Cannot create new buffer for playlist of initial size {len(playlist_length)}!"
-                )
-            self.update_action = "new_one"
-
-        if "video" in local_args:
-            mpv_args = [i for i in mpv_args if not i.startswith("--vid") and i != "--no-video"]
-            mpv_args.append("--video=auto")
-
-        return mpv_args
-
     async def spawn(self, timeout_duration=1):
         '''
         Spawn subprocess and wait `timeout_duration` seconds for error output.
@@ -724,13 +736,11 @@ class MpvManager:
         to an MpvProtocol for IPC.
         '''
         self._not_spawning_player.clear()
-        assert self.playlist is not None
-        mpv_args = self._parse_args(self._extra_args, len(self.playlist))
 
         ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")
         try:
             _, protocol = await create_mpv(
-                mpv_args,
+                self._mpv_args,
                 ipc_path,
                 read_timeout=timeout_duration,
                 loop=self.plugin.nvim.loop
@@ -742,7 +752,7 @@ class MpvManager:
             self._not_spawning_player.set()
             return
 
-        log.debug("Spawned mpv with args %s", mpv_args)
+        log.debug("Spawned mpv with args %s", self._mpv_args)
 
         self.mpv = MpvWrapper(
             self,
@@ -825,10 +835,10 @@ class MpvManager:
         # Draw a filler line
         self.playlist.reorder_by_index(old_playlist)
         await self.mpv.protocol.next_event("close")
-        self.mpv._draw_update("")
+        self.plugin.nvim.async_call(self.mpv._draw_update, "")
 
         log.info("Spawning player...")
-        self._extra_args += ["--video=auto"]
+        self._mpv_args += ["--video=auto"]
         await self.spawn()
         self._transitioning_players = False
 
