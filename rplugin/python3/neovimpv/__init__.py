@@ -9,7 +9,8 @@ import shlex
 
 import pynvim
 from neovimpv.format import Formatter
-from neovimpv.mpv import MpvManager, create_managed_mpv, MARKDOWN_LINK, log as mpv_logger
+from neovimpv.mpv import log as mpv_logger
+from neovimpv.player import MpvManager, create_managed_mpv, log as player_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
@@ -27,34 +28,6 @@ KEYPRESS_LOOKUP = {
     "kd": "down",
     "kb": "bs",
 }
-
-LINK_RE = re.compile("(https?://.+?\\.[^`\\s]+)")
-def find_closest_link(line, column):
-    i = None
-    last = None
-    count = 0
-    for i in LINK_RE.finditer(line):
-        count += 1
-        if column < i.start():
-            break
-        last = i
-
-    if i is None:
-        return None
-
-    if last == None:
-        # only one result
-        if count > 0:
-            return i.group()
-        else:
-            return None
-    else:
-        dist_from_last = column - last.end()
-        dist_to_next = column - i.start()
-        if abs(dist_from_last) > abs(dist_to_next):
-            return i.group()
-        else:
-            return last.group()
 
 def translate_keypress(key):
     if key[0] == "\udc80":
@@ -94,17 +67,23 @@ class Neovimpv:
 
         self._mpv_instances = {}
 
-    def create_mpv_instance(self, files, start, end, args):
+    def create_mpv_instance(self, lines, start, end, args, ignore_mode=False):
         '''Create an MpvManager and register it in `self._mpv_instances`'''
-        if start == end and self.get_mpv_by_line(self.nvim.current.buffer, start, show_error=False):
+        if (
+            start == end
+            and self.get_mpv_by_line(self.nvim.current.buffer, start, show_error=False)
+        ):
+
             self.show_error("Mpv is already open on this line!")
             return
 
         target = create_managed_mpv(
             self,
-            files,
-            range(start, end + 1), # end+1 for inclusive
-            args
+            lines,
+            start,
+            end,
+            args,
+            ignore_mode,
         )
         if target is None:
             return
@@ -115,34 +94,20 @@ class Neovimpv:
     def open_in_mpv(self, args, range_):
         '''Open current line as a file in mpv.'''
         start, end = range_
+        # For some reason, vim sends the args over space-delimited,
+        # instead of with quotes interpreted
         args = shlex.split(" ".join(args))
         lines = self.nvim.current.buffer[start-1:end]
-        # if we only have the one line and we're not in visual mode, search it for links
-        mode = self.nvim.api.get_mode()
-
-        # TODO: move this into create_managed_mpv
-        if start == end and mode.get("mode") != 'v':
-            # make sure the line isn't in markdown beforehand
-            try_markdown = MARKDOWN_LINK.search(lines[0])
-            if try_markdown:
-                lines = [try_markdown.group(2)]
-            else:
-                _, cursor_col = self.nvim.current.window.cursor
-                link = find_closest_link(lines[0], cursor_col)
-                log.error(link)
-                if link is not None:
-                    lines = [link]
 
         self.create_mpv_instance(lines, start, end, args)
 
     @pynvim.command("MpvNewAtLine", nargs="*", range="")
     def new_mpv_at_line(self, args, range_):
-        '''Open current line as a file in mpv.'''
+        '''Open file from command argument at the current line.'''
         start, end = range_
-        # For some reason, vim sends the args over space-delimited, instead of with quotes interpreted
         args = shlex.split(" ".join(args))
         target_link = [args[0]]
-        self.create_mpv_instance(target_link, start, end, args[1:])
+        self.create_mpv_instance(target_link, start, end, args[1:], ignore_mode=True)
 
     @pynvim.command(
         "MpvPause",
@@ -166,7 +131,7 @@ class Neovimpv:
         "MpvClose",
         nargs="?",
         range="",
-        complete="customlist,neovimpv#mpv_close_pause"
+        complete="customlist,neovimpv#complete#mpv_close_pause"
     )
     def close_mpv(self, args, range):
         '''Close mpv instance on the current line'''
@@ -187,7 +152,7 @@ class Neovimpv:
         complete="customlist,neovimpv#complete#mpv_set_property"
     )
     def mpv_set_property(self, args, range):
-        '''Send commands to the mpv instance on the current line'''
+        '''Assign a value to a property of the mpv instance on the current line'''
         line = range[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.set_property(*[try_json(i) for i in args])
@@ -199,7 +164,7 @@ class Neovimpv:
         complete="customlist,neovimpv#complete#mpv_get_property"
     )
     def mpv_get_property(self, args, range):
-        '''Send commands to the mpv instance on the current line'''
+        '''Request a property from the mpv instance on the current line'''
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
@@ -226,7 +191,8 @@ class Neovimpv:
             target.send_command(*[try_json(i) for i in args])
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", bang=True, range="")
-    def mpv_youtube_search(self, args, range, bang):
+    def mpv_youtube_search(self, args, range, bang=False):
+        '''Query Youtube and open the results in an auxiliary buffer'''
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
         if WARN_LXML:
@@ -253,10 +219,10 @@ class Neovimpv:
         if len(args) == 2:
             logger_name, level = args
         else:
-            raise TypeError(f"Expected 3 arguments, got {len(args)}")
+            raise TypeError(f"Expected 2 arguments, got {len(args)}")
 
         logger_name = logger_name.lower()
-        if logger_name not in ["mpv", "protocol", "youtube", "all"]:
+        if logger_name not in ["mpv", "player", "protocol", "youtube", "all"]:
             raise ValueError(f"Invalid logger name given: {logger_name}")
 
         level = level.upper()
@@ -265,6 +231,8 @@ class Neovimpv:
 
         if logger_name == "mpv":
             mpv_logger.setLevel(level)
+        elif logger_name == "player":
+            player_logger.setLevel(level)
         elif logger_name == "protocol":
             protocol_logger.setLevel(level)
         elif logger_name == "youtube":
@@ -353,6 +321,7 @@ class Neovimpv:
 
     def show_error(self, error, level=4):
         '''Show an error to nvim'''
+        log.error(error)
         self.nvim.async_call(
             self.nvim.api.notify,
             error,
@@ -413,17 +382,11 @@ class Neovimpv:
                 del self._mpv_instances[(instance.buffer, instance.id)]
         except Exception as e:
             self.show_error(
-                "Unknown error occurred: " \
-                "could not delete player %s.%s" % \
-                (instance.buffer, instance.id)
+                f"Unknown error occurred: could not delete player {instance.buffer}.{instance.id}"
             )
             log.debug(
-                "Unknown error occurred: " \
-                "could not delete player %s.%s\n" \
                 "mpv_instances: %s\n" \
                 "%s",
-                instance.buffer,
-                instance.id,
                 self._mpv_instances,
                 e,
                 stack_info=True

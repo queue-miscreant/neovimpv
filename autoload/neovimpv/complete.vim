@@ -23,12 +23,12 @@ function neovimpv#complete#log_level(arg_lead, cmd_line, cursor_pos)
 
   if argnumber == 1
     return s:match_partial(
-          \ ["mpv", "protocol", "youtube"],
+          \ ["mpv", "player", "protocol", "youtube", "all"],
           \ a:arg_lead
           \ )
   elseif argnumber == 2
     return s:match_partial(
-          \ ["INFO", "DEBUG", "WARNING", "WARN", "ERROR", "FATAL", "NOTSET"],
+          \ ["INFO", "DEBUG", "ERROR", "NOTSET"],
           \ a:arg_lead
           \ )
   endif
