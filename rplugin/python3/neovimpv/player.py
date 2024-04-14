@@ -10,7 +10,7 @@ import logging
 import os.path
 import re
 
-from neovimpv.mpv import MpvPlaylist, MpvWrapper
+from neovimpv.mpv import MpvPlaylist, MpvWrapper, MpvItem
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
@@ -38,7 +38,8 @@ class VisualMode(enum.Enum):
 def find_closest_link(line, column):
     """
     Find the closest LINK_RE match in `line` to the position `column`.
-    Returns a 2-tuple of the matching link and whether or not it was the only match.
+    Returns a 2-tuple of the matching link and whether or not the link was found
+    at the start of its line and was the only match.
     """
     i = None
     last = None
@@ -55,7 +56,7 @@ def find_closest_link(line, column):
     if last is None:
         # only one result
         if count > 0:
-            return i.group(), True
+            return i.group(), i.start() == 0
         else:
             return None, True
     else:
@@ -73,13 +74,13 @@ def links_by_line(line, start_col, end_col):
     If end_col is None, then no upper bound for the column will be used.
     '''
     ret = [
-        match.group()
+        match
         for match in LINK_RE.finditer(line)
         if match.end() >= start_col and (
             match.start() < end_col if end_col is not None else True
         )
     ]
-    return ret, len(ret) == 1
+    return [i.group() for i in ret], len(ret) == 1 and ret[0].start() == 0
 
 def try_path_and_markdown(line):
     '''
@@ -98,7 +99,8 @@ def try_path_and_markdown(line):
 def multi_line(lines, start, end, mode: VisualMode):
     '''
     Construct a dictionary from line numbers to a tuple of a list of files
-    and whether or not to attempt to apply markdown when the player is on that line.
+    and whether or not this is the only openable item on its line
+    (in other words, whether overwriting it with markdown is acceptible).
     '''
     start_line, start_col = start
     end_line, end_col = end
@@ -168,12 +170,21 @@ def construct_playlist_items(plugin, lines, start_line, end_line, ignore_mode):
     end = end_line
 
     if not ignore_mode:
+        log.info("Attempting action based on vim mode")
         vim_mode = plugin.nvim.api.get_mode().get("mode")
         try:
             # Block or visual block modes
             mode = VisualMode(('v', "\x16").index(vim_mode[0]))
             start = plugin.nvim.current.buffer.api.get_mark("<")
             end = plugin.nvim.current.buffer.api.get_mark(">")
+            log.info("Creating playlist from visual selection")
+            log.debug(
+                "lines: %s\nstart: %s\nend: %s\nmode: %s",
+                lines,
+                start,
+                end,
+                mode
+            )
             return multi_line(lines, start, end, mode)
         except ValueError:
             pass
@@ -182,14 +193,25 @@ def construct_playlist_items(plugin, lines, start_line, end_line, ignore_mode):
             # If somehow we were given a range without the cursor actually being there,
             # assume the start of the line
             if start_line == new_start_line:
+                log.info("Trying path/markdown")
                 single_file = try_path_and_markdown(lines[0])
                 if single_file is not None:
                     return {start_line: ([single_file], True)}
+                log.info("Finding closest link")
+                log.debug("line: %s\nstart_col: %s", lines[0], start_col)
                 closest_link, has_multiple_links = find_closest_link(lines[0], start_col)
                 if closest_link is not None:
                     return {start_line: ([closest_link], not has_multiple_links)}
+                log.info("No results found from default action")
                 return {}
 
+    log.info("Creating playlist as default")
+    log.debug(
+        "lines: %s\nstart: %s\nend: %s\nmode: %s",
+        lines,
+        start_line,
+        end_line,
+    )
     return multi_line(lines, (start_line, 0), (end_line, None), VisualMode.NONE)
 
 def convert_playlist(playlist, unmarkdown):
@@ -221,11 +243,32 @@ def construct_mpv_to_extmark_map(preliminary_playlist, lines_ids_zip):
     file_index = 1
     playlist_id_to_extmark_id = {}
     for line, extmark in lines_ids_zip:
-        for file in preliminary_playlist[line]:
+        for file in preliminary_playlist[line][0]:
             playlist_id_to_extmark_id[file_index] = extmark
             file_index += 1
 
     return playlist_id_to_extmark_id
+
+def construct_mpv_item_map(preliminary_playlist, lines_ids_zip):
+    '''
+    Convert the playlist from `construct_playlist_items` to a `playlist_id_to_extmark_id`
+    value for MpvPlaylist. This is a dict of tuples from playlist indices (starting with 1)
+    to extmark indices.
+    '''
+    file_index = 1
+    playlist_id_to_item = {}
+    for line, extmark_id in lines_ids_zip:
+        files, rewritable_line = preliminary_playlist[line]
+        for file in files:
+            playlist_id_to_item[file_index] = MpvItem(
+                filename = file,
+                extmark_id = extmark_id,
+                update_markdown = rewritable_line,
+                show_currently_playing = not rewritable_line,
+            )
+            file_index += 1
+
+    return playlist_id_to_item
 
 def try_smart_youtube(filename):
     '''
@@ -282,6 +325,7 @@ def create_managed_mpv(
             preliminary_playlist,
             current_filetype in plugin.do_markdowns,
         ),
+        # This is also used to construct the mpv playlist in the subprocess!
         playlist_id_to_extmark_id = construct_mpv_to_extmark_map(
             preliminary_playlist,
             zip(playlist_lines, playlist_extmark_ids)

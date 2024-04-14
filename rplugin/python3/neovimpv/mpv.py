@@ -15,6 +15,30 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 log.setLevel("DEBUG")
 
+
+# (link without markdown 1)       ---->     Try markdown, no "currently playing"
+# (link 2) (link 3)               --|->     No markdown, currently playing
+#                                   |->     No markdown, currently playing
+# (playlist 4, ...)               ---->     No markdown, no "currently playing"
+#                                           Player arrives, sees playlist, updates "currently playing"
+#                                           Item 5 has markdown, "currently playing"
+
+# playlist id:  
+
+class MpvItem:
+    def __init__(self, filename, extmark_id, update_markdown, show_currently_playing):
+        self.filename = filename
+        self.extmark_id = extmark_id
+        self.update_markdown = update_markdown
+        self.show_currently_playing = show_currently_playing
+
+    def __repr__(self):
+        return f"{self.__class__}(" \
+                f"{self.filename}, " \
+                f"{self.extmark_id}, " \
+                f"{self.update_markdown}, " \
+                f"{self.show_currently_playing})"
+
 class MpvWrapper:
     '''
     An instance of mpv which is aware of the nvim plugin. Should only be
@@ -58,11 +82,11 @@ class MpvWrapper:
 
     def _load_playlist(self, playlist):
         log.info("Loading playlist!")
-        log.debug(list(playlist.playlist_id_to_extra_data.items()))
+        log.debug(list(playlist.playlist_id_to_item.items()))
 
         #start playing the files
-        for _, file in sorted(playlist.playlist_id_to_extra_data.items(), key=lambda x: x[0]):
-            self.protocol.send_command("loadfile", file[0], "append-play")
+        for _, item in sorted(playlist.playlist_id_to_item.items(), key=lambda x: x[0]):
+            self.protocol.send_command("loadfile", item.filename, "append-play")
 
     def _draw_update(self, force_virt_text=None):
         '''Rerender the player extmark to which this mpv instance corresponds'''
@@ -111,18 +135,21 @@ class MpvWrapper:
             )
             return
 
-        link, write_markdown, _ = self.manager.playlist.playlist_id_to_extra_data[playlist_id]
+        item: MpvItem = self.manager.playlist.playlist_id_to_item.get(playlist_id)
+        if item is None:
+            # TODO
+            return
 
         media_title = await self.protocol.wait_property("media-title")
         filename = await self.protocol.wait_property("filename")
-        if not write_markdown or media_title == filename or "(" in link or ")" in link:
+        if not item.update_markdown or media_title == filename or "(" in filename or ")" in filename:
             return
 
         self.manager.plugin.nvim.async_call(
             self.manager.plugin.nvim.lua.neovimpv.write_line_of_playlist_item,
             self.manager.buffer,
             extmark_id,
-            f"[{media_title.replace('[', '(').replace(']',')')}]({link})"
+            f"[{media_title.replace('[', '(').replace(']',')')}]({filename})"
         )
 
     def _show_error(self, err):
@@ -203,13 +230,16 @@ class MpvPlaylist:
     def __init__(
         self,
         playlist_id_to_extra_data,
-        playlist_id_to_extmark_id
+        playlist_id_to_extmark_id,
+        playlist_id_to_item,
     ):
         # extra data about initial information provided, like whether to
         #   replace a line with markdown when we get a title
         self.playlist_id_to_extra_data = playlist_id_to_extra_data
         # mapping from mpv playlist ids to extmark playlist ids
         self.playlist_id_to_extmark_id = playlist_id_to_extmark_id
+
+        self.playlist_id_to_item = playlist_id_to_item
 
         # remaps from one mpv id to another
         self.playlist_id_remap = {}
