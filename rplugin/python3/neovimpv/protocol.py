@@ -4,7 +4,6 @@ import logging
 from subprocess import PIPE
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
 class MpvError(Exception):
     pass
@@ -151,7 +150,7 @@ class MpvProtocol(asyncio.Protocol):
         if ignore_error:
             self._ignore_errors.append(request_id)
         log.debug("Sent command %s", command)
-        self.transport.write((json.dumps(command) + "\n").encode())
+        self.transport.write((json.dumps(command) + "\n").encode()) # type: ignore
 
     def get_property(self, property_name, request_id=None, ignore_error=False):
         '''
@@ -168,6 +167,7 @@ class MpvProtocol(asyncio.Protocol):
         )
 
     async def wait_property(self, property_name, ignore_error=False):
+        '''Request property `property_name` and wait for the response from mpv.'''
         future = asyncio.get_event_loop().create_future()
         self._waiting_properties[self._last_property] = (self.GET, property_name, future)
 
@@ -179,7 +179,8 @@ class MpvProtocol(asyncio.Protocol):
         self._last_property += 1
         return await future
 
-    async def next_event(self, event_name, ignore_error=False):
+    async def next_event(self, event_name):
+        '''Wait for the next event which happens with name `event_name`.'''
         future = asyncio.get_event_loop().create_future()
         if self._waiting_events.get(event_name) is None:
             self._waiting_events[event_name] = []
