@@ -17,7 +17,7 @@
 --      autocommand for this filetype that establishes callbacks for each of the lines.
 --
 -- `old_window` (optional)
---      The window 
+--      The window to return the cursor to after making a selection
 --
 -- `height` (optional)
 --      The height of the split

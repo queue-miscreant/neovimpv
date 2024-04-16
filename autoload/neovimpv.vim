@@ -2,24 +2,24 @@ function s:exit_mode(...)
   exe "normal \<esc>"
 endfunction
 
-" Helper function for exiting visual mode and starting the omnikey callback
-" This allows the < and > marks (for visual mode) to be set
-function neovimpv#visual_omnikey(...) range
-  let visual_mode = "vline"
-  if mode()[0] ==# "\x16"
-    let visual_mode = "vblock"
-  elseif mode()[0] ==# "v"
-    let visual_mode = "visual"
-  endif
-
-  if a:0 >= 1
-    " NOTE: This assumes the first argument is an 'mpv' level argument,
-    " which is how this function is bound as a keymap.
-    call timer_start(0, { -> neovimpv#omnikey(1, visual_mode . " -- " . a:1) }, {})
-  else
-    call timer_start(0, { -> neovimpv#omnikey(1, visual_mode . " --") }, {})
-  endif
-endfunction
+" " Helper function for exiting visual mode and starting the omnikey callback
+" " This allows the < and > marks (for visual mode) to be set
+" function neovimpv#visual_omnikey(...) range
+"   let visual_mode = "vline"
+"   if mode()[0] ==# "\x16"
+"     let visual_mode = "vblock"
+"   elseif mode()[0] ==# "v"
+"     let visual_mode = "visual"
+"   endif
+"
+"   if a:0 >= 1
+"     " NOTE: This assumes the first argument is an 'mpv' level argument,
+"     " which is how this function is bound as a keymap.
+"     call timer_start(0, { -> neovimpv#omnikey(1, visual_mode . " -- " . a:1) }, {})
+"   else
+"     call timer_start(0, { -> neovimpv#omnikey(1, visual_mode . " --") }, {})
+"   endif
+" endfunction
 
 " Omni-function for sending keys to mpv
 function neovimpv#omnikey(is_visual, ...) range
@@ -35,9 +35,9 @@ function neovimpv#omnikey(is_visual, ...) range
     " no playlist on that line found, trying to open
     if g:mpv_omni_open_new_if_empty
       let [start_line, end_line] = [a:firstline, a:lastline]
-      if a:is_visual
-        let [start_line, end_line] = [line("'<"), line("'>")]
-      endif
+      " if a:is_visual
+      "   let [start_line, end_line] = [line("'<"), line("'>")]
+      " endif
       execute ":" . start_line . "," . end_line . "MpvOpen " . extra_args
     endif
   elseif !a:is_visual

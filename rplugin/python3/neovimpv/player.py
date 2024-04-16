@@ -15,10 +15,6 @@ from neovimpv.mpv import MpvPlaylist, MpvWrapper, MpvItem
 from neovimpv.protocol import create_mpv, MpvError
 
 log = logging.getLogger(__name__)
-log.setLevel("DEBUG")
-
-# TODO: diagram of MpvManager and children
-
 
 # delay between sending a keypress to mpv and rerequesting properties
 KEYPRESS_DELAY = 0.05
@@ -255,7 +251,7 @@ def try_smart_youtube(filename):
         return "paste"
     return "new_one"
 
-def create_managed_mpv(
+def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
     plugin,
     line_data,
     start_line,
@@ -331,7 +327,7 @@ def create_managed_mpv(
     return target
 
 
-class MpvManager:
+class MpvManager:  # pylint: disable=too-many-instance-attributes
     '''
     Manager for an mpv instance, containing options and arguments particular to it.
     '''
@@ -341,7 +337,7 @@ class MpvManager:
         '''Set the default arguments to be used by new mpv instances'''
         cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         plugin,
         buffer,
@@ -477,7 +473,7 @@ class MpvManager:
         # Draw a filler line
         self.playlist.reorder_by_index(old_playlist)
         await self.mpv.protocol.next_event("close")
-        self.plugin.nvim.async_call(self.mpv._draw_update, "")
+        self.plugin.nvim.async_call(self.mpv.draw_update, "")
 
         log.info("Spawning player...")
         self._mpv_args += ["--video=auto"]

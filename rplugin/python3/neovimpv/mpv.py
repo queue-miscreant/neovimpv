@@ -8,6 +8,8 @@ from collections import namedtuple
 import logging
 
 from typing import TYPE_CHECKING
+
+import pynvim
 from neovimpv.protocol import MpvProtocol
 
 if TYPE_CHECKING:
@@ -17,14 +19,21 @@ log = logging.getLogger(__name__)
 log.setLevel("DEBUG")
 
 
-# (link without markdown 1)       ---->     Try markdown, no "currently playing"
-# (link 2) (link 3)               --|->     No markdown, currently playing
-#                                   |->     No markdown, currently playing
-# (playlist 4, ...)               ---->     No markdown, no "currently playing"
-#                                           Player arrives, sees playlist, updates "currently playing"
-#                                           Item 5 has markdown, "currently playing" if "stay" mode
+# Example behavior of multiline playlist:
+#
+# (link without markdown 1)   ---->     Try markdown, no "currently playing"
+# (link 2) (link 3)           --|->     No markdown, currently playing
+#                               |->     No markdown, currently playing
+# (playlist 4, ...)           ---->     No markdown, no "currently playing"
+#                                       Player arrives, sees playlist, updates "currently playing"
+#                                       Item 5 has markdown, "currently playing" if "stay" mode
 
-MpvItem = namedtuple("MpvItem", ["filename", "extmark_id", "update_markdown", "show_currently_playing"])
+MpvItem = namedtuple("MpvItem", [
+    "filename",
+    "extmark_id",
+    "update_markdown",
+    "show_currently_playing"
+])
 
 class MpvWrapper:
     '''
@@ -50,7 +59,7 @@ class MpvWrapper:
         self.protocol.add_event("close", lambda _, __: self.manager.close())
         self.protocol.add_event(
             "property-change",
-            lambda _, __: self.manager.plugin.nvim.async_call(self._draw_update)
+            lambda _, __: self.manager.plugin.nvim.async_call(self.draw_update)
         )
         self.protocol.add_event(
             "got-playlist",
@@ -75,7 +84,7 @@ class MpvWrapper:
         for _, item in sorted(playlist.playlist_id_to_item.items(), key=lambda x: x[0]):
             self.protocol.send_command("loadfile", item.filename, "append-play")
 
-    def _draw_update(self, force_virt_text=None):
+    def draw_update(self, force_virt_text=None):
         '''Rerender the player extmark to which this mpv instance corresponds'''
         if self.no_draw and force_virt_text is None:
             return
@@ -93,14 +102,14 @@ class MpvWrapper:
         else:
             display["virt_text"] = self.manager.plugin.formatter.format(self.protocol.data)
 
-        # _draw_update is called asynchronously, so protect against errors from this call
+        # draw_update is called asynchronously, so protect against errors from this call
         try:
             self.manager.plugin.nvim.lua.neovimpv.update_extmark(
                 self.manager.buffer,
                 self.manager.id,
                 display
             )
-        except: # pylint: disable=bare-except
+        except pynvim.NvimError:
             pass
 
     # ==========================================================================
@@ -149,7 +158,7 @@ class MpvWrapper:
     def _on_end_file(self, arg):
         '''Report an error to nvim if the file ended because of an error.'''
         self.no_draw = True
-        self.manager.plugin.nvim.async_call(self._draw_update, "")
+        self.manager.plugin.nvim.async_call(self.draw_update, "")
         if arg.get("reason") == "error" and (error := arg.get("file_error")):
             self.manager.plugin.show_error(f"File ended: {error}")
 
@@ -539,8 +548,9 @@ class MpvPlaylist:
         # try to remap the extmark to the one it came from
         try_remap = next(
             (
-                j for i, j in self.playlist_id_remap.items()
-                if j == extmark_id
+                remapped_id for remapped_id in self.playlist_id_remap.values()
+                # j for i, j in self.playlist_id_remap.items()
+                if remapped_id == extmark_id
             ),
             extmark_id
         )
@@ -592,7 +602,11 @@ class MpvPlaylist:
         Forward deletions to mpv.
         Used when deletions or changes occur in the buffer.
         '''
-        playlist_ids = [i for i, mpv_item in self.playlist_id_to_item.items() if mpv_item in removed_items]
+        playlist_ids = [
+            i
+            for i, mpv_item in self.playlist_id_to_item.items()
+            if mpv_item in removed_items
+        ]
 
         # reverse-lookup for remapped extmarks
         static_deletions = [

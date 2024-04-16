@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-import asyncio
+"""
+neovimpv
+
+Python backend, responsible for implementing commands which interact with mpv subprocesses.
+"""
 import logging
 import json
 import os
 import os.path
-import re
 import shlex
 
 import pynvim
 from neovimpv.format import Formatter
 from neovimpv.mpv import log as mpv_logger
-from neovimpv.player import MpvManager, create_managed_mpv, VisualMode, log as player_logger
+from neovimpv.player import MpvManager, create_managed_mpv, log as player_logger
 from neovimpv.protocol import log as protocol_logger
 from neovimpv.youtube import \
     open_results_buffer, \
@@ -21,6 +24,26 @@ from neovimpv.youtube import \
 
 log = logging.getLogger(__name__)
 
+# The general layout of the plugin is as follows:
+#
+#   Plugin
+#       |
+#       |---MpvManager
+#       |       |   A wrapper object which delivers plugin commands to the correct subprocess
+#       |       |
+#       |       |------- MpvPlaylist
+#       |       |           Keeps track of mpv playlist data and links it to nvim data
+#       |       |
+#       |       |------- MpvWrapper
+#       |                   |   A plugin-aware protocol wrapper which pushes IPC data to the buffer
+#       |                   |
+#       |                   |------- MpvProtocol
+#       |                               The actual asyncio protocol wrapping mpv's IPC socket
+#       |---MpvManager
+#       |
+#       |---MpvManager
+
+
 KEYPRESS_LOOKUP = {
     "kl": "left",
     "kr": "right",
@@ -30,6 +53,9 @@ KEYPRESS_LOOKUP = {
 }
 
 def translate_keypress(key):
+    '''
+    Translate a vim keypress from `getchar()` into one intelligible to mpv's keypress command.
+    '''
     if key[0] == "\udc80":
         #TODO: handle ctrl (\udcfc\x04, then original keypress)
         #TODO: handle alt (\udcfc\x08, then original keypress)
@@ -42,11 +68,12 @@ def try_json(arg):
     '''Attempt to read arg as a JSON object. Return the string on failure'''
     try:
         return json.loads(arg)
-    except:
+    except json.JSONDecodeError:
         return arg
 
 @pynvim.plugin
-class Neovimpv:
+class Neovimpv: # pylint: disable=too-many-public-methods
+    '''Plugin root object. Keeps track of and routes commands to MpvManager objects.'''
     def __init__(self, nvim):
         self.nvim = nvim
 
@@ -67,11 +94,11 @@ class Neovimpv:
 
         self._mpv_instances = {}
 
-    def create_mpv_instance(self, lines, start, end, args, ignore_mode=False):
+    def create_mpv_instance(self, lines, start, end, args, ignore_mode=False):  # pylint: disable=too-many-arguments
         '''Create an MpvManager and register it in `self._mpv_instances`'''
         if (
             start == end
-            and self.get_mpv_by_line(self.nvim.current.buffer, start, show_error=False)
+            and self.get_mpv_by_line(self.nvim.current.buffer, start)
         ):
 
             self.show_error("Mpv is already open on this line!")
@@ -115,7 +142,7 @@ class Neovimpv:
         range="",
         complete="customlist,neovimpv#mpv_close_pause"
     )
-    def pause_mpv(self, args, range):
+    def pause_mpv(self, args, range_):
         '''Pause/unpause the mpv instance on the current line'''
         if args and args[0] == "all":
             targets = self.query_mpvs(args[0])
@@ -123,7 +150,7 @@ class Neovimpv:
                 target.set_property("pause", True)
             return
 
-        line = range[0]
+        line = range_[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.toggle_pause()
 
@@ -133,7 +160,7 @@ class Neovimpv:
         range="",
         complete="customlist,neovimpv#complete#mpv_close_pause"
     )
-    def close_mpv(self, args, range):
+    def close_mpv(self, args, range_):
         '''Close mpv instance on the current line'''
         if args:
             targets = self.query_mpvs(args[0])
@@ -141,7 +168,7 @@ class Neovimpv:
                 target.close()
             return
 
-        line = range[0]
+        line = range_[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.close()
 
@@ -151,9 +178,9 @@ class Neovimpv:
         range="",
         complete="customlist,neovimpv#complete#mpv_set_property"
     )
-    def mpv_set_property(self, args, range):
+    def mpv_set_property(self, args, range_):
         '''Assign a value to a property of the mpv instance on the current line'''
-        line = range[0]
+        line = range_[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.set_property(*[try_json(i) for i in args])
 
@@ -184,14 +211,14 @@ class Neovimpv:
         range="",
         complete="customlist,neovimpv#complete#mpv_command"
     )
-    def send_mpv_command(self, args, range):
+    def send_mpv_command(self, args, range_):
         '''Send commands to the mpv instance on the current line'''
-        line = range[0]
+        line = range_[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)):
             target.send_command(*[try_json(i) for i in args])
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", bang=True, range="")
-    def mpv_youtube_search(self, args, range, bang=False):
+    def mpv_youtube_search(self, args, _, bang=False):
         '''Query Youtube and open the results in an auxiliary buffer'''
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
@@ -214,7 +241,7 @@ class Neovimpv:
         range="",
         complete="customlist,neovimpv#complete#log_level"
     )
-    def mpv_log_level(self, args, range):
+    def mpv_log_level(self, args, _):
         '''Set logging level from vim'''
         if len(args) == 2:
             logger_name, level = args
@@ -336,23 +363,24 @@ class Neovimpv:
         '''
         if arg == "all":
             return self._mpv_instances.values()
-        else:
-            try:
-                buffnum = int(arg)
-            except:
-                return []
+        try:
+            buffnum = int(arg)
+        except ValueError:
+            return []
 
-            return self.get_mpvs_in_buffer(
-                buffnum or self.nvim.current.buffer.number
-            )
+        return self.get_mpvs_in_buffer(
+            buffnum or self.nvim.current.buffer.number
+        )
 
     def get_mpvs_in_buffer(self, buffer):
         '''Get mpv instances that we currently know about'''
-        return [mpv_instance
-            for (i, j), mpv_instance in self._mpv_instances.items()
-            if i == buffer]
+        return [
+            mpv_instance
+            for (i, _), mpv_instance in self._mpv_instances.items()
+            if i == buffer
+        ]
 
-    def get_mpv_by_line(self, buffer, line, show_error=True):
+    def get_mpv_by_line(self, buffer, line):
         '''
         Get the mpv instance on the current line of the buffer, if such an
         instance exists.
@@ -380,7 +408,7 @@ class Neovimpv:
             )
             if (instance.buffer, instance.id) in self._mpv_instances:
                 del self._mpv_instances[(instance.buffer, instance.id)]
-        except Exception as e:
+        except pynvim.NvimError as e:
             self.show_error(
                 f"Unknown error occurred: could not delete player {instance.buffer}.{instance.id}"
             )

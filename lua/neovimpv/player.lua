@@ -236,7 +236,7 @@ function neovimpv.remove_player(buffer, display_id)
     local playlist_ids = {}
     for playlist, display in pairs(vim.b["mpv_playlists_to_displays"] or {}) do
       if display == display_id then
-        table.insert(playlist_ids, tonumber(playlist)) 
+        table.insert(playlist_ids, tonumber(playlist))
       end
     end
     -- delete them

@@ -59,8 +59,8 @@ lua require('neovimpv')
 
 nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey(0)<cr>
 nnoremap <silent> <Plug>(mpv_omnikey_video) :<c-u>call neovimpv#omnikey(0, "--video=auto")<cr>
-vnoremap <silent> <expr> <Plug>(mpv_omnikey) neovimpv#visual_omnikey()
-vnoremap <silent> <expr> <Plug>(mpv_omnikey_video) neovimpv#visual_omnikey("--video=auto")
+vnoremap <silent> <Plug>(mpv_omnikey) :call neovimpv#omnikey(1, "vline --")<cr>
+vnoremap <silent> <Plug>(mpv_omnikey_video) :call neovimpv#omnikey(1, "vline -- --video=auto")<cr>
 nnoremap <silent> <Plug>(mpv_goto_earlier) :<c-u>call neovimpv#goto_relative_mpv(-1)<cr>
 nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1)<cr>
 nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt(0)<cr>
