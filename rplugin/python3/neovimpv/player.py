@@ -11,6 +11,8 @@ import logging
 import os.path
 import re
 
+from pynvim import NvimError
+
 from neovimpv.mpv import MpvPlaylist, MpvWrapper, MpvItem
 from neovimpv.protocol import create_mpv, MpvError
 
@@ -288,10 +290,15 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
 
     playlist_lines = list(preliminary_playlist.keys())
     playlist_lines.sort()
-    player_id, playlist_extmark_ids = plugin.nvim.lua.neovimpv.create_player(
-        current_buffer,
-        playlist_lines # only the line number, not the file name
-    )
+    try:
+        player_id, playlist_extmark_ids = plugin.nvim.lua.neovimpv.create_player(
+            current_buffer,
+            playlist_lines # only the line number, not the file name
+        )
+    except NvimError as exc:
+        plugin.show_error("Could not create playlist in nvim!")
+        log.debug(exc)
+        return None
 
     playlist = MpvPlaylist(
         construct_mpv_item_map(
