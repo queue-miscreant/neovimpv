@@ -3,6 +3,7 @@ neovimpv.youtube
 
 YouTube queries and search result parsing.
 """
+
 import json
 import logging
 import sys
@@ -19,11 +20,12 @@ except ImportError:
     log.warning(f"No LXML detected. MpvYoutubeSearch will not work.")
     WARN_LXML = True
 
+
 def try_follow_path(obj, path):
-    '''
+    """
     Iteratively get an item from a dict/list until the path is consumed.
     Return None on failure
-    '''
+    """
     temp = obj
     for i in path:
         try:
@@ -32,6 +34,7 @@ def try_follow_path(obj, path):
             return None
     return temp
 
+
 def parse_dict(dict, paths):
     if dict is None:
         return {}
@@ -39,6 +42,7 @@ def parse_dict(dict, paths):
     for name, path in paths.items():
         ret[name] = try_follow_path(dict, path)
     return ret
+
 
 class YoutubeRenderer:
     VIDEO_RENDERER_PATHS = {
@@ -79,15 +83,17 @@ class YoutubeRenderer:
 
     @classmethod
     def video(cls, renderer, paths=VIDEO_RENDERER_PATHS):
-        '''
+        """
         Transform a video JSON from the YouTube search page (pared down by
         Youtube.CONTENTS_PATH) into a dict with the same keys as `paths`
         with values from the page.
-        '''
+        """
         ret = parse_dict(renderer, paths)
         try:
             ret["link"] = f"https://youtu.be/{ret['video_id']}"
-            ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
+            ret["markdown"] = (
+                f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
+            )
         except KeyError:
             return None
         if ret.get("views") is None:
@@ -113,31 +119,39 @@ class YoutubeRenderer:
 
     @classmethod
     def playlist(cls, renderer):
-        '''
+        """
         Transform a playlist JSON from the YouTube search page (pared down by
         Youtube.CONTENTS_PATH) into a dict with the same keys as
         PLAYLIST_RENDERER_PATHS with values from the page.
-        '''
+        """
         ret = parse_dict(renderer, cls.PLAYLIST_RENDERER_PATHS)
         # parse the child videos that display for a playlist
         try:
-            ret["videos"] = [i for i in (
-                cls.child_video(video.get("childVideoRenderer"))
-                for video in ret["raw_videos"]
-            ) if i]
+            ret["videos"] = [
+                i
+                for i in (
+                    cls.child_video(video.get("childVideoRenderer"))
+                    for video in ret["raw_videos"]
+                )
+                if i
+            ]
             ret["link"] = f"https://youtube.com/playlist?list={ret['playlist_id']}"
-            ret["markdown"] = f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
+            ret["markdown"] = (
+                f"[{ret['title'].replace('[', '(').replace(']', ')')}]({ret['link']})"
+            )
             del ret["raw_videos"]
         except KeyError:
             return None
         log.debug("Successfully parsed playlist: %s", ret)
         return ret
 
+
 class Youtube:
-    '''
+    """
     Class containing methods related to curling YouTube pages.
     Pray that they don't change the page layout at some point in the future.
-    '''
+    """
+
     # script tag with response should contain this object to start with
     SCRIPT_SENTINEL = "var ytInitialData = "
     RESULTS_CONTENTS_PATH = [
@@ -148,7 +162,7 @@ class Youtube:
         "contents",
         0,
         "itemSectionRenderer",
-        "contents"
+        "contents",
     ]
     RESULTS_URL = "https://www.youtube.com/results?search_query={query}"
     PLAYLIST_CONTENTS_PATH = [
@@ -174,23 +188,24 @@ class Youtube:
 
     @classmethod
     def _extract_youtube_response(cls, response):
-        '''Extract JSON from curl of YouTube results page'''
+        """Extract JSON from curl of YouTube results page"""
         log.debug("Parsing YouTube response...")
         parser = lxml.html.HTMLParser(encoding="utf-8")
         parsed = lxml.html.fromstring(response, parser=parser)
         for tag in parsed.iter("script"):
             content = tag.text_content()
-            if not isinstance(content, str) \
-            or not content.startswith(cls.SCRIPT_SENTINEL):
+            if not isinstance(content, str) or not content.startswith(
+                cls.SCRIPT_SENTINEL
+            ):
                 continue
             # this script defines a single variable and has a trailing semicolon
             log.debug(f"Found script with {repr(cls.SCRIPT_SENTINEL)}!")
-            return json.loads(content[len(cls.SCRIPT_SENTINEL):-1])
+            return json.loads(content[len(cls.SCRIPT_SENTINEL) : -1])
         return None
 
     @classmethod
     def _get_init_data(cls, url):
-        '''Run youtube curl and parse result'''
+        """Run youtube curl and parse result"""
         log.debug(f"Curling {url}...")
         with urllib.request.urlopen(url) as a:
             return cls._extract_youtube_response(a.read())
@@ -214,44 +229,58 @@ class Youtube:
         results = cls._search(query)
         if raw:
             return results
-        videos = [i for i in (
-            YoutubeRenderer.video(result.get("videoRenderer"))
-            for result in results
-        ) if i]
-        playlists = [i for i in (
-            YoutubeRenderer.playlist(result.get("playlistRenderer"))
-            for result in results
-        ) if i]
-        all = [i for i in (
-               YoutubeRenderer.video(result.get("videoRenderer")) or
-               YoutubeRenderer.playlist(result.get("playlistRenderer"))
-               for result in results
-           ) if i]
+        videos = [
+            i
+            for i in (
+                YoutubeRenderer.video(result.get("videoRenderer")) for result in results
+            )
+            if i
+        ]
+        playlists = [
+            i
+            for i in (
+                YoutubeRenderer.playlist(result.get("playlistRenderer"))
+                for result in results
+            )
+            if i
+        ]
+        all = [
+            i
+            for i in (
+                YoutubeRenderer.video(result.get("videoRenderer"))
+                or YoutubeRenderer.playlist(result.get("playlistRenderer"))
+                for result in results
+            )
+            if i
+        ]
 
-        return {
-            "videos": videos,
-            "playlists": playlists,
-            "all": all
-        }
+        return {"videos": videos, "playlists": playlists, "all": all}
 
     @classmethod
     def playlist(cls, query):
         results = cls._playlist(query)
-        playlist_items = [i for i in (
-            YoutubeRenderer.playlist_video(result.get("playlistVideoRenderer"))
-            for result in results
-        ) if i]
+        playlist_items = [
+            i
+            for i in (
+                YoutubeRenderer.playlist_video(result.get("playlistVideoRenderer"))
+                for result in results
+            )
+            if i
+        ]
 
         return playlist_items
+
 
 def format_result(result):
     ret = result["title"]
     if result.get("playlist_id") is not None:
-        ret = "☰ " + ret # clearly, playlists are heavenly
+        ret = "☰ " + ret  # clearly, playlists are heavenly
     return ret
 
+
 async def open_results_buffer(nvim, youtube_query, old_window):
-    '''Run search query in YouTube, then pass scraped results to Lua'''
+    """Run search query in YouTube, then pass scraped results to Lua"""
+
     # don't block the event loop while waiting for results
     def executor():
         try:
@@ -269,15 +298,17 @@ async def open_results_buffer(nvim, youtube_query, old_window):
     results = [[format_result(i), i] for i in results["all"]]
 
     nvim.async_call(
-        lambda x,y,z,w: nvim.lua.neovimpv.open_select_split(x,y,z,w),
+        lambda x, y, z, w: nvim.lua.neovimpv.open_select_split(x, y, z, w),
         results,
         "youtube_results",
         old_window,
-        5
+        5,
     )
 
+
 async def open_first_result(nvim, youtube_query, old_window):
-    '''Run search query in YouTube, then pass scraped results to Lua'''
+    """Run search query in YouTube, then pass scraped results to Lua"""
+
     def executor():
         try:
             return Youtube.search(youtube_query)
@@ -296,10 +327,13 @@ async def open_first_result(nvim, youtube_query, old_window):
     def open_result():
         nvim.lua.neovimpv.paste_result(results["all"][0]["link"], old_window, True)
         nvim.api.command("MpvOpen")
+
     nvim.async_call(open_result)
 
+
 async def open_playlist_results(nvim, playlist, extra):
-    '''Scrape playlist page and pass results to Lua'''
+    """Scrape playlist page and pass results to Lua"""
+
     # don't block the event loop while waiting for results
     def executor():
         try:
@@ -314,11 +348,17 @@ async def open_playlist_results(nvim, playlist, extra):
         return
 
     nvim.async_call(
-        lambda x,y: nvim.lua.neovimpv.open_playlist_results(x,y),
-        results,
-        extra
+        lambda x, y: nvim.lua.neovimpv.open_playlist_results(x, y), results, extra
     )
+
 
 if __name__ == "__main__":
     import sys
-    print(json.dumps(Youtube.search(sys.argv[1], sys.argv[2] == "--raw" if len(sys.argv) > 2 else False)))
+
+    print(
+        json.dumps(
+            Youtube.search(
+                sys.argv[1], sys.argv[2] == "--raw" if len(sys.argv) > 2 else False
+            )
+        )
+    )

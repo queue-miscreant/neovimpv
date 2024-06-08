@@ -3,6 +3,7 @@ neovimpv.format
 
 Formatters for converting data from mpv into display data for extmarks.
 """
+
 import logging
 
 log = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ DISPLAY_STYLES = {
     "emoji": {
         "MpvPauseFalse": "▶️ ",
         "MpvPauseTrue": "⏸️ ",
-    }
+    },
 }
 
 # For these props, just append the string value to the end of them to the "base"
@@ -39,8 +40,9 @@ SPECIAL_PROPS = {
 
 CURRENT_SCHEME = DISPLAY_STYLES.get("unicode", {})
 
+
 def sexagesimalize(number):
-    '''Convert a number to decimal-coded sexagesimal (i.e., clock format)'''
+    """Convert a number to decimal-coded sexagesimal (i.e., clock format)"""
     seconds = int(number)
     minutes = seconds // 60
     hours = minutes // 60
@@ -49,17 +51,21 @@ def sexagesimalize(number):
     else:
         return f"{(minutes % 60)}:{(seconds % 60):0{2}}"
 
+
 def format_pause(is_paused):
     return CURRENT_SCHEME.get("MpvPause" + str(is_paused), "?")
+
 
 def format_time(position):
     return sexagesimalize(position or 0)
 
+
 def format_loop(loop):
     return "" if not loop else f"({('∞' if loop == 'inf' else loop)})"
 
+
 class Formatter:
-    '''
+    """
     Class for storing how to format the end-of-line extmark for mpv instances.
     The format string can be specified using g:mpv_format, which is a string
     with mpv property names enclosed in {}.
@@ -68,7 +74,8 @@ class Formatter:
     `MpvFormatName`. By default, these link to the highlight `MpvDefault`.
     Threshold values may be established with the g:mpv_property_thresholds
     variable.
-    '''
+    """
+
     HANDLERS = {
         "pause": format_pause,
         "playback-time": format_time,
@@ -87,12 +94,14 @@ class Formatter:
 
     def __init__(self, nvim):
         global CURRENT_SCHEME
-        format = nvim.api.get_var(NVIM_VAR_FORMAT) # user format
-        scheme = nvim.api.get_var(NVIM_CHARACTER_STYLE) # user display scheme
+        format = nvim.api.get_var(NVIM_VAR_FORMAT)  # user format
+        scheme = nvim.api.get_var(NVIM_CHARACTER_STYLE)  # user display scheme
         CURRENT_SCHEME = DISPLAY_STYLES.get(scheme, CURRENT_SCHEME)
 
-        self._defaulted_highlights = nvim.api.get_var(NVIM_VAR_DEFAULTED_HIGHLIGHTS) # highlights which don't need a default set
-        thresholds = nvim.api.get_var(NVIM_VAR_THRESHOLDS) # user thresholds
+        self._defaulted_highlights = nvim.api.get_var(
+            NVIM_VAR_DEFAULTED_HIGHLIGHTS
+        )  # highlights which don't need a default set
+        thresholds = nvim.api.get_var(NVIM_VAR_THRESHOLDS)  # user thresholds
 
         # groups parsed by the format
         self.groups = []
@@ -104,7 +113,7 @@ class Formatter:
         self.bind_default_highlights(nvim, new_groups)
 
     def parse_thresholds(self, thresholds):
-        '''Parse compiled groups into highlight suffixes, adding thresholds for special properties'''
+        """Parse compiled groups into highlight suffixes, adding thresholds for special properties"""
         new_thresholds = {}
         new_groups = {}
         # special properties first (like pause)
@@ -114,19 +123,25 @@ class Formatter:
         # user thresholds
         for threshold, thresh_list in thresholds.items():
             if len(thresh_list) == 1:
-                low_thresh, = thresh_list
-                new_thresholds[threshold] = lambda x: "Low" if x < low_thresh else "High"
+                (low_thresh,) = thresh_list
+                new_thresholds[threshold] = lambda x: (
+                    "Low" if x < low_thresh else "High"
+                )
                 new_groups[threshold] = ["Low", "High"]
             elif len(thresh_list) == 2:
                 low_thresh, mid_thresh = thresh_list
-                new_thresholds[threshold] = lambda x: ("Low" if x < low_thresh else "Middle") if x < mid_thresh else "High"
+                new_thresholds[threshold] = lambda x: (
+                    ("Low" if x < low_thresh else "Middle")
+                    if x < mid_thresh
+                    else "High"
+                )
                 new_groups[threshold] = ["Low", "Middle", "High"]
             else:
                 raise ValueError(f"Cannot interpret user threshold {threshold}")
         return new_thresholds, new_groups
 
     def bind_default_highlights(self, nvim, new_groups):
-        '''Bind default highlights for all mpv properties as thresholds and in the format string'''
+        """Bind default highlights for all mpv properties as thresholds and in the format string"""
         for group in self.groups:
             if group in new_groups:
                 continue
@@ -144,7 +159,7 @@ class Formatter:
         self._defaulted_highlights.extend(new_highlights)
 
     def compile_format(self, format: str):
-        '''Compile format string into a list of lambdas ready to receive a data dict'''
+        """Compile format string into a list of lambdas ready to receive a data dict"""
         groups = set()
         pre_formatted = []
 
@@ -168,24 +183,28 @@ class Formatter:
         self.groups = list(groups)
 
     def _format(self, item):
-        '''Bind the property `item` to a handler lambda'''
+        """Bind the property `item` to a handler lambda"""
         # Try to find a way to draw this
         formatter = self.HANDLERS.get(item, str)
         # thresholds include special fields like pause, as well as user-defined ones
         threshold = self._thresholds.get(item, lambda x: "")
         highlight_name = "Mpv" + kebab_to_camel(item)
-        return [item, lambda x, data: [
-            formatter(data.get(x, "")),
-            highlight_name + threshold(data.get(x, 0))
-        ]]
+        return [
+            item,
+            lambda x, data: [
+                formatter(data.get(x, "")),
+                highlight_name + threshold(data.get(x, 0)),
+            ],
+        ]
 
     def format(self, format_dict):
-        '''
+        """
         Return a list of string/highlight 2-arrays for use by set_extmark.
         If a handler returns a falsy value, the item is omitted.
-        '''
+        """
         return [k for k in (j(i, format_dict) for i, j in self._pre_formatted) if k[0]]
 
+
 def kebab_to_camel(string):
-    '''Turn kebab-case string into CamelCase string'''
-    return ''.join([name.capitalize() for name in string.split("-")])
+    """Turn kebab-case string into CamelCase string"""
+    return "".join([name.capitalize() for name in string.split("-")])

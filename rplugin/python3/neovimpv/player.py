@@ -4,6 +4,7 @@ neovimpv.player
 Implements a container class which forwards plugin commands to the correct mpv subprocess
 wrapper and playlist extmark manager.
 """
+
 import asyncio
 from collections import namedtuple
 import enum
@@ -29,13 +30,16 @@ LINK_RE = re.compile("(https?://.+?\\.[^`\\s]+)")
 
 LocalArgs = namedtuple("LocalArgs", ["mpv_args", "visual", "update_action"])
 
+
 class VisualMode(enum.Enum):
     """More idiomatic names from neovim `mode()` responses."""
+
     VISUAL_RANGE = "visual"
     VISUAL_LINE = "vline"
     VISUAL_BLOCK = "vblock"
     IGNORE = "ignore"
     NONE = None
+
 
 def find_closest_link(line, column):
     """
@@ -68,27 +72,28 @@ def find_closest_link(line, column):
 
     return last.group(), False
 
+
 # filenames, whether to apply markdown to the line
 def links_by_line(line, start_col, end_col):
-    '''
+    """
     Filter off URLs between start_col and end_col.
     If end_col is None, then no upper bound for the column will be used.
-    '''
+    """
     ret = [
         match
         for match in LINK_RE.finditer(line)
-        if match.end() >= start_col and (
-            match.start() <= end_col if end_col is not None else True
-        )
+        if match.end() >= start_col
+        and (match.start() <= end_col if end_col is not None else True)
     ]
     log.debug(ret)
     return [i.group() for i in ret], len(ret) == 1 and ret[0].start() == 0
 
+
 def try_path_and_markdown(line):
-    '''
+    """
     Attempt to interpret the line as a file path or as markdown.
     If the line is not a valid filename or the markdown match fails, return None.
-    '''
+    """
     if os.path.exists(file_link := os.path.expanduser(line)):
         return file_link
 
@@ -98,19 +103,20 @@ def try_path_and_markdown(line):
 
     return None
 
+
 def multi_line(lines, start, end, mode: VisualMode):
-    '''
+    """
     Construct a dictionary from line numbers to a tuple of a list of files
     and whether or not this is the only openable item on its line
     (in other words, whether overwriting it with markdown is acceptible).
-    '''
+    """
     start_line, start_col = start
     end_line, end_col = end
 
     ret = {}
     line_numbers = range(start_line, end_line + 1)
     for line_number, line in zip(line_numbers, lines):
-        if (path := try_path_and_markdown(line)):
+        if path := try_path_and_markdown(line):
             ret[line_number] = [path], True
             continue
         links = []
@@ -131,19 +137,20 @@ def multi_line(lines, start, end, mode: VisualMode):
 
     return ret
 
+
 def parse_mpvopen_args(args: list):
-    '''
+    """
     Parse arguments `args` retrieved from MpvOpen.
     Arguments preceding "--", if they exist, are considered local, and
     control local functionality, like determining if dynamic playlists
     should use non-global options.
-    '''
+    """
     mpv_args = args
     local_args = []
     try:
         split = args.index("--")
         local_args = args[:split]
-        mpv_args = args[split+1:]
+        mpv_args = args[split + 1 :]
     except ValueError:
         pass
 
@@ -164,7 +171,9 @@ def parse_mpvopen_args(args: list):
         visual = VisualMode.VISUAL_LINE
 
     if "video" in local_args:
-        mpv_args = [i for i in mpv_args if not i.startswith("--vid") and i != "--no-video"]
+        mpv_args = [
+            i for i in mpv_args if not i.startswith("--vid") and i != "--no-video"
+        ]
         mpv_args.append("--video=auto")
 
     return LocalArgs(
@@ -173,24 +182,19 @@ def parse_mpvopen_args(args: list):
         visual=visual,
     )
 
+
 def construct_playlist_items(plugin, lines, start_line, end_line, mode):
-    '''
+    """
     Read over the list of lines, skipping those which are not files or URLs.
     Make note of which need to be turned into markdown.
-    '''
+    """
     if mode in (VisualMode.VISUAL_BLOCK, VisualMode.VISUAL_RANGE):
         log.info("Attempting action based on vim mode")
         # Block or visual block modes
         start = plugin.nvim.current.buffer.api.get_mark("<")
         end = plugin.nvim.current.buffer.api.get_mark(">")
         log.info("Creating playlist from visual selection")
-        log.debug(
-            "lines: %s\nstart: %s\nend: %s\nmode: %s",
-            lines,
-            start,
-            end,
-            mode
-        )
+        log.debug("lines: %s\nstart: %s\nend: %s\nmode: %s", lines, start, end, mode)
         return multi_line(lines, start, end, mode)
 
     log.info("Not in visual or visual block mode. Mode: %s", mode)
@@ -221,39 +225,42 @@ def construct_playlist_items(plugin, lines, start_line, end_line, mode):
     )
     return multi_line(lines, (start_line, 0), (end_line, None), VisualMode.NONE)
 
+
 def construct_mpv_item_map(preliminary_playlist, lines_ids_zip, acknowledge_markdowns):
-    '''
+    """
     Convert the playlist from `construct_playlist_items` to a `playlist_id_to_extmark_id`
     value for MpvPlaylist. This is a dict of tuples from playlist indices (starting with 1)
     to extmark indices.
-    '''
+    """
     file_index = 1
     playlist_id_to_item = {}
     for line, extmark_id in lines_ids_zip:
         files, rewritable_line = preliminary_playlist[line]
         for file in files:
             playlist_id_to_item[file_index] = MpvItem(
-                filename = file,
-                extmark_id = extmark_id,
-                update_markdown = rewritable_line and acknowledge_markdowns,
-                show_currently_playing = not rewritable_line,
+                filename=file,
+                extmark_id=extmark_id,
+                update_markdown=rewritable_line and acknowledge_markdowns,
+                show_currently_playing=not rewritable_line,
             )
             file_index += 1
 
     return playlist_id_to_item
 
+
 def try_smart_youtube(filename):
-    '''
+    """
     Attempt to generate a "smart Youtube" playlist update action.
     This pastes the first result of "ytsearch://" URLs over the original contents of the line.
     Otherwise, results are opened in a new buffer inside a split.
-    '''
+    """
     is_search = YTDL_YOUTUBE_SEARCH_RE.match(filename)
     if is_search and is_search.group(1) in ("", "1"):
         return "paste"
     return "new_one"
 
-def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
+
+def create_managed_mpv(  # pylint: disable=too-many-locals, too-many-arguments
     plugin,
     line_data,
     start_line,
@@ -261,13 +268,13 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
     extra_args,
     ignore_mode,
 ):
-    '''
+    """
     Create a MpvManager instance from line data and ranges from the nvim plugin.
     This also spawns a task for creating an mpv subprocess and opening a communication channel.
 
     The plugin MUST be in a state where its `current` data is accessible, for example, when
     using async_call or in a command callback.
-    '''
+    """
     current_buffer = plugin.nvim.current.buffer.number
     current_filetype = plugin.nvim.current.buffer.api.get_option("filetype")
 
@@ -283,8 +290,8 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
     log.debug(preliminary_playlist)
     if len(preliminary_playlist) == 0:
         plugin.show_error(
-            ("Lines do" if start_line != end_line else "Line does") + \
-            " not contain a file path or valid URL"
+            ("Lines do" if start_line != end_line else "Line does")
+            + " not contain a file path or valid URL"
         )
         return None
 
@@ -292,8 +299,7 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
     playlist_lines.sort()
     try:
         player_id, playlist_extmark_ids = plugin.nvim.lua.neovimpv.create_player(
-            current_buffer,
-            playlist_lines # only the line number, not the file name
+            current_buffer, playlist_lines  # only the line number, not the file name
         )
     except NvimError as exc:
         plugin.show_error("Could not create playlist in nvim!")
@@ -315,11 +321,14 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
             update_action = try_smart_youtube(playlist.playlist_id_to_item[1].filename)
     elif local_args.update_action == "new_one":
         raise ValueError(
-            "Cannot create new buffer for playlist" \
+            "Cannot create new buffer for playlist"
             f"of initial size {len(playlist.playlist_id_to_item)}!"
         )
-    update_action = local_args.update_action \
-            if local_args.update_action is not None else update_action
+    update_action = (
+        local_args.update_action
+        if local_args.update_action is not None
+        else update_action
+    )
 
     target = MpvManager(
         plugin,
@@ -335,13 +344,15 @@ def create_managed_mpv( # pylint: disable=too-many-locals, too-many-arguments
 
 
 class MpvManager:  # pylint: disable=too-many-instance-attributes
-    '''
+    """
     Manager for an mpv instance, containing options and arguments particular to it.
-    '''
+    """
+
     MPV_ARGS = []
+
     @classmethod
     def set_default_args(cls, new_args):
-        '''Set the default arguments to be used by new mpv instances'''
+        """Set the default arguments to be used by new mpv instances"""
         cls.MPV_ARGS = DEFAULT_MPV_ARGS + new_args
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -366,13 +377,12 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.playlist = playlist
         self.update_action = update_action
 
-
     async def spawn(self, timeout_duration=1):
-        '''
+        """
         Spawn subprocess and wait `timeout_duration` seconds for error output.
         If the connection is successful, the instance's `protocol` member will be set
         to an MpvProtocol for IPC.
-        '''
+        """
         self._not_spawning_player.clear()
 
         ipc_path = os.path.join(self.plugin.mpv_socket_dir, f"{self.id}")
@@ -381,7 +391,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
                 self._mpv_args,
                 ipc_path,
                 read_timeout=timeout_duration,
-                loop=self.plugin.nvim.loop
+                loop=self.plugin.nvim.loop,
             )
         except MpvError as e:
             self.plugin.show_error(e.args[0])
@@ -403,7 +413,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
     # ==========================================================================
 
     def send_command(self, command_name, *args):
-        '''Send a command to the mpv subprocess.'''
+        """Send a command to the mpv subprocess."""
         if self.mpv is None:
             self.plugin.show_error("Mpv not ready yet!")
             return
@@ -411,14 +421,16 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.mpv.protocol.send_command(command_name, *args)
 
     def set_property(self, property_name, value, update=True, ignore_error=False):
-        '''Set a property on the mpv subprocess.'''
+        """Set a property on the mpv subprocess."""
         if self.mpv is None:
             self.plugin.show_error("Mpv not ready yet!")
             return
-        self.mpv.protocol.set_property(property_name, value, update, ignore_error) # just in case
+        self.mpv.protocol.set_property(
+            property_name, value, update, ignore_error
+        )  # just in case
 
     async def wait_property(self, command_name, *args):
-        '''Asynchronously request a property on the mpv subprocess.'''
+        """Asynchronously request a property on the mpv subprocess."""
         if self.mpv is None:
             self.plugin.show_error("Mpv not ready yet!")
             return
@@ -426,7 +438,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         return await self.mpv.protocol.wait_property(command_name, *args)
 
     async def send_keypress(self, keypress, ignore_error=False, count=1):
-        '''Send a keypress and wait for its properties to be updated.'''
+        """Send a keypress and wait for its properties to be updated."""
         if keypress == "q":
             await self.close_async()
             return
@@ -436,26 +448,26 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
             return
 
         for _ in range(count):
-            self.mpv.protocol.send_command("keypress", keypress, ignore_error=ignore_error)
+            self.mpv.protocol.send_command(
+                "keypress", keypress, ignore_error=ignore_error
+            )
 
         # some delay is necessary for the keypress to take effect
         await asyncio.sleep(KEYPRESS_DELAY)
         self.mpv.protocol.fetch_subscribed()
 
     def toggle_pause(self):
-        '''Attempt to pause/unpause the mpv subprocess.'''
+        """Attempt to pause/unpause the mpv subprocess."""
         if self.mpv is None:
             self.plugin.show_error("Mpv not ready yet!")
             return
 
         self.mpv.protocol.set_property(
-            "pause",
-            not self.mpv.protocol.data.get("pause"),
-            update=False
+            "pause", not self.mpv.protocol.data.get("pause"), update=False
         )
 
     async def toggle_video(self):
-        '''Close mpv, then reopen with the same playlist and with video'''
+        """Close mpv, then reopen with the same playlist and with video"""
         if self._transitioning_players:
             self.plugin.show_error("Already attempting to show video!")
             return
@@ -488,8 +500,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self._transitioning_players = False
 
         log.info(
-            "Transition finished! Setting playlist index to %s...",
-            current_position
+            "Transition finished! Setting playlist index to %s...", current_position
         )
         self.mpv.protocol.send_command("playlist-play-index", current_position)
         self.mpv.protocol.get_property("playlist")
@@ -501,7 +512,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.mpv.protocol.send_command("seek", current_time)
 
     async def set_current_by_playlist_extmark(self, extmark_id):
-        '''Set the current file to the mpv file specified by the extmark `playlist_item`'''
+        """Set the current file to the mpv file specified by the extmark `playlist_item`"""
         await self._not_spawning_player.wait()
         if self.mpv is None:
             self.plugin.show_error("Could not set playlist index! Mpv is closed.")
@@ -510,7 +521,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.playlist.set_current_by_playlist_extmark(self.mpv, extmark_id)
 
     async def forward_deletions(self, removed_items):
-        '''Forward deletions to mpv'''
+        """Forward deletions to mpv"""
         await self._not_spawning_player.wait()
         if self.mpv is None:
             self.plugin.show_error("Could not forward deletions! Mpv is closed.")
@@ -519,15 +530,15 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.playlist.forward_deletions(self.mpv, removed_items)
 
     async def close_async(self, destroy_extmarks=True):
-        '''Defer to the plugin to remove the extmark'''
+        """Defer to the plugin to remove the extmark"""
         await self._not_spawning_player.wait()
         if self.mpv is not None:
-            self.mpv.protocol.send_command("quit") # just in case
+            self.mpv.protocol.send_command("quit")  # just in case
 
         if destroy_extmarks:
             self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
 
     def close(self):
-        '''Defer to the plugin to remove the extmark'''
+        """Defer to the plugin to remove the extmark"""
         destroy_extmarks = not self._transitioning_players
         self.plugin.nvim.loop.create_task(self.close_async(destroy_extmarks))
