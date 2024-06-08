@@ -11,6 +11,7 @@ import os.path
 import shlex
 
 import pynvim
+
 from neovimpv.format import Formatter
 from neovimpv.mpv import log as mpv_logger
 from neovimpv.player import MpvManager, create_managed_mpv, log as player_logger

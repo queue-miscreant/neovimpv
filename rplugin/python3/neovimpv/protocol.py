@@ -1,3 +1,8 @@
+"""
+neovimpv.player
+
+Low-level asyncio protocol for communicating with mpv's IPC server.
+"""
 import asyncio
 import json
 import logging
@@ -6,7 +11,7 @@ from subprocess import PIPE
 log = logging.getLogger(__name__)
 
 class MpvError(Exception):
-    pass
+    """Prtocol-level error when when talking to mpv"""
 
 class MpvProtocol(asyncio.Protocol):
     '''

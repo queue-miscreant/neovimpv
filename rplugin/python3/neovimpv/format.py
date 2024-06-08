@@ -1,5 +1,8 @@
-import copy
-import itertools
+"""
+neovimpv.format
+
+Formatters for converting data from mpv into display data for extmarks.
+"""
 import logging
 
 log = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ SPECIAL_PROPS = {
     }
 }
 
-CURRENT_SCHEME = DISPLAY_STYLES.get("unicode")
+CURRENT_SCHEME = DISPLAY_STYLES.get("unicode", {})
 
 def sexagesimalize(number):
     '''Convert a number to decimal-coded sexagesimal (i.e., clock format)'''

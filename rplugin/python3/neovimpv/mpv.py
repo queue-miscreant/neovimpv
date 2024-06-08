@@ -6,17 +6,16 @@ for playlist extmarks.
 """
 from collections import namedtuple
 import logging
-
 from typing import TYPE_CHECKING
 
 import pynvim
+
 from neovimpv.protocol import MpvProtocol
 
 if TYPE_CHECKING:
     from neovimpv.player import MpvManager
 
 log = logging.getLogger(__name__)
-log.setLevel("DEBUG")
 
 
 # Example behavior of multiline playlist:

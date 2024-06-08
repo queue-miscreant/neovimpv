@@ -1,3 +1,8 @@
+"""
+neovimpv.youtube
+
+YouTube queries and search result parsing.
+"""
 import json
 import logging
 import sys
