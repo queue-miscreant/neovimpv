@@ -171,6 +171,7 @@ function s:undo_for_change_count()
   let new_range = [ line("'["), line("']") ]
   setlocal lz
   let try_undo = b:changedtick
+  let pre_undo_cursor = getcurpos()
   undo
   " undo (or redo) for the change
   if try_undo == b:changedtick
@@ -181,6 +182,7 @@ function s:undo_for_change_count()
     call s:calculate_change(new_lines)
     redo
   endif
+  call setpos(".", pre_undo_cursor)
   setlocal nolz
   call timer_start(0, "neovimpv#buffer_change_callback")
 endfunction
