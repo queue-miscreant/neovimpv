@@ -5,7 +5,7 @@ Implements a plugin-aware container for an mpv asyncio protocol object and a man
 for playlist extmarks.
 """
 
-from collections import namedtuple
+from dataclasses import dataclass
 import logging
 from typing import TYPE_CHECKING
 
@@ -28,9 +28,12 @@ log = logging.getLogger(__name__)
 #                                       Player arrives, sees playlist, updates "currently playing"
 #                                       Item 5 has markdown, "currently playing" if "stay" mode
 
-MpvItem = namedtuple(
-    "MpvItem", ["filename", "extmark_id", "update_markdown", "show_currently_playing"]
-)
+@dataclass
+class MpvItem:
+    filename: str
+    extmark_id: int
+    update_markdown: bool
+    show_currently_playing: bool
 
 
 class MpvWrapper:
@@ -47,7 +50,7 @@ class MpvWrapper:
         self.no_draw = True
 
         self._add_events()
-        self._load_playlist(manager.playlist)
+        self._load_playlist(manager.playlist)  # type: ignore
 
     def _add_events(self):
         # default event handling
@@ -358,7 +361,7 @@ class MpvPlaylist:
             None,
         )
         log.debug(
-            "current_playlist_id: %s\n" "redirected_playlist_id: %s\n",
+            "current_playlist_id: %s\n" "redirected_playlist_id: %s\n",  # pylint: disable=implicit-str-concat
             current_playlist_id,
             redirected_playlist_id,
         )
@@ -438,7 +441,7 @@ class MpvPlaylist:
             playlist_current + 1,
         )
         log.info("Got new extmarks!")
-        log.debug("write_lines: %s\n" "new_extmarks: %s", write_lines, new_extmarks)
+        log.debug("write_lines: %s\nnew_extmarks: %s", write_lines, new_extmarks)
         mpv.no_draw = False
 
         # bind the new extmarks to their mpv ids
@@ -516,7 +519,7 @@ class MpvPlaylist:
         Update state after playlist loaded.
         The playlist retrieved from MpvProtocol is raw, so we need to do a bit of extra processing.
         """
-        log.debug("Got updated playlist!\n" "playlist: %s", data)
+        log.debug("Got updated playlist!\n" "playlist: %s", data)  # pylint: disable=implicit-str-concat
 
         # the mpv video id which triggered the new playlist
         # should correspond to the index in self.playlist_id_to_item
@@ -644,7 +647,7 @@ class MpvPlaylist:
         ]
 
         log.debug(
-            "Removing mpv ids!\n" "playlist_ids: %s\n" "playlist: %s",
+            "Removing mpv ids!\n" "playlist_ids: %s\n" "playlist: %s",  # pylint: disable=implicit-str-concat
             playlist_ids,
             mpv.protocol.data.get("playlist"),
         )

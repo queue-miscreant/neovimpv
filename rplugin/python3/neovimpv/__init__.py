@@ -191,13 +191,13 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         range="",
         complete="customlist,neovimpv#complete#mpv_get_property",
     )
-    def mpv_get_property(self, args, range):
+    def mpv_get_property(self, args, range_):
         """Request a property from the mpv instance on the current line"""
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
         property_name = args[0]
-        line = range[0]
+        line = range_[0]
         if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)) is None:
             return
 
@@ -287,7 +287,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         else:
             raise TypeError(f"Expected 3 arguments, got {len(args)}")
         log.debug(
-            "Received keypress: %s\n" "Sending to buffer %s.%s\n" "mpv_instances: %s",
+            "Received keypress: %s\n" "Sending to buffer %s.%s\n" "mpv_instances: %s",  # pylint: disable=implicit-str-concat
             repr(key),
             self.nvim.current.buffer.number,
             extmark_id,
@@ -411,7 +411,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
                 f"Unknown error occurred: could not delete player {instance.buffer}.{instance.id}"
             )
             log.debug(
-                "mpv_instances: %s\n" "%s", self._mpv_instances, e, stack_info=True
+                "mpv_instances: %s\n" "%s", self._mpv_instances, e, stack_info=True  # pylint: disable=implicit-str-concat
             )
 
     def set_new_buffer(self, instance, new_buffer, new_display):

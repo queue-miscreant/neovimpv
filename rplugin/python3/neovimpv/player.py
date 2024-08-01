@@ -6,11 +6,12 @@ wrapper and playlist extmark manager.
 """
 
 import asyncio
-from collections import namedtuple
+from dataclasses import dataclass
 import enum
 import logging
 import os.path
 import re
+from typing import Dict, List, Literal, Tuple, TypeAlias
 
 from pynvim import NvimError
 
@@ -28,8 +29,6 @@ MARKDOWN_LINK_RE = re.compile(r"\[([^\[\]]*)\]\(([^()]*)\)")
 YTDL_YOUTUBE_SEARCH_RE = re.compile(r"^ytdl://\s*ytsearch(\d*):")
 LINK_RE = re.compile("(https?://.+?\\.[^`\\s]+)")
 
-LocalArgs = namedtuple("LocalArgs", ["mpv_args", "visual", "update_action"])
-
 
 class VisualMode(enum.Enum):
     """More idiomatic names from neovim `mode()` responses."""
@@ -39,6 +38,16 @@ class VisualMode(enum.Enum):
     VISUAL_BLOCK = "vblock"
     IGNORE = "ignore"
     NONE = None
+
+
+UpdateAction: TypeAlias = Literal["stay", "paste", "new_one", None]
+
+
+@dataclass
+class LocalArgs:
+    mpv_args: List[str]
+    visual: VisualMode
+    update_action: UpdateAction
 
 
 def find_closest_link(line, column):
@@ -113,13 +122,13 @@ def multi_line(lines, start, end, mode: VisualMode):
     start_line, start_col = start
     end_line, end_col = end
 
-    ret = {}
+    ret: Dict[int, Tuple[List[str], bool]] = {}
     line_numbers = range(start_line, end_line + 1)
     for line_number, line in zip(line_numbers, lines):
         if path := try_path_and_markdown(line):
             ret[line_number] = [path], True
             continue
-        links = []
+        links: Tuple[List[str], bool] = [], False
         if mode == VisualMode.VISUAL_RANGE:
             if start_line == end_line:
                 links = links_by_line(line, start_col, end_col)
@@ -154,7 +163,7 @@ def parse_mpvopen_args(args: list):
     except ValueError:
         pass
 
-    update_action = None
+    update_action: UpdateAction = None
     if "stay" in local_args:
         update_action = "stay"
     elif "paste" in local_args:
@@ -348,7 +357,7 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
     Manager for an mpv instance, containing options and arguments particular to it.
     """
 
-    MPV_ARGS = []
+    MPV_ARGS: List[str] = []
 
     @classmethod
     def set_default_args(cls, new_args):

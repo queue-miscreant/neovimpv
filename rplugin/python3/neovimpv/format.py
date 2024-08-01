@@ -38,7 +38,36 @@ SPECIAL_PROPS = {
     }
 }
 
-CURRENT_SCHEME = DISPLAY_STYLES.get("unicode", {})
+DEFAULT_SCHEME = DISPLAY_STYLES.get("unicode", {})
+
+
+def parse_thresholds(thresholds):
+    """Parse compiled groups into highlight suffixes, adding thresholds for special properties"""
+    new_thresholds = {}
+    new_groups = {}
+    # special properties first (like pause)
+    for prop, info in SPECIAL_PROPS.items():
+        new_thresholds[prop] = info["converter"]
+        new_groups[prop] = info["suffixes"]
+    # user thresholds
+    for threshold, thresh_list in thresholds.items():
+        if len(thresh_list) == 1:
+            (low_thresh,) = thresh_list
+            new_thresholds[threshold] = lambda x: (
+                "Low" if x < low_thresh else "High"
+            )
+            new_groups[threshold] = ["Low", "High"]
+        elif len(thresh_list) == 2:
+            low_thresh, mid_thresh = thresh_list
+            new_thresholds[threshold] = lambda x: (
+                ("Low" if x < low_thresh else "Middle")
+                if x < mid_thresh
+                else "High"
+            )
+            new_groups[threshold] = ["Low", "Middle", "High"]
+        else:
+            raise ValueError(f"Cannot interpret user threshold {threshold}")
+    return new_thresholds, new_groups
 
 
 def sexagesimalize(number):
@@ -52,16 +81,17 @@ def sexagesimalize(number):
         return f"{(minutes % 60)}:{(seconds % 60):0{2}}"
 
 
-def format_pause(is_paused):
-    return CURRENT_SCHEME.get("MpvPause" + str(is_paused), "?")
-
-
 def format_time(position):
     return sexagesimalize(position or 0)
 
 
 def format_loop(loop):
     return "" if not loop else f"({('∞' if loop == 'inf' else loop)})"
+
+
+def kebab_to_camel(string):
+    """Turn kebab-case string into CamelCase string"""
+    return "".join([name.capitalize() for name in string.split("-")])
 
 
 class Formatter:
@@ -76,13 +106,6 @@ class Formatter:
     variable.
     """
 
-    HANDLERS = {
-        "pause": format_pause,
-        "playback-time": format_time,
-        "duration": format_time,
-        "loop": format_loop,
-    }
-
     HIGHLIGHT_DEFAULTS = {
         "pause": {
             True: "Conceal",
@@ -93,10 +116,10 @@ class Formatter:
     }
 
     def __init__(self, nvim):
-        global CURRENT_SCHEME
         format = nvim.api.get_var(NVIM_VAR_FORMAT)  # user format
         scheme = nvim.api.get_var(NVIM_CHARACTER_STYLE)  # user display scheme
-        CURRENT_SCHEME = DISPLAY_STYLES.get(scheme, CURRENT_SCHEME)
+
+        self._scheme = DISPLAY_STYLES.get(scheme, DEFAULT_SCHEME)
 
         self._defaulted_highlights = nvim.api.get_var(
             NVIM_VAR_DEFAULTED_HIGHLIGHTS
@@ -108,37 +131,16 @@ class Formatter:
         # threshold callbacks
         self._thresholds = {}
 
-        self._thresholds, new_groups = self.parse_thresholds(thresholds)
+        self._handlers = {
+            "pause": self.format_pause,
+            "playback-time": format_time,
+            "duration": format_time,
+            "loop": format_loop,
+        }
+
+        self._thresholds, new_groups = parse_thresholds(thresholds)
         self.compile_format(format)
         self.bind_default_highlights(nvim, new_groups)
-
-    def parse_thresholds(self, thresholds):
-        """Parse compiled groups into highlight suffixes, adding thresholds for special properties"""
-        new_thresholds = {}
-        new_groups = {}
-        # special properties first (like pause)
-        for prop, info in SPECIAL_PROPS.items():
-            new_thresholds[prop] = info["converter"]
-            new_groups[prop] = info["suffixes"]
-        # user thresholds
-        for threshold, thresh_list in thresholds.items():
-            if len(thresh_list) == 1:
-                (low_thresh,) = thresh_list
-                new_thresholds[threshold] = lambda x: (
-                    "Low" if x < low_thresh else "High"
-                )
-                new_groups[threshold] = ["Low", "High"]
-            elif len(thresh_list) == 2:
-                low_thresh, mid_thresh = thresh_list
-                new_thresholds[threshold] = lambda x: (
-                    ("Low" if x < low_thresh else "Middle")
-                    if x < mid_thresh
-                    else "High"
-                )
-                new_groups[threshold] = ["Low", "Middle", "High"]
-            else:
-                raise ValueError(f"Cannot interpret user threshold {threshold}")
-        return new_thresholds, new_groups
 
     def bind_default_highlights(self, nvim, new_groups):
         """Bind default highlights for all mpv properties as thresholds and in the format string"""
@@ -185,7 +187,7 @@ class Formatter:
     def _format(self, item):
         """Bind the property `item` to a handler lambda"""
         # Try to find a way to draw this
-        formatter = self.HANDLERS.get(item, str)
+        formatter = self._handlers.get(item, str)
         # thresholds include special fields like pause, as well as user-defined ones
         threshold = self._thresholds.get(item, lambda x: "")
         highlight_name = "Mpv" + kebab_to_camel(item)
@@ -205,6 +207,5 @@ class Formatter:
         return [k for k in (j(i, format_dict) for i, j in self._pre_formatted) if k[0]]
 
 
-def kebab_to_camel(string):
-    """Turn kebab-case string into CamelCase string"""
-    return "".join([name.capitalize() for name in string.split("-")])
+    def format_pause(self, is_paused):
+        return self._scheme.get("MpvPause" + str(is_paused), "?")
