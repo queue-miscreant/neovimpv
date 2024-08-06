@@ -46,7 +46,7 @@ local DISPLAY_STYLES = {
 ---@param number integer
 ---@return string
 local function sexagesimalize(number)
-  local seconds = tonumber(number)
+  local seconds = tonumber(number) or 0
   local minutes = math.floor(seconds / 60)
   local hours = math.floor(minutes / 60)
   if hours > 0 then

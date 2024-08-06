@@ -286,7 +286,9 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         else:
             raise TypeError(f"Expected 3 arguments, got {len(args)}")
         log.debug(
-            "Received keypress: %s\n" "Sending to buffer %s.%s\n" "mpv_instances: %s",  # pylint: disable=implicit-str-concat
+            "Received keypress: %s\n"
+            "Sending to buffer %s.%s\n"
+            "mpv_instances: %s",  # pylint: disable=implicit-str-concat
             repr(key),
             self.nvim.current.buffer.number,
             extmark_id,
@@ -410,7 +412,10 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
                 f"Unknown error occurred: could not delete player {instance.buffer}.{instance.id}"
             )
             log.debug(
-                "mpv_instances: %s\n" "%s", self._mpv_instances, e, stack_info=True  # pylint: disable=implicit-str-concat
+                "mpv_instances: %s\n" "%s",
+                self._mpv_instances,
+                e,
+                stack_info=True,  # pylint: disable=implicit-str-concat
             )
 
     def set_new_buffer(self, instance, new_buffer, new_display):

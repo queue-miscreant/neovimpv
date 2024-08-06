@@ -17,7 +17,6 @@ if TYPE_CHECKING:
     from neovimpv.player import MpvManager
 
 log = logging.getLogger(__name__)
-log.setLevel("ERROR")
 
 # Example behavior of multiline playlist:
 #
@@ -27,6 +26,7 @@ log.setLevel("ERROR")
 # (playlist 4, ...)           ---->     No markdown, no "currently playing"
 #                                       Player arrives, sees playlist, updates "currently playing"
 #                                       Item 5 has markdown, "currently playing" if "stay" mode
+
 
 @dataclass
 class MpvItem:
@@ -48,6 +48,7 @@ class MpvWrapper:
         self.protocol = protocol
 
         self.no_draw = True
+        self._debounce_playlist = False
 
         self._add_events()
         self._load_playlist(manager.playlist)  # type: ignore
@@ -170,11 +171,12 @@ class MpvWrapper:
             self.protocol.playlist_new is not None
             and current_playlist_id
             == self.protocol.playlist_new.get("playlist_insert_id")
-        ):
+        ) or self._debounce_playlist:
             return
         redirected_playlist_id = self.manager.playlist.playlist_id_remap.get(
             current_playlist_id
         )
+
         # use the extmark of this mpv id to move the player
         if redirected_playlist_id is not None:
             current_playlist_id = redirected_playlist_id
@@ -350,7 +352,8 @@ class MpvPlaylist:
             None,
         )
         log.debug(
-            "current_playlist_id: %s\n" "redirected_playlist_id: %s\n",  # pylint: disable=implicit-str-concat
+            "current_playlist_id: %s\n"
+            "redirected_playlist_id: %s\n",
             current_playlist_id,
             redirected_playlist_id,
         )
@@ -499,6 +502,8 @@ class MpvPlaylist:
                 show_currently_playing=False,
             )
 
+        mpv._debounce_playlist = False
+
     # ==========================================================================
     # The following methods do not assume that nvim is in an interactable state
     # ==========================================================================
@@ -508,7 +513,9 @@ class MpvPlaylist:
         Update state after playlist loaded.
         The playlist retrieved from MpvProtocol is raw, so we need to do a bit of extra processing.
         """
-        log.debug("Got updated playlist!\n" "playlist: %s", data)  # pylint: disable=implicit-str-concat
+        log.debug(
+            "Got updated playlist!\n" "playlist: %s", data   # pylint: disable=implicit-str-concat
+        )
 
         # the mpv video id which triggered the new playlist
         # should correspond to the index in self.playlist_id_to_item
@@ -543,6 +550,7 @@ class MpvPlaylist:
             )
         elif mpv.manager.update_action == "new_one":
             mpv.no_draw = True
+            mpv._debounce_playlist = True
             mpv.manager.plugin.nvim.async_call(
                 self._new_playlist_buffer,
                 mpv,
@@ -636,7 +644,9 @@ class MpvPlaylist:
         ]
 
         log.debug(
-            "Removing mpv ids!\n" "playlist_ids: %s\n" "playlist: %s",  # pylint: disable=implicit-str-concat
+            "Removing mpv ids!\n"
+            "playlist_ids: %s\n"
+            "playlist: %s",
             playlist_ids,
             mpv.protocol.data.get("playlist"),
         )
