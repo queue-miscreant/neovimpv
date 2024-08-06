@@ -8,3 +8,5 @@
 require"neovimpv/player"
 require"neovimpv/playlist"
 require"neovimpv/youtube"
+
+neovimpv.format.parse_user_settings()

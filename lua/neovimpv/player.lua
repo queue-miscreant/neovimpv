@@ -11,6 +11,14 @@ neovimpv.PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists"
 local DISPLAY_NAMESPACE = neovimpv.DISPLAY_NAMESPACE
 local PLAYLIST_NAMESPACE = neovimpv.PLAYLIST_NAMESPACE
 
+local formatting = require "neovimpv.formatting"
+neovimpv.format = formatting
+
+---@class extmark_args
+---@field id integer
+---@field virt_text? virt_text
+---@field virt_text_pos string
+
 -- Link default highlights from names in `froms` to the highlight `to`
 function neovimpv.bind_default_highlights(froms, to)
   for _, from in pairs(froms) do
@@ -65,19 +73,19 @@ function neovimpv.get_player_by_line(buffer, start, end_, no_message)
   end)
 end
 
--- Update an extmark's content without changing its row or column
-function neovimpv.update_extmark(buffer, extmark_id, content)
+--- Update an extmark's content without changing its row or column
+---@param buffer integer
+---@param extmark_id integer
+---@param content extmark_args
+local function update_extmark(buffer, extmark_id, content)
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
     DISPLAY_NAMESPACE,
     extmark_id,
     {}
   )
-  if content["virt_text"] == vim.NIL or content["virt_text"] == "" then
-    content["virt_text"] = {{vim.g["mpv_loading"], "MpvDefault"}}
-  end
 
-  if loc ~= nil and vim.tbl_count(loc) == 2 then
+  if loc ~= nil and #loc == 2 then
     vim.api.nvim_buf_set_extmark(
       buffer,
       DISPLAY_NAMESPACE,
@@ -86,6 +94,33 @@ function neovimpv.update_extmark(buffer, extmark_id, content)
       content
     )
   end
+end
+
+--- Push an update from an mpv property table
+---@param buffer integer
+---@param extmark_id integer
+---@param data {[string]: any}
+---@param force_text? string
+function neovimpv.update_extmark(buffer, extmark_id, data, force_text)
+  local display = {
+    id = extmark_id,
+    virt_text_pos = "eol",
+  } --[[@as extmark_args]]
+
+  local video = data["video-format"] ~= vim.NIL
+  if force_text ~= vim.NIL then
+    display.virt_text = {{force_text, "MpvDefault"}} --[[@as virt_text]]
+  elseif video then
+    display.virt_text = {{"[ Window ]", "MpvDefault"}} --[[@as virt_text]]
+  else
+    display.virt_text = formatting.render(data)
+  end
+
+  if display.virt_text == nil or display.virt_text == "" then
+    display.virt_text = {{vim.g["mpv_loading"], "MpvDefault"}} --[[@as virt_text]]
+  end
+
+  update_extmark(buffer, extmark_id, display)
 end
 
 -- From a list of `lines` in a `buffer`, create extmarks for a playlist
@@ -190,7 +225,7 @@ function neovimpv.move_player(buffer, display_id, new_playlist_id, new_text)
     {
       id=display_id,
       virt_text={{new_extmark_text, "MpvDefault"}},
-      virt_text_pos=eol,
+      virt_text_pos="eol",
     }
   )
 

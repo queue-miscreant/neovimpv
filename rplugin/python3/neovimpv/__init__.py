@@ -12,7 +12,6 @@ import shlex
 
 import pynvim
 
-from neovimpv.format import Formatter
 from neovimpv.mpv import log as mpv_logger
 from neovimpv.player import MpvManager, create_managed_mpv, log as player_logger
 from neovimpv.protocol import log as protocol_logger
@@ -84,7 +83,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         self.nvim = nvim
 
         # options
-        self.formatter = Formatter(nvim)
+        self.format_groups = nvim.exec_lua("return neovimpv.format.groups")
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
         self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
         self.smart_youtube = nvim.api.get_var("mpv_smart_youtube_playlist")

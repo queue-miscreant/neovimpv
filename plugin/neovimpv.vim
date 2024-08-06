@@ -54,9 +54,6 @@ if g:mpv_markdown_smart_bindings
   call uniq(sort(g:mpv_smart_filetypes))
 endif
 
-" do lua setup
-lua require('neovimpv')
-
 nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey(0)<cr>
 nnoremap <silent> <Plug>(mpv_omnikey_video) :<c-u>call neovimpv#omnikey(0, "--video=auto")<cr>
 vnoremap <silent> <Plug>(mpv_omnikey) :call neovimpv#omnikey(1, "vline --")<cr>
@@ -66,7 +63,6 @@ nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1
 nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt(0)<cr>
 nnoremap <silent> <Plug>(mpv_youtube_prompt_lucky) :<c-u>call neovimpv#youtube_search_prompt(1)<cr>
 
-let g:mpv_defaulted_highlights = ["MpvPauseTrue", "MpvPauseFalse", "MpvPlaybackTime", "MpvDuration", "MpvTitle"]
 hi default link MpvDefault LineNr
 
 hi default link MpvPauseTrue Conceal
@@ -82,6 +78,9 @@ hi default link MpvYoutubeVideoCount MpvDefault
 hi default link MpvYoutubePlaylistVideo MpvDefault
 
 hi default link MpvPlaylistSign SignColumn
+
+" do lua setup
+lua require('neovimpv')
 
 function! s:mpv_bind_smart_keys()
   exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"

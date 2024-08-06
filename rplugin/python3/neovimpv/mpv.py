@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from neovimpv.player import MpvManager
 
 log = logging.getLogger(__name__)
-
+log.setLevel("ERROR")
 
 # Example behavior of multiline playlist:
 #
@@ -74,7 +74,7 @@ class MpvWrapper:
         # for drawing [Window] instead, toggling video
         self.protocol.observe_property("video-format")
         # observe everything we need to draw the format string
-        for i in self.manager.plugin.formatter.groups:
+        for i in self.manager.plugin.format_groups:
             self.protocol.observe_property(i)
 
     def _load_playlist(self, playlist):
@@ -90,25 +90,14 @@ class MpvWrapper:
         if self.no_draw and force_virt_text is None:
             return
 
-        display = {
-            "id": self.manager.id,
-            "virt_text_pos": "eol",
-        }
-
-        video = bool(self.protocol.data.get("video-format"))
-        if force_virt_text is not None:
-            display["virt_text"] = force_virt_text
-        elif video:
-            display["virt_text"] = [["[ Window ]", "MpvDefault"]]
-        else:
-            display["virt_text"] = self.manager.plugin.formatter.format(
-                self.protocol.data
-            )
-
         # draw_update is called asynchronously, so protect against errors from this call
         try:
             self.manager.plugin.nvim.lua.neovimpv.update_extmark(
-                self.manager.buffer, self.manager.id, display
+                self.manager.buffer,
+                self.manager.id,
+                # Remove the playlist, since it can get long and shouldn't be drawn
+                {k: v for k, v in self.protocol.data.items() if k != "playlist"},
+                force_virt_text,
             )
         except pynvim.NvimError:
             pass
