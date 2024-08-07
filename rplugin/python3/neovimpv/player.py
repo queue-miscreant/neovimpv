@@ -307,7 +307,7 @@ def create_managed_mpv(  # pylint: disable=too-many-locals, too-many-arguments
     playlist_lines = list(preliminary_playlist.keys())
     playlist_lines.sort()
     try:
-        player_id, playlist_extmark_ids = plugin.nvim.lua.neovimpv.create_player(
+        player_id, playlist_extmark_ids = plugin.nvim.lua.neovimpv.player.create_player(
             current_buffer, playlist_lines  # only the line number, not the file name
         )
     except NvimError as exc:

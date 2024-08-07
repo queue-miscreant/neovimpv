@@ -1,3 +1,8 @@
+#!/usr/bin/lua
+-- neovimpv/formatting.lua
+--
+-- Features for converting mpv data into highlight string pairs, drawable in extmarks.
+
 local formatting = {}
 
 ---@alias display_style "ligature" | "unicode" | "emoji"

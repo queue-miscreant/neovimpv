@@ -5,8 +5,15 @@
 -- Lua functions are used to reduce IPC with for repeated vim-related
 -- manipulations, such as setting buffer contents or getting/setting extmarks.
 
-require"neovimpv/player"
-require"neovimpv/playlist"
-require"neovimpv/youtube"
+local player = require "neovimpv.player"
+local playlist = require "neovimpv.playlist"
+local youtube = require "neovimpv.youtube"
+local formatting = require "neovimpv.formatting"
 
-neovimpv.format.parse_user_settings()
+neovimpv = {
+  player = player,
+  playlist = playlist,
+  youtube = youtube,
+  formatting = formatting,
+}
+neovimpv.formatting.parse_user_settings()

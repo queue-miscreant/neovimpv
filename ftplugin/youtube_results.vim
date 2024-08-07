@@ -28,7 +28,7 @@ function s:set_youtube_extmark()
   if exists("current.video_id")
     call nvim_buf_set_extmark(
           \ 0,
-          \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
+          \ luaeval("neovimpv.player.DISPLAY_NAMESPACE"),
           \ line(".") - 1,
           \ 0,
           \ { "id": 1,
@@ -52,7 +52,7 @@ function s:set_youtube_extmark()
     endfor
     call nvim_buf_set_extmark(
           \ 0,
-          \ luaeval("neovimpv.DISPLAY_NAMESPACE"),
+          \ luaeval("neovimpv.player.DISPLAY_NAMESPACE"),
           \ line(".") - 1,
           \ 0,
           \ { "id": 1,

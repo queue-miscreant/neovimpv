@@ -4,30 +4,25 @@
 -- Basic extmark functionality for creating players and playlist extmarks.
 -- These provide standard ways for interacting with nvim to Python and vimscript
 
-if neovimpv == nil then neovimpv = {} end
-
-neovimpv.DISPLAY_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-displays")
-neovimpv.PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
-local DISPLAY_NAMESPACE = neovimpv.DISPLAY_NAMESPACE
-local PLAYLIST_NAMESPACE = neovimpv.PLAYLIST_NAMESPACE
-
 local formatting = require "neovimpv.formatting"
-neovimpv.format = formatting
+local DISPLAY_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-displays")
+local PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
+
+local player = {
+  DISPLAY_NAMESPACE = DISPLAY_NAMESPACE,
+  PLAYLIST_NAMESPACE = PLAYLIST_NAMESPACE,
+}
 
 ---@class extmark_args
 ---@field id integer
 ---@field virt_text? virt_text
 ---@field virt_text_pos string
 
--- Link default highlights from names in `froms` to the highlight `to`
-function neovimpv.bind_default_highlights(froms, to)
-  for _, from in pairs(froms) do
-    vim.cmd("highlight default link " .. from .. " " .. to)
-  end
-end
-
--- Get all player ids in the display namespace, which should correspond to Python MpvInstances
-function neovimpv.get_players_in_buffer(buffer)
+---Get all extmark ids of all players in the display namespace, which should correspond to Python MpvInstances
+---
+---@param buffer integer
+---@return integer[]
+function player.get_players_in_buffer(buffer)
   local has_playlists = vim.api.nvim_buf_call(
     buffer,
     function() return vim.b["mpv_playlists_to_displays"] end
@@ -40,9 +35,14 @@ function neovimpv.get_players_in_buffer(buffer)
   )
 end
 
--- Try to get the playlist extmarks from `start` to `end` in a `buffer`.
--- Returns the id of the first player the playlist item belongs to.
-function neovimpv.get_player_by_line(buffer, start, end_, no_message)
+---Try to get the playlist extmarks from `start` to `end` in a `buffer`.
+---
+---@param buffer integer
+---@param start integer
+---@param end_ integer
+---@param no_message? boolean
+---@return [integer, integer] A 2-tuple of the player ID and the playlist ID.
+function player.get_player_by_line(buffer, start, end_, no_message)
   if end_ == nil then
     end_ = start
   end
@@ -56,9 +56,9 @@ function neovimpv.get_player_by_line(buffer, start, end_, no_message)
       {end_ - 1, -1},
       {}
     )[1] or {}
-    local player = dict[tostring(playlist_item[1])]
+    local player_ = dict[tostring(playlist_item[1])]
 
-    if #playlist_item == 0 or player == nil then
+    if #playlist_item == 0 or player_ == nil then
       if not no_message then
         vim.api.nvim_notify(
           "No mpv found running on that line",
@@ -69,11 +69,12 @@ function neovimpv.get_player_by_line(buffer, start, end_, no_message)
       return {}
     end
 
-    return {player, playlist_item[1]}
+    return {player_, playlist_item[1]}
   end)
 end
 
---- Update an extmark's content without changing its row or column
+---Update an extmark's content without changing its row or column
+---
 ---@param buffer integer
 ---@param extmark_id integer
 ---@param content extmark_args
@@ -96,12 +97,13 @@ local function update_extmark(buffer, extmark_id, content)
   end
 end
 
---- Push an update from an mpv property table
+---Push an update from an mpv property table
+---
 ---@param buffer integer
 ---@param extmark_id integer
 ---@param data {[string]: any}
 ---@param force_text? string
-function neovimpv.update_extmark(buffer, extmark_id, data, force_text)
+function player.update_extmark(buffer, extmark_id, data, force_text)
   local display = {
     id = extmark_id,
     virt_text_pos = "eol",
@@ -123,11 +125,16 @@ function neovimpv.update_extmark(buffer, extmark_id, data, force_text)
   update_extmark(buffer, extmark_id, display)
 end
 
--- From a list of `lines` in a `buffer`, create extmarks for a playlist
--- Set some extra data in the buffer which remembers the player corresponding
--- to a playlist. Returns the extmark ids created.
--- Also, bind an autocommand to watch for deletions in the playlist.
--- Note: `lines` is 1-indexed like line numbers in vim.
+---From a list of `lines` in a `buffer`, create extmarks for a playlist
+---Also sets some extra data in the buffer which remembers the player corresponding
+---to a playlist. Returns the extmark ids created.
+---Also, bind an autocommand to watch for deletions in the playlist.
+---
+---@param buffer integer
+---@param lines integer[] A list of line numbers (1-indexed) to add to the playlist
+---@param contents (string | nil) String to use in the sign column
+---@param display_id integer
+---@return integer[]
 local function create_playlist(buffer, lines, contents, display_id)
   local new_ids = {}
   local extmark = {
@@ -166,11 +173,16 @@ local function create_playlist(buffer, lines, contents, display_id)
   return new_ids
 end
 
--- From a list of `lines` in a `buffer`, create extmarks for a player (displays
--- current playback state) and a playlist (list of lines to play next)
--- Note: lines is 1-indexed like line numbers in vim.
-function neovimpv.create_player(buffer, lines, no_playlist)
-  local player = vim.api.nvim_buf_set_extmark(
+---From a list of `lines` in a `buffer`, create extmarks for a player (which displays
+---current playback state) and a playlist (which is a list of lines to play next).
+---
+---@param buffer integer
+---@param lines integer[] A list of line numbers (1-indexed) to add to the playlist
+---@param no_playlist? boolean Whether to create a new playlist.
+---Only used internally by playlist movement.
+---@return [integer, integer[]] | integer
+function player.create_player(buffer, lines, no_playlist)
+  local player_ = vim.api.nvim_buf_set_extmark(
       buffer,
       DISPLAY_NAMESPACE,
       lines[1] - 1,
@@ -182,21 +194,27 @@ function neovimpv.create_player(buffer, lines, no_playlist)
   )
 
   if no_playlist then
-    return player
+    return player_
   end
 
   local playlist_ids = create_playlist(
       buffer,
       lines,
       "|",
-      player
+      player_
   )
-  return {player, playlist_ids}
+  return {player_, playlist_ids}
 end
 
--- Move a player with id `display_id` to the same line as the playlist item with
--- id `playlist_id`. Also handles resetting the previous playlist extmark's virtual lines
-function neovimpv.move_player(buffer, display_id, new_playlist_id, new_text)
+---Move a player with id `display_id` to the same line as the playlist item with ID `playlist_id`.
+---Also handles resetting the previous playlist extmark's virtual lines
+---
+---@param buffer integer
+---@param display_id integer The ID of the player to move.
+---@param new_playlist_id integer The playlist ID to which the player should be moved.
+---@param new_text? string Text to set on the player.
+---@return boolean
+function player.move_player(buffer, display_id, new_playlist_id, new_text)
   -- get the destination line
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
@@ -254,9 +272,12 @@ function neovimpv.move_player(buffer, display_id, new_playlist_id, new_text)
   return true
 end
 
--- Delete extmarks in the displays and playlists namespace. Also, clear up
--- playlist information in the buffer.
-function neovimpv.remove_player(buffer, display_id)
+---Delete extmarks in the displays and playlists namespace.
+---Also clears up playlist information in the buffer.
+---
+---@param buffer integer
+---@param display_id integer The ID of the player which should be deleted
+function player.remove_player(buffer, display_id)
   -- buffer already deleted
   if #vim.call("getbufinfo", buffer) == 0 then return end
 
@@ -288,3 +309,5 @@ function neovimpv.remove_player(buffer, display_id)
     end
   end)
 end
+
+return player

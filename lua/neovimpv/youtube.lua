@@ -6,22 +6,17 @@
 -- by ftplugin/youtube_results.vim.
 
 -- Open some content in a split to run a callback
---
--- `input`
---      A list of 2-tuples (tables).
---      The first item is the line of text that should be displayed.
---      The second is a value that will be used for the callback.
---
--- `filetype`
---      The filetype of the buffer to open in a split. There should be an
---      autocommand for this filetype that establishes callbacks for each of the lines.
---
--- `old_window` (optional)
---      The window to return the cursor to after making a selection
---
--- `height` (optional)
---      The height of the split
-function neovimpv.open_select_split(input, filetype, old_window, height)
+
+local youtube = {}
+
+---@param input [string, any] Inputs in the new split.
+---The first item is the line of text in the split.
+---The second item of the tuple is used for the callback.
+---@param filetype string The filetype of the buffer to open in a split.
+---There should be a filetype plugin which establishes callbacks for each of the lines.
+---@param old_window? integer The window to return the cursor to after making a selection.
+---@param height? integer The height of the split.
+function youtube.open_select_split(input, filetype, old_window, height)
   -- parse input
   local buf_lines = {}
   local content = {}
@@ -60,10 +55,13 @@ function neovimpv.open_select_split(input, filetype, old_window, height)
 end
 
 -- TODO: user chooses to paste in whole playlist, open in split, open in vert split, open in new tab
-function neovimpv.open_playlist_results(playlist, extra, old_window)
+
+---@param playlist {markdown: string}[]
+---@param extra string Extra arguments to pass to `MpvOpen`
+---@param old_window? integer The window to return the cursor to after making a selection.
+function youtube.open_playlist_results(playlist, extra, old_window)
   -- parse input
   local buf_lines = {}
-  local content = {}
   for i = 1, #playlist do
     local text = playlist[i]["markdown"]
     -- local value = playlist[i][2]
@@ -96,13 +94,16 @@ function neovimpv.open_playlist_results(playlist, extra, old_window)
   vim.cmd("%MpvOpen " .. extra)
 end
 
-function neovimpv.paste_result(text, window_number, move_cursor)
+---@param text string The line to paste as.
+---@param window_number integer The window to paste the result into.
+---@param move_cursor? boolean Whether to attempt moving the cursor after pasting.
+function youtube.paste_result(text, window_number, move_cursor)
   -- Insert `value` at the line of the current cursor, if it's empty.
   -- Otherwise, insert it a line below the current line.
   local buffer_number = vim.call("winbufnr", window_number)
   local cursor_row = vim.call("line", ".", window_number)
   -- append the text only if the current line isn't blank
-  local append_line = vim.call("getbufoneline", buffer_number, row) ~= ""
+  local append_line = vim.call("getbufoneline", buffer_number, cursor_row) ~= ""
 
   local modifiable = vim.api.nvim_buf_get_option(buffer_number, "modifiable")
   if not modifiable then
@@ -112,10 +113,12 @@ function neovimpv.paste_result(text, window_number, move_cursor)
 
   if append_line then
     vim.call("appendbufline", buffer_number, cursor_row, text)
-    if type(move_cursor) ~= "nil" then
+    if move_cursor == nil then
       vim.cmd("normal j")
     end
   else
     vim.call("setbufline", buffer_number, cursor_row, text)
   end
 end
+
+return youtube
