@@ -29,7 +29,7 @@ function neovimpv#omnikey(is_visual, ...) range
   endif
   " Try to find mpv on the line
   let try_get_mpv = luaeval(
-        \ "neovimpv.player.get_player_by_line(0," . a:firstline . "," . a:lastline . ", true)")
+        \ "vim.neovimpv.player.get_player_by_line(0," . a:firstline . "," . a:lastline . ", true)")
 
   if try_get_mpv == []
     " no playlist on that line found, trying to open
@@ -91,7 +91,7 @@ function neovimpv#goto_relative_mpv(direction)
   endif
   let mpv_instances = nvim_buf_get_extmarks(
         \ 0,
-        \ luaeval("neovimpv.player.DISPLAY_NAMESPACE"),
+        \ luaeval("vim.neovimpv.player.DISPLAY_NAMESPACE"),
         \ start,
         \ end,
         \ {}
@@ -150,7 +150,7 @@ function s:calculate_change(new_lines)
 
   let old_extmark = nvim_buf_get_extmarks(
         \ 0,
-        \ luaeval("neovimpv.player.PLAYLIST_NAMESPACE"),
+        \ luaeval("vim.neovimpv.player.PLAYLIST_NAMESPACE"),
         \ [old_range[0] - 1, 0],
         \ [old_range[1] - 1, -1],
         \ {}
@@ -197,7 +197,7 @@ function neovimpv#buffer_change_callback(...)
   endif
   let invisible_extmarks = nvim_buf_get_extmarks(
         \ 0,
-        \ luaeval("neovimpv.player.DISPLAY_NAMESPACE"),
+        \ luaeval("vim.neovimpv.player.DISPLAY_NAMESPACE"),
         \ [line("$"), 0],
         \ [-1, -1],
         \ {}
@@ -222,7 +222,7 @@ function s:get_players_with_deletions(removed_playlist)
       unlet b:mpv_playlists_to_displays[playlist_item]
       call nvim_buf_del_extmark(
             \ 0,
-            \ luaeval("neovimpv.player.PLAYLIST_NAMESPACE"),
+            \ luaeval("vim.neovimpv.player.PLAYLIST_NAMESPACE"),
             \ playlist_item
             \ )
       call add(altered_players, player)

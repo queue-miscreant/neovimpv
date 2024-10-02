@@ -93,7 +93,7 @@ class MpvWrapper:
 
         # draw_update is called asynchronously, so protect against errors from this call
         try:
-            self.manager.plugin.nvim.lua.neovimpv.player.update_extmark(
+            self.manager.plugin.nvim.lua.vim.neovimpv.player.update_extmark(
                 self.manager.buffer,
                 self.manager.id,
                 # Remove the playlist, since it can get long and shouldn't be drawn
@@ -133,7 +133,7 @@ class MpvWrapper:
             return
 
         self.manager.plugin.nvim.async_call(
-            self.manager.plugin.nvim.lua.neovimpv.playlist.write_line_of_playlist_item,
+            self.manager.plugin.nvim.lua.vim.neovimpv.playlist.write_line_of_playlist_item,
             self.manager.buffer,
             mpv_item.extmark_id,
             f"[{media_title.replace('[', '(').replace(']',')')}]({mpv_item.filename})",
@@ -307,7 +307,7 @@ class MpvPlaylist:
         if mpv_item is None:
             success = False
         else:
-            success = mpv.manager.plugin.nvim.lua.neovimpv.player.move_player(
+            success = mpv.manager.plugin.nvim.lua.vim.neovimpv.player.move_player(
                 mpv.manager.buffer,
                 mpv.manager.id,
                 mpv_item.extmark_id,
@@ -386,7 +386,7 @@ class MpvPlaylist:
             )
             return
 
-        mpv.manager.plugin.nvim.lua.neovimpv.playlist.show_playlist_current(
+        mpv.manager.plugin.nvim.lua.vim.neovimpv.playlist.show_playlist_current(
             mpv.manager.buffer, mpv_item.extmark_id, current_title
         )
         mpv.no_draw = False
@@ -425,7 +425,7 @@ class MpvPlaylist:
             ]
         )
 
-        new_extmarks = mpv.manager.plugin.nvim.lua.neovimpv.playlist.paste_playlist(
+        new_extmarks = mpv.manager.plugin.nvim.lua.vim.neovimpv.playlist.paste_playlist(
             mpv.manager.buffer,
             mpv.manager.id,
             mpv_item.extmark_id,
@@ -471,7 +471,7 @@ class MpvPlaylist:
         )
 
         new_buffer_id, new_display, new_extmarks = (
-            mpv.manager.plugin.nvim.lua.neovimpv.playlist.new_playlist_buffer(
+            mpv.manager.plugin.nvim.lua.vim.neovimpv.playlist.new_playlist_buffer(
                 mpv.manager.buffer,
                 mpv.manager.id,
                 mpv_item.extmark_id,

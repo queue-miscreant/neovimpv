@@ -83,7 +83,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         self.nvim = nvim
 
         # options
-        self.format_groups = nvim.exec_lua("return neovimpv.formatting.groups")
+        self.format_groups = nvim.exec_lua("return vim.neovimpv.formatting.groups")
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
         self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
         self.smart_youtube = nvim.api.get_var("mpv_smart_youtube_playlist")
@@ -390,7 +390,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         Get the mpv instance on the current line of the buffer, if such an
         instance exists.
         """
-        try_get_mpv = self.nvim.lua.neovimpv.player.get_player_by_line(buffer.number, line)
+        try_get_mpv = self.nvim.lua.vim.neovimpv.player.get_player_by_line(buffer.number, line)
         if not try_get_mpv:
             return None
 
@@ -404,7 +404,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         """
         try:
             instance.no_draw = True
-            self.nvim.lua.neovimpv.player.remove_player(instance.buffer, instance.id)
+            self.nvim.lua.vim.neovimpv.player.remove_player(instance.buffer, instance.id)
             if (instance.buffer, instance.id) in self._mpv_instances:
                 del self._mpv_instances[(instance.buffer, instance.id)]
         except pynvim.NvimError as e:
