@@ -50,6 +50,22 @@ Plugin 'queue-miscreant/neovimpv', {'do': ':UpdateRemotePlugins'}
 ```
 Make sure the file is sourced and run `:PluginInstall`.
 
+### Lazy.nvim
+
+Use the following LazySpec:
+
+```lua
+{
+  "queue-miscreant/neovimpv",
+  build = function()
+    vim.cmd[[UpdateRemotePlugins]]
+  end,
+  init = function()
+    -- Configuration goes here
+  end,
+}
+```
+See the next section for configuration.
 
 ### Suggested Use
 
