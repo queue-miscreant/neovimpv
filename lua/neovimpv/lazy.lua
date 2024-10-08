@@ -1,1 +1,4 @@
-return {}
+return {
+  build = ":UpdateRemotePlugins",
+  cmd = "MpvOpen",
+}

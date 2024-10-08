@@ -9,6 +9,7 @@ local player = require "neovimpv.player"
 local playlist = require "neovimpv.playlist"
 local youtube = require "neovimpv.youtube"
 local formatting = require "neovimpv.formatting"
+local config = require "neovimpv.config"
 
 local neovimpv = {
   player = player,
@@ -17,6 +18,10 @@ local neovimpv = {
   formatting = formatting,
 }
 neovimpv.formatting.parse_user_settings()
+
+function neovimpv.setup(opts)
+  config.load_globals(opts)
+end
 
 vim.neovimpv = neovimpv
 return neovimpv

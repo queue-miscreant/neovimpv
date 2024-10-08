@@ -82,6 +82,9 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
     def __init__(self, nvim):
         self.nvim = nvim
 
+        # make sure the plugin is loaded
+        nvim.exec_lua("require('neovimpv')")
+
         # options
         self.format_groups = nvim.exec_lua("return vim.neovimpv.formatting.groups")
         self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
