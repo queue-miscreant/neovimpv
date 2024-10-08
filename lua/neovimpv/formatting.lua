@@ -3,6 +3,8 @@
 --
 -- Features for converting mpv data into highlight string pairs, drawable in extmarks.
 
+local config = require "neovimpv.config"
+
 local formatting = {}
 
 ---@alias display_style "ligature" | "unicode" | "emoji"
@@ -225,11 +227,11 @@ function formatting.compile(format_string)
 end
 
 function formatting.parse_user_settings()
-  local var_format = vim.g["mpv_format"]  -- user format
-  local display_style = DISPLAY_STYLES[vim.g["mpv_style"]]
+  local var_format = config.format  -- user format
+  local display_style = DISPLAY_STYLES[config.style]
     or DISPLAY_STYLES[DEFAULT_STYLE] -- user display scheme
 
-  local var_thresholds = vim.g["mpv_property_thresholds"]  -- user thresholds
+  local var_thresholds = config.property_thresholds  -- user thresholds
 
   formatting.settings.display_style = display_style
   formatting.compile_thresholds(var_thresholds)

@@ -16,6 +16,7 @@ local neovimpv = {
   playlist = playlist,
   youtube = youtube,
   formatting = formatting,
+  config = config, -- Temporary
 }
 neovimpv.formatting.parse_user_settings()
 

@@ -28,14 +28,15 @@ local default_config = {
   playlist_key = "\\",
   playlist_key_video = "",
 
-  -- Bind things in `g:mpv_markdown_writable` filetypes
+  -- Bind things in `markdown_writable` filetypes
   markdown_smart_bindings = false,
 
   -- Filetypes which should have smart bindings added by default
   smart_filetypes = {},
 }
 
-local config = {}
+-- Start with defaults
+local config = default_config
 
 function config.load_globals(opts)
   -- Reset the config
@@ -49,7 +50,9 @@ function config.load_globals(opts)
       config[option] = global_value
     elseif lazy_value ~= nil then
       config[option] = lazy_value
-    else
+    end
+
+    if config[option] == nil then
       config[option] = default_value
     end
   end

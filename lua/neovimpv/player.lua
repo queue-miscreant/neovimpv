@@ -5,6 +5,8 @@
 -- These provide standard ways for interacting with nvim to Python and vimscript
 
 local formatting = require "neovimpv.formatting"
+local config = require "neovimpv.config"
+
 local DISPLAY_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-displays")
 local PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
 
@@ -119,7 +121,7 @@ function player.update_extmark(buffer, extmark_id, data, force_text)
   end
 
   if display.virt_text == nil or display.virt_text == "" then
-    display.virt_text = {{vim.g["mpv_loading"], "MpvDefault"}} --[[@as virt_text]]
+    display.virt_text = {{config.loading, "MpvDefault"}} --[[@as virt_text]]
   end
 
   update_extmark(buffer, extmark_id, display)
@@ -141,7 +143,7 @@ local function create_playlist(buffer, lines, contents, display_id)
     sign_text=contents,
     sign_hl_group="MpvPlaylistSign"
   }
-  local rule = vim.g["mpv_draw_playlist_extmarks"]
+  local rule = config.draw_playlist_extmarks
   if rule == "never" or (rule == "multiple" and #lines == 1) then
     extmark = {}
   end
@@ -188,7 +190,7 @@ function player.create_player(buffer, lines, no_playlist)
       lines[1] - 1,
       0,
       {
-          virt_text={{vim.g["mpv_loading"], "MpvDefault"}},
+          virt_text={{config.loading, "MpvDefault"}},
           virt_text_pos="eol",
       }
   )
@@ -233,7 +235,7 @@ function player.move_player(buffer, display_id, new_playlist_id, new_text)
   -- no need to move, but no error
   if loc_display[1] == loc[1] then return true end
 
-  local new_extmark_text = (new_text == vim.NIL or new_text == nil) and vim.g["mpv_loading"] or new_text
+  local new_extmark_text = (new_text == vim.NIL or new_text == nil) and config.loading or new_text
   -- set the player to that line
   vim.api.nvim_buf_set_extmark(
     buffer,

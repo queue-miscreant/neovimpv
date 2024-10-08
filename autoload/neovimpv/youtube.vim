@@ -37,7 +37,7 @@ function neovimpv#youtube#callback(extra)
   " endif
 
   let insert_link = current["link"]
-  if index(g:mpv_markdown_writable, &l:filetype) >= 0
+  if index(luaeval("vim.neovimpv.config.markdown_writable"), &l:filetype) >= 0
     let insert_link = current["markdown"]
   endif
 

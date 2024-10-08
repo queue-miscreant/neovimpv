@@ -33,7 +33,7 @@ function neovimpv#omnikey(is_visual, ...) range
 
   if try_get_mpv == []
     " no playlist on that line found, trying to open
-    if g:mpv_omni_open_new_if_empty
+    if luaeval("vim.neovimpv.config.omni_open_new_if_empty")
       let [start_line, end_line] = [a:firstline, a:lastline]
       " if a:is_visual
       "   let [start_line, end_line] = [line("'<"), line("'>")]
@@ -63,7 +63,7 @@ function neovimpv#omnikey(is_visual, ...) range
     redraw
     try
       let temp = getcharstr()
-      if temp ==# g:mpv_playlist_key
+      if temp ==# luaeval("vim.neovimpv.config.playlist_key")
         call MpvSetPlaylist(player, playlist_item)
       else
         call MpvSendNvimKeys(player, temp, v:count)
