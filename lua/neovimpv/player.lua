@@ -43,7 +43,7 @@ end
 ---@param start integer
 ---@param end_ integer
 ---@param no_message? boolean
----@return [integer, integer] A 2-tuple of the player ID and the playlist ID.
+---@return [integer, integer]|[] A 2-tuple of the player ID and the playlist ID.
 function player.get_player_by_line(buffer, start, end_, no_message)
   if end_ == nil then
     end_ = start

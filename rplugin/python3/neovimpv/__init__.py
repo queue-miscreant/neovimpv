@@ -87,10 +87,10 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
 
         # options
         self.format_groups = nvim.exec_lua("return vim.neovimpv.formatting.groups")
-        self.do_markdowns = nvim.api.get_var("mpv_markdown_writable")
-        self.on_playlist_update = nvim.api.get_var("mpv_on_playlist_update")
-        self.smart_youtube = nvim.api.get_var("mpv_smart_youtube_playlist")
-        MpvManager.set_default_args(nvim.api.get_var("mpv_default_args"))
+        self.do_markdowns = nvim.exec_lua("return vim.neovimpv.config.markdown_writable")
+        self.on_playlist_update = nvim.exec_lua("return vim.neovimpv.config.on_playlist_update")
+        self.smart_youtube = nvim.exec_lua("return vim.neovimpv.config.smart_youtube_playlist")
+        MpvManager.set_default_args(nvim.exec_lua("return vim.neovimpv.config.default_args"))
 
         # setup temp dir
         tempname = nvim.call("tempname")

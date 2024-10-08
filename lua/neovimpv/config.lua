@@ -39,9 +39,6 @@ local default_config = {
 local config = default_config
 
 function config.load_globals(opts)
-  -- Reset the config
-  config = {}
-
   -- Load the new options or global variables
   for option, default_value in pairs(default_config) do
     local global_value = vim.g["mpv_" .. option]
@@ -79,61 +76,6 @@ function config.load_globals(opts)
       vim.fn.sort(config.smart_filetypes)
     )
   end
-
-
-  --[=[
-  vim.cmd[[
-
-  nnoremap <silent> <Plug>(mpv_omnikey) :<c-u>call neovimpv#omnikey(0)<cr>
-  nnoremap <silent> <Plug>(mpv_omnikey_video) :<c-u>call neovimpv#omnikey(0, "--video=auto")<cr>
-  vnoremap <silent> <Plug>(mpv_omnikey) :call neovimpv#omnikey(1, "vline --")<cr>
-  vnoremap <silent> <Plug>(mpv_omnikey_video) :call neovimpv#omnikey(1, "vline -- --video=auto")<cr>
-  nnoremap <silent> <Plug>(mpv_goto_earlier) :<c-u>call neovimpv#goto_relative_mpv(-1)<cr>
-  nnoremap <silent> <Plug>(mpv_goto_later) :<c-u>call neovimpv#goto_relative_mpv(1)<cr>
-  nnoremap <silent> <Plug>(mpv_youtube_prompt) :<c-u>call neovimpv#youtube_search_prompt(0)<cr>
-  nnoremap <silent> <Plug>(mpv_youtube_prompt_lucky) :<c-u>call neovimpv#youtube_search_prompt(1)<cr>
-
-  function! s:mpv_bind_smart_keys()
-    exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
-    exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
-    if g:mpv_playlist_key_video !=# "" && g:mpv_playlist_key_video !=# g:mpv_playlist_key
-      exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
-      exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
-    endif
-
-    nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
-    nnoremap <silent><buffer> <leader>Yt <Plug>(mpv_youtube_prompt_lucky)
-    nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
-    nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
-  endfunction
-
-  augroup MpvSmartBindings
-    for i in g:mpv_smart_filetypes
-      exe "autocmd Filetype " . i . " call s:mpv_bind_smart_keys()"
-    endfor
-  augroup end
-
-  function! s:mpv_bind_smart_keys()
-    exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
-    exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key . " <Plug>(mpv_omnikey)"
-    if g:mpv_playlist_key_video !=# "" && g:mpv_playlist_key_video !=# g:mpv_playlist_key
-      exe "nnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
-      exe "vnoremap <silent><buffer> <leader>" . g:mpv_playlist_key_video . " <Plug>(mpv_omnikey_video)"
-    endif
-
-    nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
-    nnoremap <silent><buffer> <leader>Yt <Plug>(mpv_youtube_prompt_lucky)
-    nnoremap <silent><buffer> <leader>[ <Plug>(mpv_goto_earlier)
-    nnoremap <silent><buffer> <leader>] <Plug>(mpv_goto_later)
-  endfunction
-
-  augroup MpvSmartBindings
-    for i in g:mpv_smart_filetypes
-      exe "autocmd Filetype " . i . " call s:mpv_bind_smart_keys()"
-    endfor
-  augroup end
-  ]]
-  ]=]
 end
 
 return config
