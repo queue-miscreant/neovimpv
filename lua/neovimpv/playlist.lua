@@ -5,6 +5,9 @@
 -- which are dynamically loaded by mpv.
 
 local player = require "neovimpv.player"
+local consts = require "neovimpv.consts"
+local bind_autocmds = require "neovimpv.autocmds"
+
 local playlist = {}
 
 ---Set the contents of the line of a playlist item with id `playist_id` in a `buffer` to `content`
@@ -20,7 +23,7 @@ function playlist.write_line_of_playlist_item(buffer, playlist_id, content)
 
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
-    player.PLAYLIST_NAMESPACE,
+    consts.playlist_namespace,
     playlist_id,
     {}
   )
@@ -37,11 +40,11 @@ end
 ---@param playlist_id integer
 ---@param virt_text string
 function playlist.show_playlist_current(buffer, playlist_id, virt_text)
-  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, player.PLAYLIST_NAMESPACE, playlist_id, {})
+  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, consts.playlist_namespace, playlist_id, {})
   if loc ~= nil then
     vim.api.nvim_buf_set_extmark(
       buffer,
-      player.PLAYLIST_NAMESPACE,
+      consts.playlist_namespace,
       loc[1],
       loc[2],
       {
@@ -69,7 +72,7 @@ end
 ---@return integer[]
 function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playlist, current_index)
   -- get the old location of the playlist item
-  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, player.PLAYLIST_NAMESPACE, old_playlist_id, {})
+  local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, consts.playlist_namespace, old_playlist_id, {})
 
   -- replace the playlist and add new lines afterward
   vim.call("setbufline", buffer, loc[1] + 1, new_playlist[1])
@@ -81,7 +84,7 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
     -- Need to be back in main loop for the actual line numbers
     local extmark_id = vim.api.nvim_buf_set_extmark(
       buffer,
-      player.PLAYLIST_NAMESPACE,
+      consts.playlist_namespace,
       loc[1] + 1,
       0,
       {}
@@ -102,7 +105,7 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
       -- Set the extmarks in the same manner as create_player
       vim.api.nvim_buf_set_extmark(
         buffer,
-        player.PLAYLIST_NAMESPACE,
+        consts.playlist_namespace,
         playlist_item[1],
         0,
         {
@@ -113,7 +116,7 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
       )
       -- move the player just in case
       if i == current_index then
-        player.move_player(buffer, display_id, playlist_item[2])
+        consts.move_player(buffer, display_id, playlist_item[2])
       end
     end
   end, 0)
@@ -154,13 +157,13 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
   local save_extmarks = {}
   vim.api.nvim_buf_call(buf, function()
     vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
-    vim.call("neovimpv#bind_autocmd", true)
+    bind_autocmds(true)
     for i = 1, #new_playlist do
       -- And create a playlist extmark for it
       -- Need to be back in main loop for the actual line numbers
       local extmark_id = vim.api.nvim_buf_set_extmark(
         buf,
-        player.PLAYLIST_NAMESPACE,
+        consts.playlist_namespace,
         0,
         0,
         {}
@@ -189,7 +192,7 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
       -- Set the extmarks in the same manner as create_player
       vim.api.nvim_buf_set_extmark(
         buf,
-        player.PLAYLIST_NAMESPACE,
+        consts.playlist_namespace,
         i - 1,
         0,
         {

@@ -4,16 +4,15 @@
 -- Basic extmark functionality for creating players and playlist extmarks.
 -- These provide standard ways for interacting with nvim to Python and vimscript
 
+local consts = require "neovimpv.consts"
 local formatting = require "neovimpv.formatting"
+local bind_autocmds = require "neovimpv.autocmds"
 local config = require "neovimpv.config"
 
-local DISPLAY_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-displays")
-local PLAYLIST_NAMESPACE = vim.api.nvim_create_namespace("Neovimpv-playlists")
+local DISPLAY_NAMESPACE = consts.display_namespace
+local PLAYLIST_NAMESPACE = consts.playlist_namespace
 
-local player = {
-  DISPLAY_NAMESPACE = DISPLAY_NAMESPACE,
-  PLAYLIST_NAMESPACE = PLAYLIST_NAMESPACE,
-}
+local player = {}
 
 ---@class extmark_args
 ---@field id integer
@@ -153,7 +152,7 @@ local function create_playlist(buffer, lines, contents, display_id)
     -- setup callback in this buffer
     if dict == nil then
       vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
-      vim.call("neovimpv#bind_autocmd")
+      bind_autocmds()
     end
     -- add each playlist extmark
     for i, j in pairs(lines) do

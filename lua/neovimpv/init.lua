@@ -10,6 +10,8 @@ local playlist = require "neovimpv.playlist"
 local youtube = require "neovimpv.youtube"
 local formatting = require "neovimpv.formatting"
 local config = require "neovimpv.config"
+local consts = require "neovimpv.consts"
+
 local keys = require "neovimpv.keys"
 
 local neovimpv = {
@@ -18,10 +20,12 @@ local neovimpv = {
   youtube = youtube,
   formatting = formatting,
   config = config, -- Temporary
+  consts = consts,
 }
 
 function neovimpv.setup(opts)
   config.load_globals(opts)
+  -- TODO: push to Python
   formatting.parse_user_settings()
   keys.bind_base()
 
