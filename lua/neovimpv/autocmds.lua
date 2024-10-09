@@ -120,14 +120,13 @@ local function undo_for_change_count()
 end
 
 -- TODO remove autocmd when last player exits?
--- TODO use lua callback instead
 ---@param no_text_changed boolean?
 local function bind_autocmds(no_text_changed)
   if not no_text_changed and vim.bo.modifiable then
     vim.api.nvim_create_autocmd(
       "TextChanged",
       {
-        buffer = vim.fn.bufnr(),
+        buffer = 0,
         callback = undo_for_change_count,
       }
     )

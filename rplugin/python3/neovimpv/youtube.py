@@ -6,7 +6,6 @@ YouTube queries and search result parsing.
 
 import json
 import logging
-import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,9 +14,10 @@ log = logging.getLogger(__name__)
 
 WARN_LXML = False
 try:
-    import lxml.html
+    import lxml.html as lxml_html
 except ImportError:
-    log.warning(f"No LXML detected. MpvYoutubeSearch will not work.")
+    lxml_html = None
+    log.warning("No LXML detected. MpvYoutubeSearch will not work.")
     WARN_LXML = True
 
 
@@ -35,12 +35,12 @@ def try_follow_path(obj, path):
     return temp
 
 
-def parse_dict(dict, paths):
-    if dict is None:
+def parse_dict(dict_, paths):
+    if dict_ is None:
         return {}
     ret = {}
     for name, path in paths.items():
-        ret[name] = try_follow_path(dict, path)
+        ret[name] = try_follow_path(dict_, path)
     return ret
 
 
@@ -107,6 +107,7 @@ class YoutubeRenderer:
                 length = stream_badge
             ret["length"] = length
         log.debug("Successfully parsed video: %s", ret)
+
         return ret
 
     @classmethod
@@ -189,9 +190,13 @@ class Youtube:
     @classmethod
     def _extract_youtube_response(cls, response):
         """Extract JSON from curl of YouTube results page"""
+        if lxml_html is None:
+            log.error("Could not import lxml!")
+            return
+
         log.debug("Parsing YouTube response...")
-        parser = lxml.html.HTMLParser(encoding="utf-8")
-        parsed = lxml.html.fromstring(response, parser=parser)
+        parser = lxml_html.HTMLParser(encoding="utf-8")
+        parsed = lxml_html.fromstring(response, parser=parser)
         for tag in parsed.iter("script"):
             content = tag.text_content()
             if not isinstance(content, str) or not content.startswith(
@@ -199,14 +204,14 @@ class Youtube:
             ):
                 continue
             # this script defines a single variable and has a trailing semicolon
-            log.debug(f"Found script with {repr(cls.SCRIPT_SENTINEL)}!")
+            log.debug("Found script with sentinel `%s`!", cls.SCRIPT_SENTINEL)
             return json.loads(content[len(cls.SCRIPT_SENTINEL) : -1])
         return None
 
     @classmethod
     def _get_init_data(cls, url):
         """Run youtube curl and parse result"""
-        log.debug(f"Curling {url}...")
+        log.debug("Curling %s...", url)
         with urllib.request.urlopen(url) as a:
             return cls._extract_youtube_response(a.read())
 
@@ -287,7 +292,7 @@ async def open_results_buffer(nvim, youtube_query, old_window):
             return Youtube.search(youtube_query)
         except (urllib.error.HTTPError, urllib.error.URLError) as e:
             nvim.show_error(f"An error occurred when fetching results: {e}")
-            log.error(f"An error occurred when fetching results: {e}", stack_info=True)
+            log.error("An error occurred when fetching results.", stack_info=True)
             return None
 
     results = await nvim.loop.run_in_executor(None, executor)
@@ -297,10 +302,8 @@ async def open_results_buffer(nvim, youtube_query, old_window):
     # TODO: potentially allow user to fetch only videos or only playlists
     results = [[format_result(i), i] for i in results["all"]]
 
-    nvim.async_call(
-        lambda x, y, z, w: nvim.lua.vim.neovimpv.youtube.open_select_split(x, y, z, w),
+    nvim.lua.vim.neovimpv.youtube.open_select_split(
         results,
-        "youtube_results",
         old_window,
         5,
     )
@@ -314,7 +317,7 @@ async def open_first_result(nvim, youtube_query, old_window):
             return Youtube.search(youtube_query)
         except (urllib.error.HTTPError, urllib.error.URLError) as e:
             nvim.show_error(f"An error occurred when fetching results: {e}")
-            log.error(f"An error occurred when fetching results: {e}", stack_info=True)
+            log.error("An error occurred when fetching results.", stack_info=True)
             return None
 
     results = await nvim.loop.run_in_executor(None, executor)
@@ -340,16 +343,14 @@ async def open_playlist_results(nvim, playlist, extra):
             return Youtube.playlist(playlist["playlist_id"])
         except (urllib.error.HTTPError, urllib.error.URLError) as e:
             nvim.show_error(f"An error occurred when fetching results: {e}")
-            log.error(f"An error occurred when fetching results: {e}", stack_info=True)
+            log.error("An error occurred when fetching results.", stack_info=True)
             return None
 
     results = await nvim.loop.run_in_executor(None, executor)
     if results is None:
         return
 
-    nvim.async_call(
-        lambda x, y: nvim.lua.neovimpv.youtube.open_playlist_results(x, y), results, extra
-    )
+    nvim.lua.vim.neovimpv.youtube.open_playlist_results(results, extra)
 
 
 if __name__ == "__main__":
