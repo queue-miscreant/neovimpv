@@ -15,7 +15,7 @@ end
 local function omnikey(extra_args, is_visual)
   if extra_args == nil then extra_args = "" end
 
-  local first_line, last_line = vim.fn.getpos("v")[2], vim.fn.getpos(".")[2]
+  local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
   local try_get_mpv = player.get_player_by_line(0, first_line, last_line, true)
 
   if #try_get_mpv == 0 then
@@ -95,6 +95,7 @@ local function goto_relative_mpv(direction)
 end
 
 -- Open search prompt
+---@param first_result boolean?
 local function youtube_search_prompt(first_result)
   if not vim.bo.modifiable then
     vim.notify("Cannot search YouTube from non-modifiable buffer!", vim.log.levels.ERROR)
@@ -105,10 +106,10 @@ local function youtube_search_prompt(first_result)
   local query = vim.fn.input("YouTube Search: ")
 
   if query:len() ~= 0 then
-    if first_result == 0 then
-      vim.cmd("MpvYoutubeSearch " .. query)
-    else
+    if first_result then
       vim.cmd("MpvYoutubeSearch! " .. query)
+    else
+      vim.cmd("MpvYoutubeSearch " .. query)
     end
   end
 end

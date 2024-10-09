@@ -32,26 +32,26 @@ function youtube.open_select_split(input, filetype, old_window, height)
 
   -- open split to an empty scratch
   vim.cmd("bel split")
-  local win = vim.api.nvim_get_current_win()
-  local buf = vim.api.nvim_create_buf(true, true)
-  vim.api.nvim_win_set_buf(win, buf)
-
-  -- set buffer content
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, buf_lines)
-  vim.api.nvim_buf_set_var(buf, "mpv_selection", content)
-  if type(old_window) ~= "number" then
-    old_window = vim.api.nvim_get_current_win()
-  end
-  vim.api.nvim_buf_set_var(buf, "mpv_calling_window", old_window)
-
   if type(height) == "number" then
     vim.cmd("resize " .. tostring(height))
   end
+  local win = vim.api.nvim_get_current_win()
 
-  -- set options for new buffer/window
-  vim.api.nvim_win_set_option(win, "number", false)
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(buf, "filetype", filetype)
+  local buf = vim.api.nvim_create_buf(true, true)
+  vim.api.nvim_win_set_buf(win, buf)
+
+  vim.api.nvim_buf_call(buf, function()
+    -- set buffer content
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, buf_lines)
+    vim.b.mpv_selection = content
+    if type(old_window) ~= "number" then
+      old_window = win
+    end
+    vim.b.mpv_calling_window = old_window
+
+    vim.bo.modifiable = false
+    vim.bo.filetype = filetype
+  end)
 end
 
 -- TODO: user chooses to paste in whole playlist, open in split, open in vert split, open in new tab

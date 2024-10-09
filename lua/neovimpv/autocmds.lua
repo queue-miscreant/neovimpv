@@ -11,16 +11,16 @@ local function calculate_change(new_lines)
     -- lines were deleted
     lines_added = 0
     -- hack for last line of the file
-    if old_range[1] == old_lines then
-      old_range[0] = old_lines
+    if old_range[2] == old_lines then
+      old_range[1] = old_lines
     end
   end
 
   local new_old_extmark = vim.api.nvim_buf_get_extmarks(
     0,
     consts.playlist_namespace,
-    {old_range[0] - 1, 0},
-    {old_range[1] - 1, -1},
+    {old_range[1] - 1, 0},
+    {old_range[2] - 1, -1},
     {}
   )
 
@@ -82,7 +82,7 @@ local function buffer_change_callback()
   )
   -- Close all players which fell outside the bounds
   for _, i in ipairs(invisible_extmarks) do
-    vim.fn.MpvSendNvimKeys(i[0], "q", 1)
+    vim.fn.MpvSendNvimKeys(i[1], "q", 1)
   end
 end
 

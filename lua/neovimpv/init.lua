@@ -11,6 +11,7 @@ local youtube = require "neovimpv.youtube"
 local formatting = require "neovimpv.formatting"
 local config = require "neovimpv.config"
 local consts = require "neovimpv.consts"
+local youtube_results = require "neovimpv.youtube.results"
 
 local keys = require "neovimpv.keys"
 
@@ -28,6 +29,8 @@ function neovimpv.setup(opts)
   -- TODO: push to Python
   formatting.parse_user_settings()
   keys.bind_base()
+
+  youtube_results.setup_autocmd()
 
   vim.api.nvim_create_augroup("MpvSmartBindings", {clear = true})
   vim.api.nvim_create_autocmd(
