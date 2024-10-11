@@ -31,4 +31,17 @@ neovimpv-keys	neovimpv.txt	/*neovimpv-keys*
 neovimpv-playlist	neovimpv.txt	/*neovimpv-playlist*
 neovimpv-youtube-keys	neovimpv.txt	/*neovimpv-youtube-keys*
 neovimpv-youtube-splits	neovimpv.txt	/*neovimpv-youtube-splits*
+neovimpv.config.default_args	neovimpv.txt	/*neovimpv.config.default_args*
+neovimpv.config.draw_playlist_extmarks	neovimpv.txt	/*neovimpv.config.draw_playlist_extmarks*
+neovimpv.config.format	neovimpv.txt	/*neovimpv.config.format*
+neovimpv.config.loading	neovimpv.txt	/*neovimpv.config.loading*
+neovimpv.config.markdown_smart_bindings	neovimpv.txt	/*neovimpv.config.markdown_smart_bindings*
+neovimpv.config.markdown_writable	neovimpv.txt	/*neovimpv.config.markdown_writable*
+neovimpv.config.on_playlist_update	neovimpv.txt	/*neovimpv.config.on_playlist_update*
+neovimpv.config.playlist_key	neovimpv.txt	/*neovimpv.config.playlist_key*
+neovimpv.config.playlist_key_video	neovimpv.txt	/*neovimpv.config.playlist_key_video*
+neovimpv.config.property_thresholds	neovimpv.txt	/*neovimpv.config.property_thresholds*
+neovimpv.config.smart_filetypes	neovimpv.txt	/*neovimpv.config.smart_filetypes*
+neovimpv.config.smart_youtube_playlist	neovimpv.txt	/*neovimpv.config.smart_youtube_playlist*
+neovimpv.config.style	neovimpv.txt	/*neovimpv.config.style*
 neovimpv.txt	neovimpv.txt	/*neovimpv.txt*

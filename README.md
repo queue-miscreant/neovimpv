@@ -21,13 +21,13 @@ Features
 - Open mpv with or without video from nvim buffer
 - Draw configurable mpv attributes (position, duration, etc) as extmarks
 - Interface with mpv keybinds using "omnikey"
-    - Smart bindings available based on `<leader>` (see `g:mpv_smart_bindings`)
+    - Smart bindings available based on `<leader>` (see `smart_bindings`)
 - Interface with mpv playlists when opening multiple lines at once
-    - Change current playlist item (see `g:mpv_playlist_key`)
+    - Change current playlist item (see `playlist_key`)
 - Can replace paths and URLs with a markdown link to the content with the title as the displayed text
     - This is intended to display the title in filetypes which conceal the actual link
 - Dynamic playlist updates (e.g., YouTube playlists when using mpv's yt-dlp plugin).
-    - Several options available, see `g:mpv_on_playlist_update`
+    - Several options available, see `on_playlist_update`
 
 
 Dependencies
@@ -46,23 +46,21 @@ Installation
 
 Place the following in `~/.config/nvim/init.vim`:
 ```vim
-Plugin 'queue-miscreant/neovimpv', {'do': ':UpdateRemotePlugins'}
+Plugin 'queue-miscreant/neovimpv'
 ```
 Make sure the file is sourced and run `:PluginInstall`.
+After installing, run `:UpdateRemotePlugins`.
 
-### Lazy.nvim
+### lazy.nvim
 
 Use the following LazySpec:
 
 ```lua
 {
   "queue-miscreant/neovimpv",
-  build = function()
-    vim.cmd[[UpdateRemotePlugins]]
-  end,
-  init = function()
+  config = {
     -- Configuration goes here
-  end,
+  },
 }
 ```
 See the next section for configuration.
@@ -87,15 +85,27 @@ nnoremap <silent><buffer> <leader>yt <Plug>(mpv_youtube_prompt)
 ```
 
 You can also set these bindings up automatically by, adding a filetype to
-`g:mpv_smart_filetypes`
-It will also work if the filetype is specified in `g:mpv_markdown_writable` and 
-`g:mpv_markdown_smart_bindings` is set to 1.
+`smart_filetypes`
+It will also work if the filetype is specified in `markdown_writable` and
+`markdown_smart_bindings` is set to true.
 
+VimScript:
 ```vim
 g:mpv_smart_filetypes = ["markdown"]
--- Or, if you prefer markdown-styled links
--- g:mpv_markdown_smart_bindings = 1
--- g:mpv_markdown_writable = ["markdown"]
+" Or, if you prefer markdown-styled links
+" g:mpv_markdown_smart_bindings = 1
+" g:mpv_markdown_writable = ["markdown"]
+```
+
+Lua:
+```lua
+{
+  config = {
+    smart_filetypes = { "markdown" },
+    -- markdown_smart_bindings = true
+    -- markdown_writable = { "markdown" }
+  },
+}
 ```
 
 This will set the same bindings as above in files with the given filetypes.
@@ -128,7 +138,7 @@ Open an mpv instance using the string on the current line, as if invoking `mpv`
 from the command line with the `--no-video` flag. URLs may be used if
 youtube-dl or yt-dlp has been set up.
 
-To decrease reliance on IPC, some rudimentary checks are performed to ensure 
+To decrease reliance on IPC, some rudimentary checks are performed to ensure
 that the file exists or is a URL.
 
 If the line contains multiple URLs, the one closest to the current cursor
@@ -152,9 +162,9 @@ apply local settings to the plugin mpv handler. They include
 | Local argument  | Description
 |-----------------|-----------------------------------------------------
 | `video`         | Will open the buffer as a video. Same as supplying `--video=auto`.
-| `stay`          | Override `g:mpv_on_playlist_update` to `stay` for this player.
-| `paste`         | Override `g:mpv_on_playlist_update` to `paste` for this player.
-| `new`           | Override `g:mpv_on_playlist_update` to `new_one` for this player. If the initial playlist is longer than one entry, an error is thrown.
+| `stay`          | Override `on_playlist_update` to `stay` for this player.
+| `paste`         | Override `on_playlist_update` to `paste` for this player.
+| `new`           | Override `on_playlist_update` to `new_one` for this player. If the initial playlist is longer than one entry, an error is thrown.
 
 
 ### `:MpvNewAtLine file [{mpv-args}] [-- {local-args}]`
@@ -270,11 +280,11 @@ Keys
 ### `<Plug>(mpv_omnikey)`
 
 Capture a keypress and send it to the mpv instance running on the
-current line. If there is no instance, `g:mpv_omni_open_new_if_empty`
+current line. If there is no instance, `omni_open_new_if_empty`
 decides whether or not to call `:MpvOpen` or report an error. Can be
 used in visual mode to open a playlist.
 
-The special key specified by `g:mpv_playlist_key` will NOT be sent to
+The special key specified by `playlist_key` will NOT be sent to
 mpv, and instead sets the current playlist item to the one on the line
 of the cursor.
 
@@ -346,14 +356,14 @@ the result with video rather than audio only.
 
 ### `p`, `P`
 
-Same as `<enter>`, but works as though `g:mpv_on_playlist_update` was set to
+Same as `<enter>`, but works as though `on_playlist_update` was set to
 "paste", which pastes playlists into the buffer.
 
 `P` opens the results with video.
 
 
 ### `n`, `N`
-Same as `<enter>`, but works as though `g:mpv_on_playlist_update` was set to
+Same as `<enter>`, but works as though `on_playlist_update` was set to
 "new", which opens a new buffer for the playlist contents.
 
 `N` opens the results with video.
@@ -380,17 +390,21 @@ than the line content.
 Configuration
 -------------
 
+There are two ways to configure the plugin: via lazy.nvim, and via global variables.
+For the purposes of documentation, the lazy.nvim names are provided here.
+The names of the global variables are the same, but prefixed with `mpv_` in `g:`.
+
 The following global variables may be placed in your vim init script. If they
 are changed while Neovim is running, they will NOT take effect.
 
 
-### `g:mpv_loading`
+### `loading`
 
 String to be displayed while an mpv instance is still loading.
 The default value is `"[ ... ]"`, displayed with highlight `MpvDefault`.
 
 
-### `g:mpv_format`
+### `format`
 
 Format string to use when drawing text for an mpv instance. Each
 field which is intended to represent an mpv property must be
@@ -406,7 +420,7 @@ Some formats are drawn internally to the plugin:
 The default value is `"[ {pause} {playback-time} / {duration} {loop} ]"`
 
 
-### `g:mpv_style`
+### `style`
 
 Style to use when drawing pictographic fields. Possible values are
 `"unicode"`, `"ligature"`, and `"emoji"`.
@@ -415,7 +429,7 @@ Currently, the only pictographic field is "pause".
 The default value is `"unicode"`
 
 
-### `g:mpv_markdown_writable`
+### `markdown_writable`
 
 List of filetypes (strings) which, when a line is opened using `:MpvOpen`,
 will format the line into markdown, if it isn't already. The format
@@ -424,14 +438,14 @@ used is `[{mpv-title}]({original-link})`.
 This option is best used in files which support syntax that hides link contents.
 
 
-### `g:mpv_default_args`
+### `default_args`
 
 List of arguments to be supplied to mpv when an instance is opened
 with `:MpvOpen`. Note that `--no-video` is always implied, unless it
 is overridden by `--video=auto`.
 
 
-### `g:mpv_property_thresholds`
+### `property_thresholds`
 
 Dictionary where the keys are mpv properties. The values are lists of
 numbers which control which highlight will be used when rendering the
@@ -446,7 +460,7 @@ If the list contains two entries, the value is partitioned into "Low",
 "Middle", and "High" instead.
 
 
-### `g:mpv_draw_playlist_extmarks`
+### `draw_playlist_extmarks`
 
 String which is either `"always"`, `"multiple"`, or `"never"`.
 Controls whether playlist extmarks are drawn in the sign column.
@@ -459,7 +473,7 @@ The default value is `"multiple"`.
 | `"never"`    | Signs will never be drawn.
 
 
-### `g:mpv_on_playlist_update`
+### `on_playlist_update`
 
 String which is either `"stay"`, `"paste"`, `"paste_one"`, or
 `"new_one"`. Controls what happens when mpv dynamically loads a
@@ -475,7 +489,7 @@ The default value is `"stay"`.
 | `"new_one"`   | A single-item playlist will paste the dynamic content in a new split. All content is queued and the player is moved to the new buffer. Otherwise, it behaves in `"stay"` mode.
 
 
-### `g:mpv_playlist_key`
+### `playlist_key`
 
 A special key (stored in a string) which changes the functionality of
 the omnikey. When waiting for a keypress to send to mpv, if this key
@@ -485,15 +499,15 @@ mpv item to the one at the row of the cursor.
 The default value is backslash (i.e., `"\\"`).
 
 
-### `g:mpv_playlist_key_video`
+### `playlist_key_video`
 
 A second special key (stored in a string) which changes the functionality of
 the omnikey. This key is intended to be the "video" counterpart to
-`g:mpv_playlist_key`.
+`playlist_key`.
 
-The default value depends on the value of `g:mpv_playlist_key`:
+The default value depends on the value of `playlist_key`:
 
-| `g:mpv_playlist_key` | `g:mpv_playlist_key_video`
+| `playlist_key` | `playlist_key_video`
 |----------------------|-----------------------------------------------------
 | `"\\"`               | `"<bar>"` (i.e., `|` as a key)
 | `","`                | `"."`
@@ -501,14 +515,14 @@ The default value depends on the value of `g:mpv_playlist_key`:
 | (Other)              | `""` (Unused)
 
 
-### `g:mpv_smart_filetypes`
+### `smart_filetypes`
 
 A list of filetypes (strings) which should have smart default bindings set.
 
 | Binding                              | Description
 |--------------------------------------|-----------------------------------------------
-| `<leader>[g:mpv_playlist_key]`       | Omnikey
-| `<leader>[g:mpv_playlist_key_video]` | Omnikey (video)
+| `<leader>[playlist_key]`       | Omnikey
+| `<leader>[playlist_key_video]` | Omnikey (video)
 | `<leader>yt`                         | Open YouTube search
 | `<leader>Yt`                         | Open YouTube search and paste first result
 | `<leader>[`                          | Move cursor to earlier line with mpv instance
@@ -516,17 +530,17 @@ A list of filetypes (strings) which should have smart default bindings set.
 
 Default value is `[]` (empty).
 
-### `g:mpv_markdown_smart_bindings`
+### `markdown_smart_bindings`
 
 Boolean value which, when true, attempts to set smart bindings in filetypes
-included in |g:mpv_markdown_writable|.
+included in `markdown_writable`.
 
-Default value is 0 (false).
+Default value is false.
 
 
-### `g:mpv_smart_youtube_playlist`
+### `smart_youtube_playlist`
 
-A boolean value which affects the `g:mpv_on_playlist_update` semantics
+A boolean value which affects the `on_playlist_update` semantics
 for opening a single YouTube playlist.
 Playlists from "ytsearch{count}:" will open as 'paste' if count is not
 given or 1.
@@ -547,7 +561,7 @@ are given in kebab-case, but the corresponding highlights in Vim will be in
 CamelCase. For example, the property `playback-time` becomes the highlight
 `MpvPlaybackTime`.
 
-All properties which occur in `g:mpv_format` are given highlights that link
+All properties which occur in `format` are given highlights that link
 to bound to the plugin default highlight `MpvDefault`, unless they have
 already been defaulted in the plugin. The following defaults additional
 defaults exist:
@@ -557,7 +571,7 @@ defaults exist:
 - MpvPlaybackTime -> Conceal
 - MpvDuration -> Conceal
 
-When using `g:mpv_property_thresholds`, the original highlight for the
+When using `property_thresholds`, the original highlight for the
 property will not be used. Instead, only the partitioned highlights will exist
 (with defaults appropriately defined).
 
