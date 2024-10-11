@@ -1,6 +1,10 @@
 local consts = require "neovimpv.consts"
 
-local old_extmark
+---@alias GetExtmark [integer, integer, integer]
+---@diagnostic disable-next-line
+---@cast vim.b.mpv_playlists_to_displays {[string]: integer}
+
+---@return GetExtmark[]?
 local function calculate_change(new_lines)
   local lines_added = 1
   local old_lines = vim.fn.line("$")
@@ -25,24 +29,28 @@ local function calculate_change(new_lines)
   )
 
   if lines_added == 0 then
-    old_extmark = new_old_extmark
+    return new_old_extmark
   end
 end
 
 -- Remove playlist items in `removed_playlist` and clean up the map to the player.
--- Along the way, create a reverse mapping consisting whose keys are player ids and
--- whose values are playlist ids that survived the change.
+---@param removed_playlist GetExtmark[]
+---@return {[string]: integer[]} A table whose keys are player ids and whose values
+--- are playlist ids that survived the change.
 local function get_players_with_deletions(removed_playlist)
-  local removed_ids = vim.tbl_map(function(x) return x[1] end, removed_playlist)
+  ---@type {[string]: boolean}
+  local removed_ids = {}
+  for _, extmark_data in ipairs(removed_playlist or {}) do
+    removed_ids[tostring(extmark_data[1])] = true
+  end
 
   local altered_players = {}
-  local removed_items = {}
+  ---@type {[string]: integer[]}
+  local removed_items = vim.empty_dict()
 
-  for playlist_item_, player_id in pairs(vim.b.mpv_playlists_to_displays) do
-    local playlist_item = tonumber(playlist_item_)
-
-    -- TODO: how is this available in lua?
-    if playlist_item and removed_ids[playlist_item + 1] then
+  for playlist_item, player_id in pairs(vim.b.mpv_playlists_to_displays) do
+    local playlist_extmark_id = tonumber(playlist_item)
+    if playlist_extmark_id and removed_ids[playlist_item] then
       vim.cmd(
         "unlet b:mpv_playlists_to_displays[" .. playlist_item .. "]"
       )
@@ -50,14 +58,20 @@ local function get_players_with_deletions(removed_playlist)
       vim.api.nvim_buf_del_extmark(
         0,
         consts.playlist_namespace,
-        playlist_item
+        playlist_extmark_id
       )
-      table.insert(altered_players, player_id)
+      table.insert(
+        altered_players,
+        playlist_extmark_id
+      )
 
-      if not removed_items[player_id] then
-        removed_items[player_id] = {}
+      if not removed_items[tostring(player_id)] then
+        removed_items[tostring(player_id)] = {}
       end
-      table.insert(removed_items[player_id], playlist_item)
+      table.insert(
+        removed_items[tostring(player_id)],
+        playlist_extmark_id
+      )
     else
     end
   end
@@ -65,13 +79,13 @@ local function get_players_with_deletions(removed_playlist)
   return removed_items
 end
 
--- Using the old extmark data in s:old_extmark, attempt to find playlist items
+-- Using the old extmark data in old_extmark, attempt to find playlist items
 -- which were deleted, then forward the changes to Python
-local function buffer_change_callback()
-  if old_extmark ~= nil then
-    local new_playlists = get_players_with_deletions(old_extmark)
+---@param old_extmarks GetExtmark[]?
+local function buffer_change_callback(old_extmarks)
+  if old_extmarks ~= nil then
+    local new_playlists = get_players_with_deletions(old_extmarks)
     vim.fn.MpvForwardDeletions(new_playlists)
-    old_extmark = nil
   end
   local invisible_extmarks = vim.api.nvim_buf_get_extmarks(
     0,
@@ -88,8 +102,9 @@ end
 
 -- Calback for autocommand. When a change in the buffer occurs, tries to find
 -- out whether lines where removed and invokes buffer_change_callback
--- TODO insert mode equivalent?
-local function undo_for_change_count()
+-- TODO: insert mode equivalent?
+-- TODO: remove autocmd when last player exits?
+local function find_and_forward_deletions()
   -- grab the attributes after the change that just happened
   local new_lines = vim.fn.line("$")
   -- let new_cursor = vim.fn.line(".")
@@ -100,14 +115,16 @@ local function undo_for_change_count()
 
   local try_undo = vim.b.changedtick
   local pre_undo_cursor = vim.fn.getcurpos()
+  ---@type GetExtmark[]?
+  local old_extmarks
   vim.cmd[[undo]]
   -- undo (or redo) for the change
   if try_undo == vim.b.changedtick then
     vim.cmd[[redo]]
-    calculate_change(new_lines)
+    old_extmarks = calculate_change(new_lines)
     vim.cmd[[undo]]
   else
-    calculate_change(new_lines)
+    old_extmarks = calculate_change(new_lines)
     vim.cmd[[redo]]
   end
   vim.fn.setpos(".", pre_undo_cursor)
@@ -115,11 +132,10 @@ local function undo_for_change_count()
   -- Lazy redrawing off
   vim.o.lz = false
   vim.defer_fn(function()
-    buffer_change_callback()
+    buffer_change_callback(old_extmarks)
   end, 0)
 end
 
--- TODO remove autocmd when last player exits?
 ---@param no_text_changed boolean?
 local function bind_autocmds(no_text_changed)
   if not no_text_changed and vim.bo.modifiable then
@@ -127,7 +143,7 @@ local function bind_autocmds(no_text_changed)
       "TextChanged",
       {
         buffer = 0,
-        callback = undo_for_change_count,
+        callback = find_and_forward_deletions,
       }
     )
   end

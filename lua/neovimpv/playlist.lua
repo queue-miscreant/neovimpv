@@ -1,4 +1,3 @@
-#!/usr/bin/lua
 -- neovimpv/playlist.lua
 --
 -- Extmark functionality which deals with playlist interactions, mainly ones

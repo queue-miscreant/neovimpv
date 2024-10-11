@@ -1,4 +1,3 @@
-#!/usr/bin/lua
 -- neovimpv.lua
 --
 -- Collects all Lua functionality into a single file for import.

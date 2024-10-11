@@ -1,4 +1,3 @@
-#!/usr/bin/lua
 -- neovimpv/player.lua
 --
 -- Basic extmark functionality for creating players and playlist extmarks.
