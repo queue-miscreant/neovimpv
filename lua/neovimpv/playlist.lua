@@ -47,13 +47,13 @@ function playlist.show_playlist_current(buffer, playlist_id, virt_text)
       loc[1],
       loc[2],
       {
-        id=playlist_id,
-        virt_lines={{
+        id = playlist_id,
+        virt_lines = {{
           {"Currently playing: ", "MpvDefault"},
           {virt_text, "MpvTitle"}
         }},
-        sign_text="|",
-        sign_hl_group="MpvPlaylistSign"
+        sign_text = "|",
+        sign_hl_group = "MpvPlaylistSign"
       }
     )
   end
@@ -108,9 +108,9 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
         playlist_item[1],
         0,
         {
-          id=playlist_item[2],
-          sign_text="|",
-          sign_hl_group="MpvPlaylistSign"
+          id = playlist_item[2],
+          sign_text = "|",
+          sign_hl_group = "MpvPlaylistSign"
         }
       )
       -- move the player just in case
@@ -195,9 +195,9 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
         i - 1,
         0,
         {
-          id=extmark_id,
-          sign_text="|",
-          sign_hl_group="MpvPlaylistSign"
+          id = extmark_id,
+          sign_text = "|",
+          sign_hl_group = "MpvPlaylistSign"
         }
       )
 

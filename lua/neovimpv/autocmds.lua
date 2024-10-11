@@ -6,14 +6,14 @@ local consts = require "neovimpv.consts"
 
 ---@return GetExtmark[]?
 local function calculate_change(new_lines)
-  local lines_added = 1
+  local lines_added = true
   local old_lines = vim.fn.line("$")
   -- let old_cursor = vim.fn.line(".")
   local old_range = { vim.fn.line("'["), vim.fn.line("']") }
 
   if old_lines > new_lines then
     -- lines were deleted
-    lines_added = 0
+    lines_added = false
     -- hack for last line of the file
     if old_range[2] == old_lines then
       old_range[1] = old_lines
@@ -28,12 +28,13 @@ local function calculate_change(new_lines)
     {}
   )
 
-  if lines_added == 0 then
+  if not lines_added then
     return new_old_extmark
   end
 end
 
 -- Remove playlist items in `removed_playlist` and clean up the map to the player.
+--
 ---@param removed_playlist GetExtmark[]
 ---@return {[string]: integer[]} A table whose keys are player ids and whose values
 --- are playlist ids that survived the change.
@@ -81,6 +82,7 @@ end
 
 -- Using the old extmark data in old_extmark, attempt to find playlist items
 -- which were deleted, then forward the changes to Python
+--
 ---@param old_extmarks GetExtmark[]?
 local function buffer_change_callback(old_extmarks)
   if old_extmarks ~= nil then
@@ -102,6 +104,7 @@ end
 
 -- Calback for autocommand. When a change in the buffer occurs, tries to find
 -- out whether lines where removed and invokes buffer_change_callback
+--
 -- TODO: insert mode equivalent?
 -- TODO: remove autocmd when last player exits?
 local function find_and_forward_deletions()

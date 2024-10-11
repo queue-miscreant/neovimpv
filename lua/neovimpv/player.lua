@@ -25,7 +25,7 @@ local player = {}
 function player.get_players_in_buffer(buffer)
   local has_playlists = vim.api.nvim_buf_call(
     buffer,
-    function() return vim.b["mpv_playlists_to_displays"] end
+    function() return vim.b.mpv_playlists_to_displays end
   )
   if not has_playlists then return {} end
 
@@ -48,7 +48,7 @@ function player.get_player_by_line(buffer, start, end_, no_message)
   end
 
   return vim.api.nvim_buf_call(buffer, function()
-    local dict = vim.b["mpv_playlists_to_displays"] or {}
+    local dict = vim.b.mpv_playlists_to_displays or {}
     local playlist_item = vim.api.nvim_buf_get_extmarks(
       buffer,
       PLAYLIST_NAMESPACE,
@@ -138,8 +138,8 @@ end
 local function create_playlist(buffer, lines, contents, display_id)
   local new_ids = {}
   local extmark = {
-    sign_text=contents,
-    sign_hl_group="MpvPlaylistSign"
+    sign_text = contents,
+    sign_hl_group = "MpvPlaylistSign"
   }
   local rule = config.draw_playlist_extmarks
   if rule == "never" or (rule == "multiple" and #lines == 1) then
@@ -147,10 +147,10 @@ local function create_playlist(buffer, lines, contents, display_id)
   end
 
   vim.api.nvim_buf_call(buffer, function()
-    local dict = vim.b["mpv_playlists_to_displays"]
+    local dict = vim.b.mpv_playlists_to_displays
     -- setup callback in this buffer
     if dict == nil then
-      vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
+      vim.b.mpv_playlists_to_displays = vim.empty_dict()
       bind_autocmds()
     end
     -- add each playlist extmark
@@ -188,8 +188,8 @@ function player.create_player(buffer, lines, no_playlist)
       lines[1] - 1,
       0,
       {
-          virt_text={{config.loading, "MpvDefault"}},
-          virt_text_pos="eol",
+          virt_text = {{config.loading, "MpvDefault"}},
+          virt_text_pos = "eol",
       }
   )
 
@@ -241,9 +241,9 @@ function player.move_player(buffer, display_id, new_playlist_id, new_text)
     loc[1],
     0,
     {
-      id=display_id,
-      virt_text={{new_extmark_text, "MpvDefault"}},
-      virt_text_pos="eol",
+      id = display_id,
+      virt_text = {{new_extmark_text, "MpvDefault"}},
+      virt_text_pos = "eol",
     }
   )
 
@@ -252,7 +252,7 @@ function player.move_player(buffer, display_id, new_playlist_id, new_text)
     PLAYLIST_NAMESPACE,
     {loc_display[1], 0},
     {loc_display[1], -1},
-    { details=true }
+    { details = true }
   )[1]
   -- reset playlist extmark
   if old_playlist_item ~= nil and old_playlist_item[4].sign_text ~= nil then
@@ -262,10 +262,10 @@ function player.move_player(buffer, display_id, new_playlist_id, new_text)
       loc_display[1],
       0,
       {
-        id=old_playlist_item[1],
-        sign_text="|",
-        sign_hl_group="MpvPlaylistSign",
-        virt_lines={},
+        id = old_playlist_item[1],
+        sign_text = "|",
+        sign_hl_group = "MpvPlaylistSign",
+        virt_lines = {},
       }
     )
   end
@@ -290,7 +290,7 @@ function player.remove_player(buffer, display_id)
   vim.api.nvim_buf_call(buffer, function()
     -- get the playlist extmarks associated to this player
     local playlist_ids = {}
-    for playlist, display in pairs(vim.b["mpv_playlists_to_displays"] or {}) do
+    for playlist, display in pairs(vim.b.mpv_playlists_to_displays or {}) do
       if display == display_id then
         table.insert(playlist_ids, tonumber(playlist))
       end

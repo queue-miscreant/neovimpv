@@ -146,7 +146,7 @@ local function yank_youtube_link()
   vim.fn.setreg(event.regname, current.link)
 end
 
-local function bind_to_buffer()
+function interact.bind_to_buffer()
   local vks = vim.keymap.set
   -- Close buffer on q
   vks("n", "q", ":q<cr>", {silent = true, buffer = true})
@@ -224,16 +224,6 @@ local function bind_to_buffer()
     {
       buffer = 0,
       callback = yank_youtube_link,
-    }
-  )
-end
-
-function interact.setup_autocmd()
-  vim.api.nvim_create_autocmd(
-    "FileType",
-    {
-      pattern = "youtube_results",
-      callback = bind_to_buffer,
     }
   )
 end

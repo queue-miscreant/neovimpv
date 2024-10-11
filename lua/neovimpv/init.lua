@@ -28,8 +28,6 @@ function neovimpv.setup(opts)
   formatting.parse_user_settings()
   keys.bind_base()
 
-  youtube.setup_autocmd()
-
   vim.api.nvim_create_augroup("MpvSmartBindings", {clear = true})
   vim.api.nvim_create_autocmd(
     "FileType",
@@ -39,6 +37,13 @@ function neovimpv.setup(opts)
       callback = function()
         keys.bind_smart_local()
       end
+    }
+  )
+  vim.api.nvim_create_autocmd(
+    "FileType",
+    {
+      pattern = "youtube_results",
+      callback = youtube.bind_to_buffer,
     }
   )
 end
