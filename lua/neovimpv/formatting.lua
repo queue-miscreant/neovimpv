@@ -225,7 +225,7 @@ function formatting.compile(format_string)
   format_settings.fields = fields
 
   -- mpv groups for Python to be aware of
-  formatting.groups = vim.tbl_values(
+  formatting.mpv_properties = vim.tbl_values(
     vim.tbl_map(
       function(field) return field.name end,
       fields

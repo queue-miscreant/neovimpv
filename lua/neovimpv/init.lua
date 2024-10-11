@@ -22,11 +22,22 @@ local neovimpv = {
   consts = consts,
 }
 
+local function push_python_options()
+  vim.fn.MpvSetOptions{
+    mpv_properties = formatting.mpv_properties,
+    markdown_writable = config.markdown_writable,
+    on_playlist_update = config.on_playlist_update,
+    smart_youtube = config.smart_youtube_playlist,
+    default_mpv_args = config.default_args,
+  }
+end
+
 function neovimpv.setup(opts)
   config.load_globals(opts)
-  -- TODO: push to Python
   formatting.parse_user_settings()
   keys.bind_base()
+
+  pcall(push_python_options)
 
   vim.api.nvim_create_augroup("MpvSmartBindings", {clear = true})
   vim.api.nvim_create_autocmd(
@@ -51,6 +62,12 @@ function neovimpv.setup(opts)
     {
       pattern = "youtube_playlist",
       callback = youtube.bind_buffer_playlist,
+    }
+  )
+  vim.api.nvim_create_autocmd(
+    "VimEnter",
+    {
+      callback = push_python_options
     }
   )
 end

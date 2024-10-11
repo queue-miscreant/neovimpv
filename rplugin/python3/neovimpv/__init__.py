@@ -85,11 +85,10 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         nvim.exec_lua("require('neovimpv')")
 
         # options
-        self.format_groups = nvim.exec_lua("return vim.neovimpv.formatting.groups")
-        self.do_markdowns = nvim.exec_lua("return vim.neovimpv.config.markdown_writable")
-        self.on_playlist_update = nvim.exec_lua("return vim.neovimpv.config.on_playlist_update")
-        self.smart_youtube = nvim.exec_lua("return vim.neovimpv.config.smart_youtube_playlist")
-        MpvManager.set_default_args(nvim.exec_lua("return vim.neovimpv.config.default_args"))
+        self.mpv_properties = []  # observable properties
+        self.do_markdowns = []  # markdown-writable filetypes
+        self.on_playlist_update = None
+        self.smart_youtube = None
 
         # setup temp dir
         tempname = nvim.call("tempname")
@@ -142,7 +141,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         self.create_mpv_instance(target_link, start, end, args[1:], ignore_mode=True)
 
     @pynvim.command(
-        "MpvPause", nargs="?", range="", complete="customlist,neovimpv#mpv_close_pause"
+        "MpvPause", nargs="?", range="", complete="customlist,neovimpv#complete#mpv_close_pause"
     )
     def pause_mpv(self, args, range_):
         """Pause/unpause the mpv instance on the current line"""
@@ -302,6 +301,20 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
             real_key = translate_keypress(key)
 
             self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
+
+
+    @pynvim.function("MpvSetOptions", sync=True)
+    def mpv_set_options(self, args):
+        """Set currently playing item"""
+        if len(args) != 1:
+            raise TypeError(f"Expected 1 argument, got {len(args)}")
+
+        self.mpv_properties = args[0]["mpv_properties"]
+        self.do_markdowns = args[0]["markdown_writable"]
+        self.on_playlist_update = args[0]["on_playlist_update"]
+        self.smart_youtube = args[0]["smart_youtube"]
+        MpvManager.set_default_args(args[0]["default_mpv_args"])
+
 
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):

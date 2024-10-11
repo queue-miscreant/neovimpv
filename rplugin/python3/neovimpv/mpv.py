@@ -75,7 +75,7 @@ class MpvWrapper:
         # for drawing [Window] instead, toggling video
         self.protocol.observe_property("video-format")
         # observe everything we need to draw the format string
-        for i in self.manager.plugin.format_groups:
+        for i in self.manager.plugin.mpv_properties:
             self.protocol.observe_property(i)
 
     def _load_playlist(self, playlist):
