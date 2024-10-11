@@ -70,8 +70,8 @@ local function goto_relative_mpv(direction)
   local end_ = {-1, -1}
 
   if direction < 0 then
-    start = {current - 1, 0}
-    end_ = {0, -1}
+    start = {current - 1, -1}
+    end_ = {0, 0}
   end
 
   local mpv_instances = vim.api.nvim_buf_get_extmarks(

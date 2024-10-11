@@ -5,7 +5,7 @@
 
 local consts = require "neovimpv.consts"
 local formatting = require "neovimpv.formatting"
-local bind_autocmds = require "neovimpv.autocmds"
+local bind_forward_deletions = require "neovimpv.forward_deletions"
 local config = require "neovimpv.config"
 
 local DISPLAY_NAMESPACE = consts.display_namespace
@@ -151,7 +151,7 @@ local function create_playlist(buffer, lines, contents, display_id)
     -- setup callback in this buffer
     if dict == nil then
       vim.b.mpv_playlists_to_displays = vim.empty_dict()
-      bind_autocmds()
+      bind_forward_deletions()
     end
     -- add each playlist extmark
     for i, j in pairs(lines) do
@@ -279,7 +279,7 @@ end
 ---@param display_id integer The ID of the player which should be deleted
 function player.remove_player(buffer, display_id)
   -- buffer already deleted
-  if #vim.call("getbufinfo", buffer) == 0 then return end
+  if #vim.fn.getbufinfo(buffer) == 0 then return end
 
   vim.api.nvim_buf_del_extmark(
     buffer,

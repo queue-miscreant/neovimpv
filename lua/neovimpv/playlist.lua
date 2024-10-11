@@ -5,7 +5,7 @@
 
 local player = require "neovimpv.player"
 local consts = require "neovimpv.consts"
-local bind_autocmds = require "neovimpv.autocmds"
+local bind_forward_deletions = require "neovimpv.forward_deletions"
 
 local playlist = {}
 
@@ -28,8 +28,8 @@ function playlist.write_line_of_playlist_item(buffer, playlist_id, content)
   )
 
   -- Update the buffer only on mismatches
-  if content ~= vim.call("getbufline", buffer, loc[1] + 1)[1] then
-    vim.call("setbufline", buffer, loc[1] + 1, content)
+  if content ~= vim.fn.getbufline(buffer, loc[1] + 1)[1] then
+    vim.fn.setbufline(buffer, loc[1] + 1, content)
   end
 end
 
@@ -74,8 +74,8 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
   local loc = vim.api.nvim_buf_get_extmark_by_id(buffer, consts.playlist_namespace, old_playlist_id, {})
 
   -- replace the playlist and add new lines afterward
-  vim.call("setbufline", buffer, loc[1] + 1, new_playlist[1])
-  vim.call("appendbufline", buffer, loc[1] + 1, vim.list_slice(new_playlist, 2))
+  vim.fn.setbufline(buffer, loc[1] + 1, new_playlist[1])
+  vim.fn.appendbufline(buffer, loc[1] + 1, vim.list_slice(new_playlist, 2))
 
   local save_extmarks = {{loc[1], old_playlist_id}}
   for i = 2, #new_playlist do
@@ -115,7 +115,7 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
       )
       -- move the player just in case
       if i == current_index then
-        consts.move_player(buffer, display_id, playlist_item[2])
+        player.move_player(buffer, display_id, playlist_item[2])
       end
     end
   end, 0)
@@ -147,21 +147,21 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
   -- open split to an empty scratch
   vim.cmd("bel split")
   local win = vim.api.nvim_get_current_win()
-  local buf = vim.api.nvim_create_buf(true, true)
-  vim.api.nvim_win_set_buf(win, buf)
+  local new_buffer = vim.api.nvim_create_buf(true, true)
+  vim.api.nvim_win_set_buf(win, new_buffer)
 
   -- set buffer content
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, new_playlist)
+  vim.api.nvim_buf_set_lines(new_buffer, 0, -1, false, new_playlist)
 
   local save_extmarks = {}
-  vim.api.nvim_buf_call(buf, function()
-    vim.b["mpv_playlists_to_displays"] = vim.empty_dict()
-    bind_autocmds(true)
+  vim.api.nvim_buf_call(new_buffer, function()
+    vim.b.mpv_playlists_to_displays = vim.empty_dict()
+    bind_forward_deletions(true)
     for i = 1, #new_playlist do
       -- And create a playlist extmark for it
       -- Need to be back in main loop for the actual line numbers
       local extmark_id = vim.api.nvim_buf_set_extmark(
-        buf,
+        new_buffer,
         consts.playlist_namespace,
         0,
         0,
@@ -170,27 +170,23 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
 
       save_extmarks[i] = extmark_id
     end
-  end)
 
-  -- set options for new buffer/window
-  vim.api.nvim_buf_set_option(buf, "modifiable", false)
-  vim.api.nvim_buf_set_option(
-    buf,
-    "filetype",
-    vim.api.nvim_buf_get_option(buffer, "filetype")
-  )
-  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+    -- set options for new buffer
+    vim.bo.modifiable = false
+    vim.bo.bufhidden = "wipe"
+    vim.bo.filetype = vim.api.nvim_buf_get_option(buffer, "filetype")
+  end)
 
   -- "Move" player extmark between buffers.
   player.remove_player(buffer, display_id)
-  local new_id = player.create_player(buf, {1, -1}, true)
+  local new_id = player.create_player(new_buffer, {1, -1}, true)
 
   vim.defer_fn(function()
     for i = 1, #save_extmarks do
       local extmark_id = save_extmarks[i]
       -- Set the extmarks in the same manner as create_player
       vim.api.nvim_buf_set_extmark(
-        buf,
+        new_buffer,
         consts.playlist_namespace,
         i - 1,
         0,
@@ -209,7 +205,7 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
     end
   end, 0)
 
-  return {buf, new_id, save_extmarks}
+  return {new_buffer, new_id, save_extmarks}
 end
 
 return playlist

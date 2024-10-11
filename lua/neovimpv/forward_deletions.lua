@@ -140,7 +140,7 @@ local function find_and_forward_deletions()
 end
 
 ---@param no_text_changed boolean?
-local function bind_autocmds(no_text_changed)
+local function bind_forward_deletions(no_text_changed)
   if not no_text_changed and vim.bo.modifiable then
     vim.api.nvim_create_autocmd(
       "TextChanged",
@@ -162,4 +162,4 @@ local function bind_autocmds(no_text_changed)
   )
 end
 
-return bind_autocmds
+return bind_forward_deletions
