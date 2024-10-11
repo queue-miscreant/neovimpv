@@ -43,7 +43,14 @@ function neovimpv.setup(opts)
     "FileType",
     {
       pattern = "youtube_results",
-      callback = youtube.bind_to_buffer,
+      callback = youtube.bind_buffer_results,
+    }
+  )
+  vim.api.nvim_create_autocmd(
+    "FileType",
+    {
+      pattern = "youtube_playlist",
+      callback = youtube.bind_buffer_playlist,
     }
   )
 end

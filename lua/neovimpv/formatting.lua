@@ -12,13 +12,13 @@ local formatting = {}
 
 ---@alias virt_text [string, highlight][]
 
----@class formatter_field
+---@class FormatterField
 ---@field name string
 ---@field handler fun(field_name: any): string
 
 ---@class Formatter
 ---@field pattern string
----@field fields (formatter_field | [string, string])[]
+---@field fields (FormatterField | [string, string])[]
 ---@field render fun(self: Formatter, input_dict: {[string]: any}): string
 
 ---@type display_style
@@ -181,7 +181,7 @@ end
 
 ---@param format_string string
 function formatting.compile(format_string)
-  ---@type (formatter_field | [string, highlight])[]
+  ---@type (FormatterField | [string, highlight])[]
   local fields = {}
 
   for match, post in format_string:gmatch("([^}]+)}([^{]*)") do
@@ -210,7 +210,7 @@ function formatting.compile(format_string)
           handler = try_handler and function(val)
             return { try_handler(val), camel_field }
           end or default_handler,
-        } --[[@as formatter_field]]
+        } --[[@as FormatterField]]
       )
 
       if post ~= "" then
@@ -223,25 +223,22 @@ function formatting.compile(format_string)
   end
 
   format_settings.fields = fields
-end
 
-function formatting.parse_user_settings()
-  local var_format = config.format  -- user format
-  local display_style = DISPLAY_STYLES[config.style]
-    or DISPLAY_STYLES[DEFAULT_STYLE] -- user display scheme
-
-  local var_thresholds = config.property_thresholds  -- user thresholds
-
-  formatting.settings.display_style = display_style
-  formatting.compile_thresholds(var_thresholds)
-  formatting.compile(var_format)
-
+  -- mpv groups for Python to be aware of
   formatting.groups = vim.tbl_values(
     vim.tbl_map(
       function(field) return field.name end,
-      formatting.settings.fields
+      fields
     )
   )
+end
+
+function formatting.parse_user_settings()
+  formatting.settings.display_style = DISPLAY_STYLES[
+    config.style or DEFAULT_STYLE
+  ]
+  formatting.compile_thresholds(config.property_thresholds)
+  formatting.compile(config.format)
 end
 
 ---@param input_dict {[string]: any}

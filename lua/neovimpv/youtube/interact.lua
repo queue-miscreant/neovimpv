@@ -5,6 +5,7 @@
 
 local consts = require "neovimpv.consts"
 local config = require "neovimpv.config"
+local keys = require "neovimpv.keys"
 
 local interact = {}
 
@@ -146,7 +147,7 @@ local function yank_youtube_link()
   vim.fn.setreg(event.regname, current.link)
 end
 
-function interact.bind_to_buffer()
+function interact.bind_buffer_results()
   local vks = vim.keymap.set
   -- Close buffer on q
   vks("n", "q", ":q<cr>", {silent = true, buffer = true})
@@ -226,6 +227,13 @@ function interact.bind_to_buffer()
       callback = yank_youtube_link,
     }
   )
+end
+
+function interact.bind_buffer_playlist()
+  vim.wo.wrap = false
+  vim.bo.bufhidden = true
+
+  keys.bind_smart_local()
 end
 
 return interact
