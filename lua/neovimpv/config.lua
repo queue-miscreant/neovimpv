@@ -40,7 +40,7 @@ local table_configs = {}
 local GLOBAL_PREFIX = "mpv_"
 
 -- Start with defaults
-local config = default_config
+local config = vim.deepcopy(default_config) or default_config
 
 -- Additional updates to config
 local function update_config()
@@ -92,8 +92,9 @@ function config.load_globals(opts)
   end
 
   -- Load tableized options
-  for option, suboptions in pairs(table_configs) do
-    for _, suboption in ipairs(suboptions) do
+  for _, option in ipairs(table_configs) do
+    ---@diagnostic disable-next-line
+    for suboption, _ in pairs(default_config[option] or {}) do
       local global_value = vim.g[GLOBAL_PREFIX .. option .. "_" .. suboption]
       -- Convert Vim global from truthy number to boolean
       if type(global_value) == "number" and type(default_config[option][suboption]) == "boolean" then
@@ -102,7 +103,6 @@ function config.load_globals(opts)
       local lazy_value = (opts[option] or {})[suboption]
 
       if global_value ~= nil then
-        print("HERE", global_value)
         config[option][suboption] = global_value
       end
       if lazy_value ~= nil then
