@@ -187,6 +187,7 @@ class MpvWrapper:
 
     def _preamble(self):
         """Update buffer text after new file loaded."""
+        self.no_draw = False
         # Have enough information to update with video title
         current_playlist_id = self.protocol.last_playlist_entry_id
         playlist_item = self.manager.playlist.playlist_id_to_item.get(
@@ -331,7 +332,6 @@ class MpvPlaylist:
                 playlist_id,
                 mpv.protocol.data.get("playlist"),
             )
-        mpv.no_draw = False
 
     def update_currently_playing(
         self, mpv: MpvWrapper, current_playlist_id, redirected_playlist_id
