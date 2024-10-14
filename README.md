@@ -58,7 +58,7 @@ Use the following LazySpec:
 ```lua
 {
   "queue-miscreant/neovimpv",
-  config = {
+  opts = {
     -- Configuration goes here
   },
 }

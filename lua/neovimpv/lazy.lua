@@ -1,4 +1,5 @@
 return {
+  "queue-miscreant/neovimpv",
   build = ":UpdateRemotePlugins",
-  cmd = "MpvOpen",
+  opts = {},
 }

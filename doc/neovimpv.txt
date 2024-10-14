@@ -294,7 +294,7 @@ CONFIGURATION                                           *neovimpv-configuration*
 
 The following configuration options may be specified in your lazy.nvim.
 
-They may also be configured from Vim globals (|g:|) in your vim init script.
+They may also be configured from Vim globals (|g:|) in your Vim init script.
 As Vim globals, the names are prefixed with `mpv_`.
 If the Vim globals are changed, they will NOT take effect without either
 restarting or setting up the plugin again.
