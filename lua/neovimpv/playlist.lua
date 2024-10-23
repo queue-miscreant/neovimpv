@@ -50,8 +50,8 @@ function playlist.show_playlist_current(buffer, playlist_id, virt_text)
         id = playlist_id,
         virt_lines = {{
           {"Currently playing: ", "MpvDefault"},
-          {virt_text, "MpvTitle"}
-        }},
+          {virt_text, "MpvTitle"},
+        }} --[[@as VirtText[] ]],
         sign_text = "|",
         sign_hl_group = "MpvPlaylistSign"
       }

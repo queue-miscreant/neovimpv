@@ -1,6 +1,5 @@
 local consts = require "neovimpv.consts"
 
----@alias GetExtmark [integer, integer, integer]
 ---@diagnostic disable-next-line
 ---@cast vim.b.mpv_playlists_to_displays {[string]: integer}
 

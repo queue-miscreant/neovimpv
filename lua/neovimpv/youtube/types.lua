@@ -1,4 +1,4 @@
----@alias VirtText [string, string][]
+---@meta
 
 ---@alias YTSearchResult (YTVideo | YTPlaylist)
 

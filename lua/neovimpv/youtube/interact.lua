@@ -139,12 +139,19 @@ end
 -- Replace yank contents with URL
 local function yank_youtube_link()
   local event = vim.v.event
-  if not ( event.regcontents:len() == 1 and event.operator == "y" ) then
+  if not ( (event.regcontents[1] or ""):len() ~= 0 and event.operator == "y" ) then
     return
   end
 
   local current = vim.b.mpv_selection[vim.fn.line(".")]
+  vim.notify("Yanked '" .. current.link .. "'")
   vim.fn.setreg(event.regname, current.link)
+  -- Don't forget the system clipboard!
+  if vim.o.clipboard == "unnamed" then
+    vim.fn.setreg("*", current.link)
+  elseif vim.o.clipboard == "unnamedplus" then
+    vim.fn.setreg("+", current.link)
+  end
 end
 
 function interact.bind_buffer_results()

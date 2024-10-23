@@ -6,27 +6,12 @@ local config = require "neovimpv.config"
 
 local formatting = {}
 
----@alias display_style "ligature" | "unicode" | "emoji"
-
----@alias highlight string
-
----@alias virt_text [string, highlight][]
-
----@class FormatterField
----@field name string
----@field handler fun(field_name: any): string
-
----@class Formatter
----@field pattern string
----@field fields (FormatterField | [string, string])[]
----@field render fun(self: Formatter, input_dict: {[string]: any}): string
-
----@type display_style
+---@type DisplayStyle
 local DEFAULT_STYLE = "unicode"
 
 --- Dict of static display styles.
 --- Exact values (as table entries) are converted to a string-highlight pair
----@type {[display_style]: {[string]: {[any]: [string, highlight]}}}
+---@type {[DisplayStyle]: {[string]: {[any]: [string, Highlight]}}}
 local DISPLAY_STYLES = {
   ligature = {
     pause = {
@@ -111,7 +96,7 @@ local function kebab_to_camel(str)
 end
 
 --- Bind new highlights, if necessary
----@param highlights highlight[]
+---@param highlights Highlight[]
 local function bind_new_highlights(highlights)
   for _, highlight in pairs(highlights) do
     if vim.fn.hlexists(highlight) == 0 then
@@ -242,7 +227,7 @@ function formatting.parse_user_settings()
 end
 
 ---@param input_dict {[string]: any}
----@return virt_text
+---@return VirtText
 function formatting.render(input_dict)
   return vim.tbl_map(
     function(field)

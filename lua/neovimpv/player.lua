@@ -13,11 +13,6 @@ local PLAYLIST_NAMESPACE = consts.playlist_namespace
 
 local player = {}
 
----@class extmark_args
----@field id integer
----@field virt_text? virt_text
----@field virt_text_pos string
-
 ---Get all extmark ids of all players in the display namespace, which should correspond to Python MpvInstances
 ---
 ---@param buffer integer
@@ -77,7 +72,7 @@ end
 ---
 ---@param buffer integer
 ---@param extmark_id integer
----@param content extmark_args
+---@param content ExtmarkArgs
 local function update_extmark(buffer, extmark_id, content)
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     buffer,
@@ -107,19 +102,19 @@ function player.update_extmark(buffer, extmark_id, data, force_text)
   local display = {
     id = extmark_id,
     virt_text_pos = "eol",
-  } --[[@as extmark_args]]
+  } --[[@as ExtmarkArgs]]
 
   local video = data["video-format"] ~= vim.NIL
   if force_text ~= vim.NIL then
-    display.virt_text = {{force_text, "MpvDefault"}} --[[@as virt_text]]
+    display.virt_text = {{force_text, "MpvDefault"}} --[[@as VirtText]]
   elseif video then
-    display.virt_text = {{"[ Window ]", "MpvDefault"}} --[[@as virt_text]]
+    display.virt_text = {{"[ Window ]", "MpvDefault"}} --[[@as VirtText]]
   else
     display.virt_text = formatting.render(data)
   end
 
   if display.virt_text == nil or display.virt_text == "" then
-    display.virt_text = {{config.loading, "MpvDefault"}} --[[@as virt_text]]
+    display.virt_text = {{config.loading, "MpvDefault"}} --[[@as VirtText]]
   end
 
   update_extmark(buffer, extmark_id, display)
