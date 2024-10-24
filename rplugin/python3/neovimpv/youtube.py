@@ -302,7 +302,7 @@ async def open_results_buffer(nvim, youtube_query, old_window):
     # TODO: potentially allow user to fetch only videos or only playlists
     results = [[format_result(i), i] for i in results["all"]]
 
-    nvim.lua.vim.neovimpv._python.open_youtube_select_split( # pylint: disable=protected-access
+    nvim.lua.vim._neovimpv_callbacks.open_youtube_select_split( # pylint: disable=protected-access
         results,
         old_window,
         5,
@@ -328,7 +328,7 @@ async def open_first_result(nvim, youtube_query, old_window):
         return
 
     def open_result():
-        nvim.lua.vim.neovimpv._python.paste_youtube_result( # pylint: disable=protected-access
+        nvim.lua.vim._neovimpv_callbacks.paste_youtube_result( # pylint: disable=protected-access
             results["all"][0]["link"],
             old_window,
             True
@@ -354,7 +354,7 @@ async def open_playlist_results(nvim, playlist, extra):
     if results is None:
         return
 
-    nvim.lua.vim.neovimpv._python.open_youtube_playlist_results( # pylint: disable=protected-access
+    nvim.lua.vim._neovimpv_callbacks.open_youtube_playlist_results( # pylint: disable=protected-access
         results,
         extra
     )

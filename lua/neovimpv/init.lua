@@ -12,8 +12,6 @@ local youtube_interact = require "neovimpv.youtube.interact"
 
 
 local neovimpv = {
-  -- Exposed callbacks for Python
-  _python = require "neovimpv.python_callbacks",
   formatting = formatting,
   config = config, -- Temporary
   consts = consts,
@@ -69,5 +67,7 @@ function neovimpv.setup(opts)
   )
 end
 
-vim.neovimpv = neovimpv
+-- Exposed callbacks for Python
+vim._neovimpv_callbacks = require "neovimpv.python_callbacks"
+
 return neovimpv

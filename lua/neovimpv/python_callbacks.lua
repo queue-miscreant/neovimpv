@@ -8,6 +8,10 @@ local playlist = require "neovimpv.playlist"
 local youtube_push_results = require "neovimpv.youtube.push_results"
 
 return {
+  -- __init__.py
+  get_player_by_line = player.get_player_by_line,
+  remove_player = player.remove_player,
+
   -- player.py
   create_player = player.create_player,
 
