@@ -1,22 +1,19 @@
--- neovimpv.lua
+-- neovimpv
 --
 -- Collects all Lua functionality into a single file for import.
 -- Lua functions are used to reduce IPC with for repeated editor
 -- manipulations, such as setting buffer contents or getting/setting extmarks.
 
-local player = require "neovimpv.player"
-local playlist = require "neovimpv.playlist"
-local youtube = require "neovimpv.youtube"
-local formatting = require "neovimpv.formatting"
 local config = require "neovimpv.config"
 local consts = require "neovimpv.consts"
-
 local keys = require "neovimpv.keys"
+local formatting = require "neovimpv.formatting"
+local youtube_interact = require "neovimpv.youtube.interact"
+
 
 local neovimpv = {
-  player = player,
-  playlist = playlist,
-  youtube = youtube,
+  -- Exposed callbacks for Python
+  _python = require "neovimpv.python_callbacks",
   formatting = formatting,
   config = config, -- Temporary
   consts = consts,
@@ -54,14 +51,14 @@ function neovimpv.setup(opts)
     "FileType",
     {
       pattern = "youtube_results",
-      callback = youtube.bind_buffer_results,
+      callback = youtube_interact.bind_buffer_results,
     }
   )
   vim.api.nvim_create_autocmd(
     "FileType",
     {
       pattern = "youtube_playlist",
-      callback = youtube.bind_buffer_playlist,
+      callback = youtube_interact.bind_buffer_playlist,
     }
   )
   vim.api.nvim_create_autocmd(

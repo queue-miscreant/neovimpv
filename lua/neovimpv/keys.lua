@@ -1,3 +1,7 @@
+-- neovimpv.keys
+--
+-- Keybinds and callbacks thereof. Keys include omnikey and navigation.
+
 local player = require "neovimpv.player"
 local config = require "neovimpv.config"
 local consts = require "neovimpv.consts"
@@ -116,6 +120,7 @@ end
 
 function keys.bind_base()
   local vks = vim.keymap.set
+
   vks("n", "<Plug>(mpv_omnikey)", function() omnikey() end)
   vks("n", "<Plug>(mpv_omnikey_video)", function() omnikey("--video=auto") end)
   vks("v", "<Plug>(mpv_omnikey)", function() omnikey("vline --", true) end)
@@ -129,6 +134,7 @@ end
 
 function keys.bind_smart_local()
   local vks = vim.keymap.set
+
   vks(
     {"n", "v"},
     "<leader>" .. config.playlist_key,
