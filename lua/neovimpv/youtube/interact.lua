@@ -234,6 +234,8 @@ function interact.bind_buffer_results()
       callback = yank_youtube_link,
     }
   )
+
+  set_youtube_extmark()
 end
 
 function interact.bind_buffer_playlist()

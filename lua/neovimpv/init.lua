@@ -65,6 +65,10 @@ function neovimpv.setup(opts)
       callback = push_python_options
     }
   )
+
+  if vim.list_contains(config.smart_filetypes, vim.bo.filetype) then
+    keys.bind_smart_local()
+  end
 end
 
 -- Exposed callbacks for Python
