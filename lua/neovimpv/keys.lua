@@ -107,7 +107,7 @@ local function youtube_search_prompt(first_result)
   end
 
   ---@type boolean, string|nil
-  local ok, query = pcall(function() vim.fn.input("YouTube Search: ") end)
+  local ok, query = pcall(function() return vim.fn.input("YouTube Search: ") end)
 
   if ok and (query or ""):len() ~= 0 then
     if first_result then

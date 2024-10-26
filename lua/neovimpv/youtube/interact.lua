@@ -89,6 +89,7 @@ local function set_youtube_extmark()
   prev_line = vim.fn.line(".")
 
   local current = vim.b.mpv_selection[prev_line]
+  -- vim.print(current)
   if current.video_id then
     ---@cast current YTVideo
     vim.api.nvim_buf_set_extmark(
@@ -235,6 +236,7 @@ function interact.bind_buffer_results()
     }
   )
 
+  prev_line = -1
   set_youtube_extmark()
 end
 
