@@ -62,7 +62,7 @@ function neovimpv.setup(opts)
   vim.api.nvim_create_autocmd(
     "VimEnter",
     {
-      callback = push_python_options
+      callback = function() pcall(push_python_options) end,
     }
   )
 

@@ -93,7 +93,8 @@ class MpvWrapper:
 
         # draw_update is called asynchronously, so protect against errors from this call
         try:
-            self.manager.plugin.nvim.lua.vim._neovimpv_callbacks.update_extmark( # pylint: disable=protected-access
+            self.manager.plugin.nvim.async_call( # pylint: disable=protected-access
+                self.manager.plugin.nvim.lua.vim._neovimpv_callbacks.update_extmark, # pylint: disable=protected-access
                 self.manager.buffer,
                 self.manager.id,
                 # Remove the playlist, since it can get long and shouldn't be drawn
@@ -132,7 +133,8 @@ class MpvWrapper:
         ):
             return
 
-        self.manager.plugin.nvim.lua.vim._neovimpv_callbacks.write_line_of_playlist_item( # pylint: disable=protected-access
+        self.manager.plugin.nvim.async_call(
+            self.manager.plugin.nvim.lua.vim._neovimpv_callbacks.write_line_of_playlist_item, # pylint: disable=protected-access
             self.manager.buffer,
             mpv_item.extmark_id,
             f"[{media_title.replace('[', '(').replace(']',')')}]({mpv_item.filename})",
@@ -385,7 +387,8 @@ class MpvPlaylist:
             )
             return
 
-        mpv.manager.plugin.nvim.lua.vim._neovimpv_callbacks.show_playlist_current( # pylint: disable=protected-access
+        mpv.manager.plugin.nvim.async_call(
+            mpv.manager.plugin.nvim.lua.vim._neovimpv_callbacks.show_playlist_current, # pylint: disable=protected-access
             mpv.manager.buffer, mpv_item.extmark_id, current_title
         )
         mpv.no_draw = False

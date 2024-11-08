@@ -17,7 +17,7 @@ return {
 
   -- mpv.py
   update_extmark = player.update_extmark,
-  write_line_of_playlist_item = player.write_line_of_playlist_item,
+  write_line_of_playlist_item = playlist.write_line_of_playlist_item,
   move_player = player.move_player,
   show_playlist_current = playlist.show_playlist_current,
   paste_playlist = playlist.paste_playlist,

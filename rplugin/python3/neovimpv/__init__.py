@@ -305,7 +305,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
 
     @pynvim.function("MpvSetOptions", sync=True)
     def mpv_set_options(self, args):
-        """Set currently playing item"""
+        """Set default options in Python state"""
         if len(args) != 1:
             raise TypeError(f"Expected 1 argument, got {len(args)}")
 
