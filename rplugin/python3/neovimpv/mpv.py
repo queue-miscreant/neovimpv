@@ -264,7 +264,7 @@ class MpvPlaylist:
                 mapped.add(self.playlist_id_remap[playlist_id])
             if playlist_id in self.playlist_id_to_item:
                 # create a new MpvItem instance
-                new_items[i + 1] = self.playlist_id_to_item[playlist_id]._replace()
+                new_items[i + 1] = self.playlist_id_to_item[playlist_id]
 
         for extmark_id in mapped:
             # attempt to find remapped extmarks and assign them in the item dict

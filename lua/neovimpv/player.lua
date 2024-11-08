@@ -113,7 +113,7 @@ function player.update_extmark(buffer, extmark_id, data, force_text)
     display.virt_text = formatting.render(data)
   end
 
-  if display.virt_text == nil or display.virt_text == "" then
+  if display.virt_text == nil or force_text == "" then
     display.virt_text = {{config.loading, "MpvDefault"}} --[[@as VirtText]]
   end
 

@@ -500,8 +500,8 @@ class MpvManager:  # pylint: disable=too-many-instance-attributes
         self.mpv.protocol.send_command("quit")
         # Draw a filler line
         self.playlist.reorder_by_index(old_playlist)
+        self.plugin.nvim.async_call(self.mpv.draw_update)
         await self.mpv.protocol.next_event("close")
-        self.plugin.nvim.async_call(self.mpv.draw_update, "")
 
         log.info("Spawning player...")
         self._mpv_args += ["--video=auto"]
