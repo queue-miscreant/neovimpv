@@ -137,6 +137,79 @@ local function set_youtube_extmark()
   end
 end
 
+local function add_keybinds()
+  -- Keybinds
+  local specs = {
+    {
+      "<cr>",
+      function() open_result("") end,
+      desc = "Open result",
+    },
+    {
+      "p",
+      function() open_result("paste --") end,
+      desc = "Paste result (do not play)",
+    },
+    {
+      "p",
+      function() open_result("paste --") end,
+      desc = "Open result (paste playlist in-place)",
+    },
+    {
+      "P",
+      function() open_result("paste -- --video=auto") end,
+      desc = "Open result (video, paste playlist in-place)",
+    },
+    {
+      "n",
+      function() open_result("new --") end,
+      desc = "Open result (in new split)",
+    },
+    {
+      "N",
+      function() open_result("new -- --video=auto") end,
+      desc = "Open result (video, in new split)",
+    },
+    {
+      "i",
+      open_result_thumbnail,
+      desc = "View thumbnail",
+    },
+  }
+  for _, video_binding in pairs{"<s-enter>", "v"} do
+    table.insert(specs, {
+      video_binding,
+      function() open_result("--video=auto") end,
+      desc = "Open result (video)",
+    })
+  end
+
+  -- More informative names through which-key
+  local success, which_key = pcall(require, "which-key")
+  if success then
+    which_key.add({
+      specs,
+      silent = true,
+      buffer = 0,
+    })
+    return
+  end
+
+  -- Backup bindings
+  local vks = vim.keymap.set
+  for _, spec in ipairs(specs) do
+    vks(
+      spec.mode or "n",
+      spec[1],
+      spec[2],
+      {
+        silent=true,
+        buffer=0,
+      }
+    )
+  end
+end
+
 -- Replace yank contents with URL
 local function yank_youtube_link()
   local event = vim.v.event
@@ -156,9 +229,8 @@ local function yank_youtube_link()
 end
 
 function interact.bind_buffer_results()
-  local vks = vim.keymap.set
   -- Close buffer on q
-  vks("n", "q", ":q<cr>", {silent = true, buffer = true})
+  vim.keymap.set("n", "q", ":q<cr>", {silent = true, buffer = true})
 
   -- Local options
   vim.wo.number = false
@@ -180,46 +252,7 @@ function interact.bind_buffer_results()
     return
   end
 
-  -- Keybinds
-  vks(
-    "n",
-    "<cr>",
-    function() open_result("") end,
-    {silent = true, buffer = true}
-  )
-  for _, video_binding in pairs{"<s-enter>", "v"} do
-    vks(
-      "n",
-      video_binding,
-      function() open_result("--video=auto") end,
-      {silent = true, buffer = true}
-    )
-  end
-  vks(
-    "n",
-    "p",
-    function() open_result("paste --") end,
-    {silent = true, buffer = true}
-  )
-  vks(
-    "n",
-    "P",
-    function() open_result("paste -- --video=auto") end,
-    {silent = true, buffer = true}
-  )
-  vks(
-    "n",
-    "n",
-    function() open_result("new --") end,
-    {silent = true, buffer = true}
-  )
-  vks(
-    "n",
-    "N",
-    function() open_result("new -- --video=auto") end,
-    {silent = true, buffer = true}
-  )
-  vks("n", "i", open_result_thumbnail, {silent = true, buffer = true})
+  add_keybinds()
 
   vim.api.nvim_create_autocmd(
     "CursorMoved",

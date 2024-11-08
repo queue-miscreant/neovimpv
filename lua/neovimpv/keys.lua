@@ -133,51 +133,71 @@ function keys.bind_base()
 end
 
 function keys.bind_smart_local()
-  local vks = vim.keymap.set
-
-  vks(
-    {"n", "v"},
-    "<leader>" .. config.playlist_key,
-    "<Plug>(mpv_omnikey)",
-    {silent = true, buffer = 0}
-  )
+  local specs = {
+    {
+      "<leader>" .. config.playlist_key,
+      "<Plug>(mpv_omnikey)",
+      mode = {"n", "v"},
+      desc = "Mpv Omnikey",
+    },
+    {
+      "<leader>yt",
+      "<Plug>(mpv_youtube_prompt)",
+      desc = "Open YouTube prompt",
+    },
+    {
+      "<leader>Yt",
+      "<Plug>(mpv_youtube_prompt_lucky)",
+      desc = "Open YouTube prompt (I'm feeling lucky)",
+    },
+    {
+      "<leader>[",
+      "<Plug>(mpv_goto_earlier)",
+      desc = "Go to previous mpv instance",
+    },
+    {
+      "<leader>]",
+      "<Plug>(mpv_goto_later)",
+      desc = "Go to next mpv instance",
+    },
+  }
 
   if
     config.playlist_key_video ~= ""
     and config.playlist_key_video ~= config.playlist_key
   then
-    vks(
-      {"n", "v"},
+    table.insert(specs, {
       "<leader>" .. config.playlist_key_video,
-      "<Plug>(mpv_omnikey)",
-      {silent = true, buffer = 0}
-    )
+      "<Plug>(mpv_omnikey_video)",
+      mode = {"n", "v"},
+      desc = "Mpv Omnikey (Video)",
+    })
   end
 
-  vks(
-    "n",
-    "<leader>yt",
-    "<Plug>(mpv_youtube_prompt)",
-    {silent = true, buffer = 0}
-  )
-  vks(
-    "n",
-    "<leader>Yt",
-    "<Plug>(mpv_youtube_prompt_lucky)",
-    {silent = true, buffer = 0}
-  )
-  vks(
-    "n",
-    "<leader>[",
-    "<Plug>(mpv_goto_earlier)",
-    {silent = true, buffer = 0}
-  )
-  vks(
-    "n",
-    "<leader>]",
-    "<Plug>(mpv_goto_later)",
-    {silent = true, buffer = 0}
-  )
+  -- More informative names through which-key
+  local success, which_key = pcall(require, "which-key")
+  if success then
+    which_key.add({
+      specs,
+      silent = true,
+      buffer = 0,
+    })
+    return
+  end
+
+  -- Backup bindings
+  local vks = vim.keymap.set
+  for _, spec in ipairs(specs) do
+    vks(
+      spec.mode or "n",
+      spec[1],
+      spec[2],
+      {
+        silent=true,
+        buffer=0,
+      }
+    )
+  end
 end
 
 return keys
