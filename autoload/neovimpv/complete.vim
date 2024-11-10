@@ -14,7 +14,7 @@ endfunction
 
 " Find entries of `list` which start with `partial` and sort them
 function s:match_partial(list, partial)
-  return sort(filter(a:list, "v:val =~ '^" . a:partial . "'"))
+  return sort(filter(copy(a:list), "v:val =~ '^" . a:partial . "'"))
 endfunction
 
 " 
@@ -387,6 +387,8 @@ endfunction
 " Complete readable properties
 function neovimpv#complete#mpv_get_property(arg_lead, cmd_line, cursor_pos)
   let argnumber = s:get_argnum(a:cmd_line, a:cursor_pos)
+
+  echom argnumber
 
   if argnumber == 1
     return s:match_partial(s:mpv_readable_properties, a:arg_lead)

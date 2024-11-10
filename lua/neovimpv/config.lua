@@ -14,11 +14,11 @@ local default_config = {
   default_args = {},
 
   -- When to show playlist extmarks in the sign column
-  -- Possible values: "always", "multiple", "never"
   ---@type "always" | "multiple" | "never"
   draw_playlist_extmarks = "multiple",
 
   -- Controls how playlist updates from mpv can affect changes in the buffer
+  ---@type "stay" | "paste" | "paste_one" | "new_one"
   on_playlist_update = "stay",
 
   -- Whether or not YouTube playlists are opened 'smartly'.
@@ -28,7 +28,7 @@ local default_config = {
   playlist_key = "\\",
   playlist_key_video = "",
 
-  -- Bind things in `markdown_writable` filetypes
+  -- Bind keys in `markdown_writable` filetypes
   markdown_smart_bindings = false,
 
   -- Filetypes which should have smart bindings added by default
