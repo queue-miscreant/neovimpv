@@ -307,8 +307,11 @@ def create_managed_mpv(  # pylint: disable=too-many-locals, too-many-arguments
     playlist_lines = list(preliminary_playlist.keys())
     playlist_lines.sort()
     try:
-        player_id, playlist_extmark_ids = plugin.nvim.lua.vim._neovimpv_callbacks.create_player( # pylint: disable=protected-access
-            current_buffer, playlist_lines  # only the line number, not the file name
+        player_id, playlist_extmark_ids = (
+            plugin.nvim.lua.vim._neovimpv_callbacks.create_player(  # pylint: disable=protected-access
+                current_buffer,
+                playlist_lines,  # only the line number, not the file name
+            )
         )
     except NvimError as exc:
         plugin.show_error("Could not create playlist in nvim!")

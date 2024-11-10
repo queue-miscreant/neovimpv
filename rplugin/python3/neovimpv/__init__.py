@@ -3,6 +3,7 @@ neovimpv
 
 Python backend, responsible for implementing commands which interact with mpv subprocesses.
 """
+
 import logging
 import json
 import os
@@ -141,7 +142,10 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         self.create_mpv_instance(target_link, start, end, args[1:], ignore_mode=True)
 
     @pynvim.command(
-        "MpvPause", nargs="?", range="", complete="customlist,neovimpv#complete#mpv_close_pause"
+        "MpvPause",
+        nargs="?",
+        range="",
+        complete="customlist,neovimpv#complete#mpv_close_pause",
     )
     def pause_mpv(self, args, range_):
         """Pause/unpause the mpv instance on the current line"""
@@ -302,7 +306,6 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
 
             self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
 
-
     @pynvim.function("MpvSetOptions", sync=True)
     def mpv_set_options(self, args):
         """Set default options in Python state"""
@@ -314,7 +317,6 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         self.on_playlist_update = args[0]["on_playlist_update"]
         self.smart_youtube = args[0]["smart_youtube"]
         MpvManager.set_default_args(args[0]["default_mpv_args"])
-
 
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):
@@ -405,7 +407,9 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         Get the mpv instance on the current line of the buffer, if such an
         instance exists.
         """
-        try_get_mpv = self.nvim.lua.vim._neovimpv_callbacks.get_player_by_line(buffer.number, line)
+        try_get_mpv = self.nvim.lua.vim._neovimpv_callbacks.get_player_by_line(
+            buffer.number, line
+        )
         if not try_get_mpv:
             return None
 
@@ -419,7 +423,9 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         """
         try:
             instance.no_draw = True
-            self.nvim.lua.vim._neovimpv_callbacks.remove_player(instance.buffer, instance.id)
+            self.nvim.lua.vim._neovimpv_callbacks.remove_player(
+                instance.buffer, instance.id
+            )
             if (instance.buffer, instance.id) in self._mpv_instances:
                 del self._mpv_instances[(instance.buffer, instance.id)]
         except pynvim.NvimError as e:
