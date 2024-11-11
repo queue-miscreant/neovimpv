@@ -33,6 +33,14 @@ local default_config = {
 
   -- Filetypes which should have smart bindings added by default
   smart_filetypes = {},
+
+  -- Path and arguments to youtube-dl command
+  youtube_dl = {
+    path = "",
+    video_args = { "-f", "43" },
+    audio_args = { "-x", "--audio-format", "mp3" },
+    download_path = "%",
+  },
 }
 
 -- Configuration settings which can be partially updated from user config
@@ -58,6 +66,7 @@ local function update_config()
     end
   end
 
+  -- Conditionally add `markdown_writable` into `smart_filetypes`
   if config.markdown_smart_bindings then
     for _, i in pairs(config.markdown_writable) do
       table.insert(config.smart_filetypes, i)
@@ -65,6 +74,15 @@ local function update_config()
     config.smart_filetypes = vim.fn.uniq(
       vim.fn.sort(config.smart_filetypes)
     )
+  end
+
+  -- Find yt-dlp/youtube-dl
+  if config.youtube_dl.path == "" then
+    local exepath = vim.fn.exepath("yt-dlp")
+    if exepath == "" then
+      exepath = vim.fn.exepath("youtube-dl")
+    end
+    config.youtube_dl.path = exepath
   end
 end
 

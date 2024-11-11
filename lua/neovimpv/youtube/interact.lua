@@ -7,6 +7,8 @@ local consts = require "neovimpv.consts"
 local config = require "neovimpv.config"
 local keys = require "neovimpv.keys"
 
+local download = require "neovimpv.youtube.download"
+
 local interact = {}
 
 ---@diagnostic disable-next-line
@@ -35,26 +37,30 @@ local function try_insert(value)
   return append_line
 end
 
--- Callback for youtube results buffers. Return to the calling window,
--- paste the link where the cursor is, then call MpvOpen.
--- Writes markdown if the buffer's filetype supports markdown.
-local function open_result(extra)
-  local current = vim.b.mpv_selection[vim.fn.line(".")]
+---@param file {link: string, markdown: string}
+---@param extra string
+---@param keep_results_open? boolean
+local function paste_and_play(file, extra, keep_results_open)
   local window = vim.b.mpv_calling_window
+  local result_window = vim.api.nvim_get_current_win()
   -- Close the youtube buffer and return the calling window
-  vim.cmd[[quit!]]
-  vim.fn.win_gotoid(window)
+  if keep_results_open then
+    vim.cmd[[quit!]]
+    vim.fn.win_gotoid(window)
+  else
+    vim.fn.win_gotoid(result_window)
+  end
 
   if not vim.bo.modifiable then
     vim.notify("Buffer is not modifiable. Cannot paste result.", vim.log.levels.ERROR)
     return
   end
 
-  local insert_link = current.link
+  local insert_link = file.link
 
   -- Markdownable content
   if vim.list_contains(config.markdown_writable, vim.bo.filetype) then
-    insert_link = current.markdown
+    insert_link = file.markdown
   end
 
   if try_insert(insert_link) then
@@ -62,6 +68,16 @@ local function open_result(extra)
   end
   vim.cmd(":MpvOpen " .. extra)
 end
+
+-- Callback for youtube results buffers. Return to the calling window,
+-- paste the link where the cursor is, then call MpvOpen.
+-- Writes markdown if the buffer's filetype supports markdown.
+local function open_result(extra)
+  local current = vim.b.mpv_selection[vim.fn.line(".")]
+
+  paste_and_play(current, extra)
+end
+
 
 -- Callback for youtube results buffers.
 -- Opens the thumbnail of result under the cursor in the system viewer.
@@ -175,6 +191,23 @@ local function add_keybinds()
       open_result_thumbnail,
       desc = "View thumbnail",
     },
+    {
+      "d",
+      function()
+        local current = vim.b.mpv_selection[vim.fn.line(".")]
+        download(current.link, false, function(filenames)
+          if #filenames > 1 then
+            vim.notify("Detected multiple output filenames. Only the first will be pasted.", vim.log.levels.WARN)
+          end
+
+          paste_and_play({
+            link = filenames[1].filename,
+            markdown = filenames[1].filename:find("%(") and filenames[1].filename or ("[%s](%s)"):format(filenames[1].title:gsub("[%[%]]", ""), filenames[1].filename)
+          }, "", true)
+        end)
+      end,
+      desc = "Download video",
+    },
   }
   for _, video_binding in pairs{"<s-enter>", "v"} do
     table.insert(specs, {
@@ -230,7 +263,7 @@ end
 
 function interact.bind_buffer_results()
   -- Close buffer on q
-  vim.keymap.set("n", "q", ":q<cr>", {silent = true, buffer = true})
+  vim.keymap.set("n", "q", ":q<cr>", {silent = true, buffer = 0})
 
   -- Local options
   vim.wo.number = false
