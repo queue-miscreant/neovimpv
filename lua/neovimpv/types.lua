@@ -21,3 +21,7 @@
 ---@field id integer
 ---@field virt_text? VirtText
 ---@field virt_text_pos string
+
+---@class PasteContent
+---@field link string
+---@field markdown string

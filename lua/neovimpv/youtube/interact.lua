@@ -4,7 +4,7 @@
 -- Provides functionality for selecting results, showing extra data, and yanking links.
 
 local consts = require "neovimpv.consts"
-local config = require "neovimpv.config"
+local helpers = require "neovimpv.helpers"
 local keys = require "neovimpv.keys"
 
 local download = require "neovimpv.youtube.download"
@@ -21,63 +21,37 @@ local interact = {}
 --  \____\__,_|_|_|_.__/ \__,_|\___|_|\_\___/
 --
 
--- Insert `value` at the line of the current cursor, if it's empty.
--- Otherwise, insert it a line below the current line.
-local function try_insert(value)
-  local row = vim.fn.line(".")
-  local append_line = vim.fn.getline(row):len() ~= 0
 
-  local targetrow = row
-  if append_line then
-    vim.fn.append(targetrow, value)
-  else
-    vim.fn.setline(targetrow, value)
+-- Callback wrapper for youtube results buffers.
+-- Return to the calling window and perform the action.
+--
+---@keep_results_open boolean
+---@param callback fun(content: PasteContent|PasteContent[], ...)
+local function do_result(keep_results_open, callback, ...)
+  local current = vim.b.mpv_selection[vim.fn.line(".")]
+  -- Get multiple entries if in visual mode
+  if vim.fn.mode():sub(1,1):lower() == "v" then
+    current = vim.list_slice(
+      vim.b.mpv_selection,
+      vim.fn.line("v"),
+      vim.fn.line(".")
+    )
   end
 
-  return append_line
-end
-
----@param file {link: string, markdown: string}
----@param extra string
----@param keep_results_open? boolean
-local function paste_and_play(file, extra, keep_results_open)
   local window = vim.b.mpv_calling_window
   local result_window = vim.api.nvim_get_current_win()
   -- Close the youtube buffer and return the calling window
-  if keep_results_open then
+  if not keep_results_open then
     vim.cmd[[quit!]]
-    vim.fn.win_gotoid(window)
-  else
+  end
+  vim.fn.win_gotoid(window)
+
+  callback(current, ...)
+
+  if keep_results_open then
     vim.fn.win_gotoid(result_window)
   end
-
-  if not vim.bo.modifiable then
-    vim.notify("Buffer is not modifiable. Cannot paste result.", vim.log.levels.ERROR)
-    return
-  end
-
-  local insert_link = file.link
-
-  -- Markdownable content
-  if vim.list_contains(config.markdown_writable, vim.bo.filetype) then
-    insert_link = file.markdown
-  end
-
-  if try_insert(insert_link) then
-    vim.cmd[[normal j]]
-  end
-  vim.cmd(":MpvOpen " .. extra)
 end
-
--- Callback for youtube results buffers. Return to the calling window,
--- paste the link where the cursor is, then call MpvOpen.
--- Writes markdown if the buffer's filetype supports markdown.
-local function open_result(extra)
-  local current = vim.b.mpv_selection[vim.fn.line(".")]
-
-  paste_and_play(current, extra)
-end
-
 
 -- Callback for youtube results buffers.
 -- Opens the thumbnail of result under the cursor in the system viewer.
@@ -153,37 +127,44 @@ local function set_youtube_extmark()
   end
 end
 
+
 local function add_keybinds()
   -- Keybinds
   local specs = {
     {
       "<cr>",
-      function() open_result("") end,
+      function()
+        do_result(false, helpers.paste_and_play, "")
+      end,
       desc = "Open result",
+      mode = {"n", "v"},
     },
     {
       "p",
-      function() open_result("paste --") end,
-      desc = "Paste result (do not play)",
-    },
-    {
-      "p",
-      function() open_result("paste --") end,
+      function()
+        do_result(false, helpers.paste_and_play, "paste --")
+      end,
       desc = "Open result (paste playlist in-place)",
     },
     {
       "P",
-      function() open_result("paste -- --video=auto") end,
+      function()
+        do_result(false, helpers.paste_and_play, "paste -- --video=auto")
+      end,
       desc = "Open result (video, paste playlist in-place)",
     },
     {
       "n",
-      function() open_result("new --") end,
+      function()
+        do_result(false, helpers.paste_and_play, "new --")
+      end,
       desc = "Open result (in new split)",
     },
     {
       "N",
-      function() open_result("new -- --video=auto") end,
+      function()
+        do_result(false, helpers.paste_and_play, "new -- --video=auto")
+      end,
       desc = "Open result (video, in new split)",
     },
     {
@@ -194,25 +175,35 @@ local function add_keybinds()
     {
       "d",
       function()
-        local current = vim.b.mpv_selection[vim.fn.line(".")]
-        download(current.link, false, function(filenames)
-          if #filenames > 1 then
-            vim.notify("Detected multiple output filenames. Only the first will be pasted.", vim.log.levels.WARN)
-          end
+        do_result(false, function(current)
+          -- Normalize to singleton
+          if #current == 0 then current = {current} end
+          local links = vim.tbl_map(function(x) return x.link end, current)
+          -- Grab these before we download
+          local window = vim.b.mpv_calling_window
+          local cursor_line = vim.fn.line(".", window)
 
-          paste_and_play({
-            link = filenames[1].filename,
-            markdown = filenames[1].filename:find("%(") and filenames[1].filename or ("[%s](%s)"):format(filenames[1].title:gsub("[%[%]]", ""), filenames[1].filename)
-          }, "", true)
+          download(links, false, function(filenames)
+            ---@type PasteContent[]
+            local as_pastable = vim.tbl_map(function(x)
+              return {
+                link = x.filename,
+                markdown = helpers.markdownify(x.title, x.filename),
+              } --[[@as PasteContent]]
+            end, filenames)
+            helpers.paste_and_play(as_pastable, "", window, cursor_line)
+          end)
         end)
       end,
-      desc = "Download video",
+      desc = "Download (audio only)",
     },
   }
   for _, video_binding in pairs{"<s-enter>", "v"} do
     table.insert(specs, {
       video_binding,
-      function() open_result("--video=auto") end,
+      function()
+        do_result(false, helpers.paste_and_play, "--video=auto")
+      end,
       desc = "Open result (video)",
     })
   end
