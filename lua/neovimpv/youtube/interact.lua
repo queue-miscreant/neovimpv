@@ -3,7 +3,6 @@
 -- Buffer interaction for YouTube results.
 -- Provides functionality for selecting results, showing extra data, and yanking links.
 
-local consts = require "neovimpv.consts"
 local helpers = require "neovimpv.helpers"
 local keys = require "neovimpv.keys"
 
@@ -84,7 +83,7 @@ local function set_youtube_extmark()
     ---@cast current YTVideo
     vim.api.nvim_buf_set_extmark(
       0,
-      consts.display_namespace,
+      helpers.display_namespace,
       vim.fn.line(".") - 1,
       0,
       {
@@ -114,7 +113,7 @@ local function set_youtube_extmark()
     end
     vim.api.nvim_buf_set_extmark(
       0,
-      consts.display_namespace,
+      helpers.display_namespace,
       vim.fn.line(".") - 1,
       0,
       {

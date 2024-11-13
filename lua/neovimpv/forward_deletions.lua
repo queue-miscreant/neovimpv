@@ -1,4 +1,4 @@
-local consts = require "neovimpv.consts"
+local helpers = require "neovimpv.helpers"
 
 ---@diagnostic disable-next-line
 ---@cast vim.b.mpv_playlists_to_displays {[string]: integer}
@@ -21,7 +21,7 @@ local function calculate_change(new_lines)
 
   local new_old_extmark = vim.api.nvim_buf_get_extmarks(
     0,
-    consts.playlist_namespace,
+    helpers.playlist_namespace,
     {old_range[1] - 1, 0},
     {old_range[2] - 1, -1},
     {}
@@ -57,7 +57,7 @@ local function get_players_with_deletions(removed_playlist)
 
       vim.api.nvim_buf_del_extmark(
         0,
-        consts.playlist_namespace,
+        helpers.playlist_namespace,
         playlist_extmark_id
       )
       table.insert(
@@ -90,7 +90,7 @@ local function buffer_change_callback(old_extmarks)
   end
   local invisible_extmarks = vim.api.nvim_buf_get_extmarks(
     0,
-    consts.display_namespace,
+    helpers.display_namespace,
     {vim.fn.line("$"), 0},
     {-1, -1},
     {}

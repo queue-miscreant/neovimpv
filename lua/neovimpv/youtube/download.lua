@@ -73,6 +73,7 @@ local function download(urls, with_video, callback)
     youtube_dl_args,
     {
       cwd = vim.fn.fnamemodify(cwd, vim.fn.isdirectory(cwd) == 1 and ":p" or ":p:h"),
+      -- TODO: stdout handler which updates progress
     },
     function(obj) youtube_dl_callback(obj, callback) end
   )

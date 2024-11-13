@@ -2,6 +2,9 @@ local config = require "neovimpv.config"
 
 local helpers = {}
 
+helpers.display_namespace = vim.api.nvim_create_namespace("Neovimpv-displays")
+helpers.playlist_namespace = vim.api.nvim_create_namespace("Neovimpv-playlists")
+
 -- Insert `value` at the line of the current cursor, if it's empty.
 -- Otherwise, insert it a line below the current line.
 ---@param values string|string[]

@@ -4,7 +4,7 @@
 
 local player = require "neovimpv.player"
 local config = require "neovimpv.config"
-local consts = require "neovimpv.consts"
+local helpers = require "neovimpv.helpers"
 
 local keys = {}
 
@@ -80,7 +80,7 @@ local function goto_relative_mpv(direction)
 
   local mpv_instances = vim.api.nvim_buf_get_extmarks(
     0,
-    consts.display_namespace,
+    helpers.display_namespace,
     start,
     end_,
     {}
