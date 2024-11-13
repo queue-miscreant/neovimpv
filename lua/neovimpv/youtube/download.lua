@@ -10,6 +10,24 @@ local config = require "neovimpv.config"
 ---@field title string
 ---@field filename string
 
+-- Renames and mutates a list of paths and titles from youtube-dl.
+-- Filenames containing the characters "()" are replaced with "[]"
+-- Titles containing the characters "[]" are replaced with "()"
+--
+---@param files YtdlFile[]
+local function rename_brackets(files)
+  for _, file in ipairs(files) do
+    local new_filename = file.filename:gsub("%(", "["):gsub("%)", "]")
+
+    vim.fn.rename(
+      file.filename,
+      new_filename
+    )
+    file.filename = new_filename
+    file.title = file.title:gsub("%[", "("):gsub("%]", ")")
+  end
+end
+
 ---@param obj NvimSystemCompleted
 ---@param callback? fun(filenames: YtdlFile[])
 local function youtube_dl_callback(obj, callback)
@@ -45,7 +63,10 @@ local function youtube_dl_callback(obj, callback)
   end
 
   if callback then
-    vim.defer_fn(function() callback(files) end, 0)
+    vim.defer_fn(function()
+      rename_brackets(files)
+      callback(files)
+    end, 0)
   end
 end
 

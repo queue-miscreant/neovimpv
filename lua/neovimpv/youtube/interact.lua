@@ -60,10 +60,10 @@ local function open_result_thumbnail()
 
   -- TODO
   vim.fn.system(
-    'read -r url; ' ..
-    'temp=`mktemp`; ' ..
-    'curl -L "$url" > "$temp" 2>/dev/null; ' ..
-    'xdg-open "$temp"',
+    'read -r url; '
+    .. 'temp=`mktemp`; '
+    .. 'curl -L "$url" > "$temp" 2>/dev/null; '
+    .. 'xdg-open "$temp"',
     current.thumbnail
   )
 end
@@ -174,12 +174,12 @@ local function add_keybinds()
     {
       "d",
       function()
+        local window = vim.b.mpv_calling_window
         do_result(false, function(current)
           -- Normalize to singleton
           if #current == 0 then current = {current} end
           local links = vim.tbl_map(function(x) return x.link end, current)
           -- Grab these before we download
-          local window = vim.b.mpv_calling_window
           local cursor_line = vim.fn.line(".", window)
 
           download(links, false, function(filenames)

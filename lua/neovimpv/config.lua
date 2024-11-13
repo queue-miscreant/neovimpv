@@ -40,6 +40,7 @@ local default_config = {
     video_args = { "-f", "43" },
     audio_args = { "-x", "--audio-format", "mp3" },
     download_path = "%",
+    replace_brackets = true,
   },
 }
 
@@ -99,7 +100,7 @@ function config.load_globals(opts)
 
     if global_value ~= nil then
       config[option] = global_value
-    -- Only set lazy-configured options when table_configs 
+    -- Only set lazy-configured options when table_configs
     elseif lazy_value ~= nil and table_configs[option] == nil then
       config[option] = lazy_value
     end

@@ -10,7 +10,7 @@ helpers.playlist_namespace = vim.api.nvim_create_namespace("Neovimpv-playlists")
 ---@param values string|string[]
 ---@param line_number? integer
 local function try_insert(values, line_number)
-  local row = vim.fn.line(line_number or ".")
+  local row = line_number or vim.fn.line(".")
   local append_line = vim.fn.getline(line_number or ".") ~= ""
 
   if append_line then
@@ -49,10 +49,13 @@ function helpers.paste_and_play(files, extra, window, line_number)
     end
 
     if try_insert(insert_links, line_number) then
+      -- Appended lines start on the next one
       vim.cmd[[normal j]]
+      line_number = line_number + 1
     end
 
-    local paste_start = tostring(line_number) or "."
+    local paste_start = tostring(line_number or ".")
+
     -- MpvOpen on the inserted line(s)
     vim.cmd((":%s,%s+%dMpvOpen %s"):format(
       paste_start,
