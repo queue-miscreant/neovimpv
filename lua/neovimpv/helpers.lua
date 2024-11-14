@@ -51,7 +51,7 @@ function helpers.paste_and_play(files, extra, window, line_number)
     if try_insert(insert_links, line_number) then
       -- Appended lines start on the next one
       vim.cmd[[normal j]]
-      line_number = line_number + 1
+      line_number = line_number and line_number + 1
     end
 
     local paste_start = tostring(line_number or ".")
@@ -70,8 +70,20 @@ end
 --
 ---@param title string
 ---@param url string
+---@return string
 function helpers.markdownify(title, url)
   return url:find("%(") and url or ("[%s](%s)"):format(title:gsub("[%[%]]", ""), url)
+end
+
+-- Extract the title and URL pair from a markdown string
+--
+---@param markdown string
+---@return string?, string?
+function helpers.unmarkdownify(markdown)
+  local title, url = markdown:match("^(%b[])(%b())$")
+  if not title then return nil end
+  -- trim the first and last characters (non-Dijkstra)
+  return title:sub(2, -2), url:sub(2, -2)
 end
 
 return helpers

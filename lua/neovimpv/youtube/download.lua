@@ -9,10 +9,12 @@ local config = require "neovimpv.config"
 ---@class YtdlFile
 ---@field title string
 ---@field filename string
+---@field original_url string
 
 -- Renames and mutates a list of paths and titles from youtube-dl.
 -- Filenames containing the characters "()" are replaced with "[]"
 -- Titles containing the characters "[]" are replaced with "()"
+-- This renders the files able to be presented in markdown format.
 --
 ---@param files YtdlFile[]
 local function rename_brackets(files)
@@ -41,6 +43,7 @@ local function youtube_dl_callback(obj, callback)
 
   local files = {}
   local current_file = {}
+  local original_url
   local echo_flag = false
 
   -- Line with [Exec] precedes the line with the target filepath
@@ -49,9 +52,13 @@ local function youtube_dl_callback(obj, callback)
       -- Found title
       if line:find("^t ") then
         current_file.title = line:sub(3)
+      -- Found original URL; set this only after we're done downloading
+      elseif line:find("^u ") then
+        original_url = line:sub(3)
       -- Found filename, append to files
       elseif line:find("^f ") then
         current_file.filename = line:sub(3)
+        current_file.original_url = original_url
         table.insert(files, current_file)
         current_file = {}
       end
@@ -86,6 +93,7 @@ local function download(urls, with_video, callback)
     config.youtube_dl.path,
     "--exec", "after_move:echo f",
     "--exec", "before_dl:echo t %(title)q",
+    "--exec", "before_dl:echo u %(original_url)q",
     unpack(with_video and config.youtube_dl.video_args or config.youtube_dl.audio_args), ---@diagnostic disable-line
   }
   vim.list_extend(youtube_dl_args, urls)

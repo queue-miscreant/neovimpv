@@ -5,6 +5,7 @@
 local player = require "neovimpv.player"
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
+local download = require "neovimpv.youtube.download"
 
 local keys = {}
 
@@ -15,9 +16,13 @@ local function exit_mode()
 end
 
 ---@param extra_args string?
----@param is_visual boolean?
-local function omnikey(extra_args, is_visual)
+local function omnikey(extra_args)
   if extra_args == nil then extra_args = "" end
+
+  local is_visual = vim.fn.mode():sub(1,1):lower() == "v"
+  if is_visual then
+    extra_args = "vline" .. (extra_args:find("%-%- ") and " " or " -- ") .. extra_args
+  end
 
   local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
   local try_get_mpv = player.get_player_by_line(0, first_line, last_line, true)
@@ -98,6 +103,35 @@ local function goto_relative_mpv(direction)
   vim.cmd(("normal %dG"):format(mpv_instances[1][2] + 1))
 end
 
+---@param with_video? boolean
+local function download_range(with_video)
+  ---@type string[]
+  local lines
+  if vim.fn.mode():sub(1,1):lower() == "v" then
+    lines = vim.fn.getline(
+      math.min(vim.fn.line("v"), vim.fn.line(".")),
+      math.max(vim.fn.line("v"), vim.fn.line("."))
+    )
+  else
+    lines = { vim.fn.getline(".") }
+  end
+
+  local urls = vim.tbl_map(function(x)
+    local _, url = helpers.unmarkdownify(x)
+    -- If we couldn't find markdown, return the whole line
+    if not url then return x end
+    return url
+  end, lines)
+
+  --[[
+  download(urls, with_video or false, function(videos)
+    -- TODO: iteratively replace lines whose original_urls match videos
+    --
+    -- Watch out for duplicated URLs!
+  end)
+  ]]
+end
+
 -- Open search prompt
 ---@param first_result boolean?
 local function youtube_search_prompt(first_result)
@@ -121,15 +155,16 @@ end
 function keys.bind_base()
   local vks = vim.keymap.set
 
-  vks("n", "<Plug>(mpv_omnikey)", function() omnikey() end)
-  vks("n", "<Plug>(mpv_omnikey_video)", function() omnikey("--video=auto") end)
-  vks("v", "<Plug>(mpv_omnikey)", function() omnikey("vline --", true) end)
-  vks("v", "<Plug>(mpv_omnikey_video)", function() omnikey("vline -- --video=auto", true) end)
+  vks({"n", "v"}, "<Plug>(mpv_omnikey)", function() omnikey() end)
+  vks({"n", "v"}, "<Plug>(mpv_omnikey_video)", function() omnikey("-- --video=auto") end)
 
   vks("n", "<Plug>(mpv_goto_earlier)", function() goto_relative_mpv(-1) end)
   vks("n", "<Plug>(mpv_goto_later)", function() goto_relative_mpv(1) end)
-  vks("n", "<Plug>(mpv_youtube_prompt)", function() youtube_search_prompt() end)
+  vks("n", "<Plug>(mpv_youtube_prompt)", youtube_search_prompt)
   vks("n", "<Plug>(mpv_youtube_prompt_lucky)", function() youtube_search_prompt(true) end)
+
+  vks({"n", "v"}, "<Plug>(mpv_download_range)", function() download_range() end)
+  vks({"n", "v"}, "<Plug>(mpv_download_range_video)", function() download_range(true) end)
 end
 
 function keys.bind_smart_local()
@@ -159,6 +194,12 @@ function keys.bind_smart_local()
       "<leader>]",
       "<Plug>(mpv_goto_later)",
       desc = "Go to next mpv instance",
+    },
+    {
+      "<leader>D",
+      "<Plug>(mpv_download_range)",
+      desc = "Download video",
+      mode = {"n", "v"},
     },
   }
 
