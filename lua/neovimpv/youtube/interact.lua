@@ -32,8 +32,8 @@ local function do_result(keep_results_open, callback, ...)
   if vim.fn.mode():sub(1,1):lower() == "v" then
     current = vim.list_slice(
       vim.b.mpv_selection,
-      vim.fn.line("v"),
-      vim.fn.line(".")
+      math.min(vim.fn.line("v"), vim.fn.line(".")),
+      math.max(vim.fn.line("v"), vim.fn.line("."))
     )
   end
 
