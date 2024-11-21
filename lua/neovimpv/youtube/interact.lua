@@ -267,9 +267,11 @@ function interact.bind_buffer_results()
     or #vim.b.mpv_selection == 0
     or vim.b.mpv_calling_window == nil
   then
+    -- Note that ERROR causes garbage related to the autocmd to be printed
+    -- And since this is running "close" to Python, even more garbage from its async handler gets added
     vim.notify(
       "No data found when opening YouTube results buffer! Closing window...",
-      vim.log.levels.ERROR
+      vim.log.levels.WARN
     )
     vim.cmd[[quit!]]
     return
