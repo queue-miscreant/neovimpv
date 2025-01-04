@@ -18,10 +18,7 @@ local player = {}
 ---@param buffer integer
 ---@return integer[]
 function player.get_players_in_buffer(buffer)
-  local has_playlists = vim.api.nvim_buf_call(
-    buffer,
-    function() return vim.b.mpv_playlists_to_displays end
-  )
+  local has_playlists = vim.b[buffer].mpv_playlists_to_displays
   if not has_playlists then return {} end
 
   return vim.tbl_map(
@@ -159,9 +156,9 @@ local function create_playlist(buffer, lines, contents, display_id)
       )
       new_ids[i] = extmark_id
       vim.cmd(
-        "let b:mpv_playlists_to_displays" ..
-        "[" .. tostring(extmark_id) .. "] = " ..
-        tostring(display_id)
+        "let b:mpv_playlists_to_displays"
+        .. "[" .. tostring(extmark_id) .. "] = "
+        .. tostring(display_id)
       )
     end
   end)
@@ -298,8 +295,8 @@ function player.remove_player(buffer, display_id)
         playlist_id
       )
       vim.cmd(
-        "unlet b:mpv_playlists_to_displays" ..
-        "[" .. tostring(playlist_id) .. "]"
+        "unlet b:mpv_playlists_to_displays"
+        .. "[" .. tostring(playlist_id) .. "]"
       )
     end
   end)

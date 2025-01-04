@@ -182,16 +182,18 @@ local function add_keybinds()
           -- Grab these before we download
           local cursor_line = vim.fn.line(".", window)
 
-          download(links, false, function(filenames)
-            ---@type PasteContent[]
-            local as_pastable = vim.tbl_map(function(x)
-              return {
-                link = x.filename,
-                markdown = helpers.markdownify(x.title, x.filename),
-              } --[[@as PasteContent]]
-            end, filenames)
-            helpers.paste_and_play(as_pastable, "", window, cursor_line)
-          end)
+          -- TODO: paste lines in buffer and call tracker.tag_extmark
+          --
+          -- download(links, false, function(filenames)
+          --   ---@type PasteContent[]
+          --   local as_pastable = vim.tbl_map(function(x)
+          --     return {
+          --       link = x.filename,
+          --       markdown = helpers.markdownify(x.title, x.filename),
+          --     } --[[@as PasteContent]]
+          --   end, filenames)
+          --   helpers.paste_and_play(as_pastable, "", window, cursor_line)
+          -- end)
         end)
       end,
       desc = "Download (audio only)",

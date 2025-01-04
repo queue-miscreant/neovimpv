@@ -16,32 +16,29 @@ local config = require "neovimpv.config"
 -- Titles containing the characters "[]" are replaced with "()"
 -- This renders the files able to be presented in markdown format.
 --
----@param files YtdlFile[]
-local function rename_brackets(files)
-  for _, file in ipairs(files) do
-    local new_filename = file.filename:gsub("%(", "["):gsub("%)", "]")
+---@param file YtdlFile
+local function rename_brackets(file)
+  local new_filename = file.filename:gsub("%(", "["):gsub("%)", "]")
 
-    vim.fn.rename(
-      file.filename,
-      new_filename
-    )
-    file.filename = new_filename
-    file.title = file.title:gsub("%[", "("):gsub("%]", ")")
-  end
+  vim.fn.rename(
+    file.filename,
+    new_filename
+  )
+  file.filename = new_filename
+  file.title = file.title:gsub("%[", "("):gsub("%]", ")")
 end
 
 ---@param obj NvimSystemCompleted
----@param callback? fun(filenames: YtdlFile[])
+---@param callback fun(filename: YtdlFile?)
 local function youtube_dl_callback(obj, callback)
   -- Log errors from stderr
   if obj.stderr ~= "" then
     vim.defer_fn(function()
       vim.notify(obj.stderr, vim.log.levels.ERROR)
     end, 0)
-    return
   end
 
-  local files = {}
+  -- local files = {}
   local current_file = {}
   local original_url
   local echo_flag = false
@@ -59,8 +56,9 @@ local function youtube_dl_callback(obj, callback)
       elseif line:find("^f ") then
         current_file.filename = line:sub(3)
         current_file.original_url = original_url
-        table.insert(files, current_file)
-        current_file = {}
+        -- table.insert(files, current_file)
+        -- current_file = {}
+        break
       end
       echo_flag = false
     end
@@ -69,19 +67,21 @@ local function youtube_dl_callback(obj, callback)
     end
   end
 
-  if callback then
-    vim.defer_fn(function()
-      rename_brackets(files)
-      callback(files)
-    end, 0)
-  end
+  vim.defer_fn(function()
+    if current_file.filename then
+      rename_brackets(current_file)
+      callback(current_file)
+    else
+      callback()
+    end
+  end, 0)
 end
 
 
----@param urls string[]
+---@param url string
 ---@param with_video boolean
----@param callback? fun(filenames: YtdlFile[])
-local function download(urls, with_video, callback)
+---@param callback fun(filenames: YtdlFile[])
+local function download_url(url, with_video, callback)
   if config.youtube_dl.path == "" then
     vim.notify("Could not find yt-dlp executable.", vim.log.levels.WARN)
     return
@@ -96,7 +96,7 @@ local function download(urls, with_video, callback)
     "--exec", "before_dl:echo u %(original_url)q",
     unpack(with_video and config.youtube_dl.video_args or config.youtube_dl.audio_args), ---@diagnostic disable-line
   }
-  vim.list_extend(youtube_dl_args, urls)
+  table.insert(youtube_dl_args, url)
 
   vim.system(
     youtube_dl_args,
@@ -108,4 +108,4 @@ local function download(urls, with_video, callback)
   )
 end
 
-return download
+return download_url

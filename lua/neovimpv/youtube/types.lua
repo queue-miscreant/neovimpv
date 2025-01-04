@@ -30,3 +30,8 @@
 ---@field video_id string
 ---@field thumbnail string
 ---@field channel_name string
+
+---@class BufferLine
+---@field content string
+---@field line_number string
+---@field buffer string

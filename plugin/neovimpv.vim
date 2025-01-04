@@ -18,5 +18,6 @@ hi default link MpvYoutubeVideoCount MpvDefault
 hi default link MpvYoutubePlaylistVideo MpvDefault
 
 hi default link MpvPlaylistSign SignColumn
+hi default link MpvDownloadSign SignColumn
 
 autocmd VimEnter * lua if not package.loaded.lazy then require("neovimpv").setup() end

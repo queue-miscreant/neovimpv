@@ -91,9 +91,9 @@ function playlist.paste_playlist(buffer, display_id, old_playlist_id, new_playli
 
     save_extmarks[i] = {loc[1] + i - 1, extmark_id}
     vim.cmd(
-      "let b:mpv_playlists_to_displays" ..
-      "[" .. tostring(extmark_id) .. "] = " ..
-      tostring(display_id)
+      "let b:mpv_playlists_to_displays"
+      .. "[" .. tostring(extmark_id) .. "] = "
+      .. tostring(display_id)
     )
   end
 
@@ -140,8 +140,8 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
   -- free up the old playlist map
   vim.api.nvim_buf_call(buffer, function()
     vim.cmd(
-      "unlet b:mpv_playlists_to_displays" ..
-      "[" .. tostring(old_playlist_id) .. "]"
+      "unlet b:mpv_playlists_to_displays"
+      .. "[" .. tostring(old_playlist_id) .. "]"
     )
   end)
   -- open split to an empty scratch
@@ -198,9 +198,9 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
       )
 
       vim.cmd(
-        "let b:mpv_playlists_to_displays" ..
-        "[" .. tostring(extmark_id) .. "] = " ..
-        tostring(new_id)
+        "let b:mpv_playlists_to_displays"
+        .. "[" .. tostring(extmark_id) .. "] = "
+        .. tostring(new_id)
       )
     end
   end, 0)

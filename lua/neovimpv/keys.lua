@@ -103,33 +103,30 @@ local function goto_relative_mpv(direction)
   vim.cmd(("normal %dG"):format(mpv_instances[1][2] + 1))
 end
 
+local tracker = require "neovimpv.extmarks.tracker"
+---@param start integer
+---@param end_ integer
+---@param with_video boolean
+local function download_range(start, end_, with_video)
+  tracker.tag_extmark(start, end_, with_video)
+  tracker.download_next_extmark()
+end
+
 ---@param with_video? boolean
-local function download_range(with_video)
-  ---@type string[]
-  local lines
+local function download_callback(with_video)
+  local start = vim.fn.line(".") --[[@as integer]]
+  ---@type integer
+  local end_
   if vim.fn.mode():sub(1,1):lower() == "v" then
-    lines = vim.fn.getline(
-      math.min(vim.fn.line("v"), vim.fn.line(".")),
-      math.max(vim.fn.line("v"), vim.fn.line("."))
-    )
+    local temp = math.min(vim.fn.line("v"), start)
+    end_ = math.max(vim.fn.line("v"), start)
+    start = temp
+    exit_mode()
   else
-    lines = { vim.fn.getline(".") }
+    end_ = vim.fn.line(".")
   end
 
-  local urls = vim.tbl_map(function(x)
-    local _, url = helpers.unmarkdownify(x)
-    -- If we couldn't find markdown, return the whole line
-    if not url then return x end
-    return url
-  end, lines)
-
-  --[[
-  download(urls, with_video or false, function(videos)
-    -- TODO: iteratively replace lines whose original_urls match videos
-    --
-    -- Watch out for duplicated URLs!
-  end)
-  ]]
+  download_range(start, end_, with_video or false)
 end
 
 -- Open search prompt
@@ -163,8 +160,8 @@ function keys.bind_base()
   vks("n", "<Plug>(mpv_youtube_prompt)", youtube_search_prompt)
   vks("n", "<Plug>(mpv_youtube_prompt_lucky)", function() youtube_search_prompt(true) end)
 
-  vks({"n", "v"}, "<Plug>(mpv_download_range)", function() download_range() end)
-  vks({"n", "v"}, "<Plug>(mpv_download_range_video)", function() download_range(true) end)
+  vks({"n", "v"}, "<Plug>(mpv_download_range)", function() download_callback() end)
+  vks({"n", "v"}, "<Plug>(mpv_download_range_video)", function() download_callback(true) end)
 end
 
 function keys.bind_smart_local()
