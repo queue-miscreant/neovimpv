@@ -69,7 +69,7 @@ local function get_players_with_deletions(removed_playlist)
   ---@type {[string]: integer[]}
   local removed_items = vim.empty_dict()
 
-  for playlist_item, player_id in pairs(vim.b.mpv_playlists_to_displays) do
+  for playlist_item, player_id in pairs(vim.b.mpv_playlists_to_displays or {}) do
     local playlist_extmark_id = tonumber(playlist_item)
     if playlist_extmark_id and removed_ids[playlist_item] then
       vim.cmd(
@@ -109,6 +109,7 @@ local function buffer_change_callback(old_extmarks)
     local new_playlists = get_players_with_deletions(old_extmarks)
     vim.fn.MpvForwardDeletions(new_playlists)
   end
+  -- TODO: this looks wrong
   local invisible_extmarks = vim.api.nvim_buf_get_extmarks(
     0,
     helpers.display_namespace,
@@ -161,6 +162,9 @@ end
 
 ---@param no_text_changed boolean?
 local function bind_forward_deletions(no_text_changed)
+  if vim.b.mpv_bound_autocmds then return end
+  vim.b.mpv_bound_autocmds = true
+
   if not no_text_changed and vim.bo.modifiable then
     vim.api.nvim_create_autocmd(
       "TextChanged",

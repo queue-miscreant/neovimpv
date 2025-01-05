@@ -4,6 +4,7 @@
 
 local helpers = require "neovimpv.helpers"
 local config = require "neovimpv.config"
+local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
 
 local tracker = {}
 
@@ -165,7 +166,7 @@ function tracker.tag_extmark(start, end_, with_video)
         start + i - 1 - 1,
         0,
         {
-          virt_text = with_video and {{"", ""}},
+          virt_text = with_video and {{"", ""}} or nil,
           sign_text = "D",
           sign_hl_group = "MpvDownloadSign",
         }
@@ -219,6 +220,7 @@ end
 -- On completion, it should re-schedule itself until there are no remaining lines.
 --
 function tracker.download_next_extmark()
+  bind_forward_deletions()
   local downloadables = vim.api.nvim_buf_get_extmarks(
     0,
     helpers.download_namespace,

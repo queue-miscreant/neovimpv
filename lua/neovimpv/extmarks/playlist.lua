@@ -127,14 +127,14 @@ end
 ---Open the contents of new_playlist in a new split and call create_player
 ---on its contents.
 ---Returns the buffer, the new player extmark, and the new playlist extmarks.
+---TODO: user chooses open in split, open in vert split, open in new tab
+---FIXME: sometimes the first buf_call fails?
 ---
 ---@param buffer integer
 ---@param display_id integer Target player ID.
 ---@param old_playlist_id integer Playlist ID to delete.
 ---@param new_playlist string[] New playlist contents. See argument in `paste_playlist`.
 ---@return ([integer, integer, integer[]] | nil)
--- TODO: user chooses open in split, open in vert split, open in new tab
--- FIXME: sometimes the first buf_call fails?
 function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_playlist)
   if old_playlist_id == vim.NIL then return end
   -- free up the old playlist map
