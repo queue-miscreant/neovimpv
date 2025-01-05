@@ -5,7 +5,7 @@
 -- manipulations, such as setting buffer contents or getting/setting extmarks.
 
 local config = require "neovimpv.config"
-local helpers = require "neovimpv.helpers"
+local actions = require "neovimpv.helpers"
 local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
 local youtube_interact = require "neovimpv.youtube.interact"
@@ -14,7 +14,7 @@ local youtube_interact = require "neovimpv.youtube.interact"
 local neovimpv = {
   formatting = formatting,
   config = config, -- Temporary
-  paste_and_play = helpers.paste_and_play,
+  paste_and_play = actions.paste_and_play,
 }
 
 local function push_python_options()

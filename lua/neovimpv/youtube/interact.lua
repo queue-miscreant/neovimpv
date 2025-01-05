@@ -4,6 +4,7 @@
 -- Provides functionality for selecting results, showing extra data, and yanking links.
 
 local helpers = require "neovimpv.helpers"
+local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 
 local download = require "neovimpv.youtube.download"
@@ -27,7 +28,8 @@ local interact = {}
 ---@keep_results_open boolean
 ---@param callback fun(content: PasteContent|PasteContent[], ...)
 local function do_result(keep_results_open, callback, ...)
-  local current = vim.b.mpv_selection[vim.fn.line(".")]
+  ---@type PasteContent | PasteContent[]
+  local current
   -- Get multiple entries if in visual mode
   if vim.fn.mode():sub(1,1):lower() == "v" then
     current = vim.list_slice(
@@ -35,6 +37,8 @@ local function do_result(keep_results_open, callback, ...)
       math.min(vim.fn.line("v"), vim.fn.line(".")),
       math.max(vim.fn.line("v"), vim.fn.line("."))
     )
+  else
+    current = vim.b.mpv_selection[vim.fn.line(".")]
   end
 
   local window = vim.b.mpv_calling_window
@@ -133,7 +137,7 @@ local function add_keybinds()
     {
       "<cr>",
       function()
-        do_result(false, helpers.paste_and_play, "")
+        do_result(false, actions.paste_and_play, "")
       end,
       desc = "Open result",
       mode = {"n", "v"},
@@ -141,28 +145,28 @@ local function add_keybinds()
     {
       "p",
       function()
-        do_result(false, helpers.paste_and_play, "paste --")
+        do_result(false, actions.paste_and_play, "paste --")
       end,
       desc = "Open result (paste playlist in-place)",
     },
     {
       "P",
       function()
-        do_result(false, helpers.paste_and_play, "paste -- --video=auto")
+        do_result(false, actions.paste_and_play, "paste -- --video=auto")
       end,
       desc = "Open result (video, paste playlist in-place)",
     },
     {
       "n",
       function()
-        do_result(false, helpers.paste_and_play, "new --")
+        do_result(false, actions.paste_and_play, "new --")
       end,
       desc = "Open result (in new split)",
     },
     {
       "N",
       function()
-        do_result(false, helpers.paste_and_play, "new -- --video=auto")
+        do_result(false, actions.paste_and_play, "new -- --video=auto")
       end,
       desc = "Open result (video, in new split)",
     },
@@ -174,36 +178,17 @@ local function add_keybinds()
     {
       "d",
       function()
-        local window = vim.b.mpv_calling_window
-        do_result(false, function(current)
-          -- Normalize to singleton
-          if #current == 0 then current = {current} end
-          local links = vim.tbl_map(function(x) return x.link end, current)
-          -- Grab these before we download
-          local cursor_line = vim.fn.line(".", window)
-
-          -- TODO: paste lines in buffer and call tracker.tag_extmark
-          --
-          -- download(links, false, function(filenames)
-          --   ---@type PasteContent[]
-          --   local as_pastable = vim.tbl_map(function(x)
-          --     return {
-          --       link = x.filename,
-          --       markdown = helpers.markdownify(x.title, x.filename),
-          --     } --[[@as PasteContent]]
-          --   end, filenames)
-          --   helpers.paste_and_play(as_pastable, "", window, cursor_line)
-          -- end)
-        end)
+        -- local window = vim.b.mpv_calling_window
+        do_result(false, actions.paste_and_download, false)
       end,
       desc = "Download (audio only)",
     },
   }
-  for _, video_binding in pairs{"<s-enter>", "v"} do
+  for _, video_binding in ipairs{"<s-enter>", "v"} do
     table.insert(specs, {
       video_binding,
       function()
-        do_result(false, helpers.paste_and_play, "--video=auto")
+        do_result(false, actions.paste_and_play, "--video=auto")
       end,
       desc = "Open result (video)",
     })

@@ -27,21 +27,20 @@ end
 -- Writes markdown if the buffer's filetype supports markdown.
 --
 ---@param files PasteContent|PasteContent[]
----@param extra string
 ---@param window? integer
 ---@param line_number? integer
-function helpers.paste_and_play(files, extra, window, line_number)
-  vim.api.nvim_win_call(window or 0, function()
+---@return integer?, integer?
+function helpers.paste_links(files, window, line_number)
+  local ret = vim.api.nvim_win_call(window or 0, function()
     -- Normalize to singleton
     if #files == 0 then files = {files} end
 
     if not vim.bo.modifiable then
       vim.notify("Buffer is not modifiable. Cannot paste result.", vim.log.levels.ERROR)
-      return
+      return {}
     end
 
     local insert_links
-
     -- Markdownable content
     if vim.list_contains(config.markdown_writable, vim.bo.filetype) then
       insert_links = vim.tbl_map(function(x) return x.markdown end, files)
@@ -55,16 +54,12 @@ function helpers.paste_and_play(files, extra, window, line_number)
       line_number = line_number and line_number + 1
     end
 
-    local paste_start = tostring(line_number or ".")
-
-    -- MpvOpen on the inserted line(s)
-    vim.cmd((":%s,%s+%dMpvOpen %s"):format(
-      paste_start,
-      paste_start,
-      #insert_links - 1,
-      extra
-    ))
+    local paste_start = line_number or vim.fn.line(".")
+    return { paste_start, paste_start + #files - 1 }
   end)
+  -- nvim calls do not respect multiple return values
+  ---@diagnostic disable-next-line
+  return unpack(ret)
 end
 
 -- Convert a title and URL pair to a markdown string
