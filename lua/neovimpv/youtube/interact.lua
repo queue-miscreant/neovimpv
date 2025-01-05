@@ -7,8 +7,6 @@ local helpers = require "neovimpv.helpers"
 local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 
-local download = require "neovimpv.youtube.download"
-
 local interact = {}
 
 ---@diagnostic disable-next-line

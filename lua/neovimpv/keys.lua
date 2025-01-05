@@ -2,10 +2,10 @@
 --
 -- Keybinds and callbacks thereof. Keys include omnikey and navigation.
 
-local player = require "neovimpv.player"
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
-local download = require "neovimpv.youtube.download"
+local player = require "neovimpv.extmarks.player"
+local tracker = require "neovimpv.extmarks.download"
 
 local keys = {}
 
@@ -103,7 +103,6 @@ local function goto_relative_mpv(direction)
   vim.cmd(("normal %dG"):format(mpv_instances[1][2] + 1))
 end
 
-local tracker = require "neovimpv.extmarks.tracker"
 ---@param start integer
 ---@param end_ integer
 ---@param with_video boolean

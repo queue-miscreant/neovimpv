@@ -2,9 +2,8 @@
 --
 -- Lua callbacks for python.
 
-local player = require "neovimpv.player"
-local playlist = require "neovimpv.playlist"
-
+local player = require "neovimpv.extmarks.player"
+local playlist = require "neovimpv.extmarks.playlist"
 local youtube_push_results = require "neovimpv.youtube.push_results"
 
 return {

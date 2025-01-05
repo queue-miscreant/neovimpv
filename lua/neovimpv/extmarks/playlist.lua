@@ -3,9 +3,9 @@
 -- Extmark functionality which deals with playlist interactions, mainly ones
 -- which are dynamically loaded by mpv.
 
-local player = require "neovimpv.player"
 local helpers = require "neovimpv.helpers"
-local bind_forward_deletions = require "neovimpv.forward_deletions"
+local player = require "neovimpv.extmarks.player"
+local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
 
 local playlist = {}
 

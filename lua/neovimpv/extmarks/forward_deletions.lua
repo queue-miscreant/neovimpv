@@ -1,3 +1,8 @@
+-- neovimpv/extmarks/forward_deletions.lua
+--
+-- Functionality for forwarding local buffer deletions to Python.
+-- Usually tries to delete extmarks if a delete action was taken on the line.
+
 local helpers = require "neovimpv.helpers"
 
 ---@diagnostic disable-next-line
@@ -26,8 +31,24 @@ local function calculate_change(new_lines)
     {old_range[2] - 1, -1},
     {}
   )
+  local new_old_downloads = vim.api.nvim_buf_get_extmarks(
+    0,
+    helpers.download_namespace,
+    {old_range[1] - 1, 0},
+    {old_range[2] - 1, -1},
+    {}
+  )
 
   if not lines_added then
+    -- Remove deleted downloads
+    for _, downloadable in ipairs(new_old_downloads) do
+      vim.api.nvim_buf_del_extmark(
+        0,
+        helpers.download_namespace,
+        downloadable[1]
+      )
+    end
+
     return new_old_extmark
   end
 end

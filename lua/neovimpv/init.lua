@@ -5,7 +5,7 @@
 -- manipulations, such as setting buffer contents or getting/setting extmarks.
 
 local config = require "neovimpv.config"
-local actions = require "neovimpv.helpers"
+local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
 local youtube_interact = require "neovimpv.youtube.interact"

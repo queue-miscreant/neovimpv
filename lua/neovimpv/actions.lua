@@ -1,5 +1,5 @@
 local helpers = require "neovimpv.helpers"
-local tracker = require "neovimpv.extmarks.tracker"
+local tracker = require "neovimpv.extmarks.download"
 
 local actions = {}
 

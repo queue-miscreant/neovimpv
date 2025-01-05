@@ -5,7 +5,7 @@
 
 local helpers = require "neovimpv.helpers"
 local formatting = require "neovimpv.formatting"
-local bind_forward_deletions = require "neovimpv.forward_deletions"
+local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
 local config = require "neovimpv.config"
 
 local DISPLAY_NAMESPACE = helpers.display_namespace
