@@ -16,7 +16,7 @@ function actions.paste_and_download(files, with_video, window, line_number)
 
     if start and end_ then
       tracker.tag_extmark(start, end_, with_video)
-      tracker.download_next_extmark()
+      tracker.start_downloader()
     end
   end)
 end

@@ -6,7 +6,8 @@ local helpers = require "neovimpv.helpers"
 local config = require "neovimpv.config"
 local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
 
-local tracker = {}
+local download = {}
+local download_next_extmark
 
 ---@class NvimSystemCompleted
 ---@field code integer
@@ -132,6 +133,7 @@ end
 ---@param url string
 ---@return MarkdownLink?
 local function extract_url(url)
+  vim.print(url)
   local title, maybe_url = helpers.unmarkdownify(url)
   if maybe_url then
     url = maybe_url
@@ -149,12 +151,12 @@ local function extract_url(url)
   }
 end
 
--- Add extmarks in the download namespace for the line range given
+-- Add download extmarks to the current buffer for the line range given.
 --
 ---@param start integer Start of range, 1-based
 ---@param end_ integer End of range, 1-based
 ---@param with_video boolean Download with video
-function tracker.tag_extmark(start, end_, with_video)
+function download.tag_extmark(start, end_, with_video)
   if start > end_ then return end
   local lines = vim.fn.getline(start, end_)
 
@@ -180,11 +182,12 @@ end
 -- If successful, attempts to paste the filename over the line in the buffer.
 -- Finally, deletes the extmark and continues downloading.
 --
+---@param buffer integer
 ---@param last_extmark integer
 ---@param ytdl_file YtdlFile?
-local function extmark_callback(last_extmark, ytdl_file)
+local function extmark_callback(buffer, last_extmark, ytdl_file)
   local target_extmark = vim.api.nvim_buf_get_extmark_by_id(
-    0,
+    buffer,
     helpers.download_namespace,
     last_extmark,
     {}
@@ -193,15 +196,21 @@ local function extmark_callback(last_extmark, ytdl_file)
   if target_extmark[1] and ytdl_file then
     -- Markdownable content
     if vim.list_contains(config.markdown_writable, vim.bo.filetype) then
-      vim.fn.setline(
+      vim.fn.setbufline(
+        buffer,
         target_extmark[1] + 1,
         helpers.markdownify(ytdl_file.title, ytdl_file.filename)
       )
     else
-      vim.fn.setline(
+      vim.fn.setbufline(
+        buffer,
         target_extmark[1] + 1,
         ytdl_file.filename
       )
+    end
+
+    if config.save_on_modify and not vim.bo[buffer].readonly then
+      vim.cmd("w")
     end
   end
 
@@ -211,18 +220,18 @@ local function extmark_callback(last_extmark, ytdl_file)
     last_extmark
   )
 
-  vim.defer_fn(tracker.download_next_extmark, 0)
+  vim.defer_fn(function() download_next_extmark(buffer) end, 0)
 end
 
 
--- Asynchronous handler which finds the next line with a download extmark and
--- attempts to feed it to yt-dlp.
--- On completion, it should re-schedule itself until there are no remaining lines.
---
-function tracker.download_next_extmark()
-  bind_forward_deletions()
+---Asynchronous handler which finds the next line with a download extmark and
+---attempts to feed it to yt-dlp.
+---On completion, it should re-schedule itself until there are no remaining lines.
+---
+---@param buffer integer
+function download_next_extmark(buffer)
   local downloadables = vim.api.nvim_buf_get_extmarks(
-    0,
+    buffer,
     helpers.download_namespace,
     0,
     -1,
@@ -230,28 +239,48 @@ function tracker.download_next_extmark()
   )
 
   if #downloadables == 0 then
+    vim.b[buffer].mpv_downloader_running = false
     return
   end
 
-  local line = vim.fn.getline(downloadables[1][2] + 1)
+  -- Get the line from the buffer and de-markdown it
+  local line = vim.fn.getbufoneline(buffer, downloadables[1][2] + 1)
   local with_video = downloadables[1][4].virt_text ~= nil
   local markdown = extract_url(line)
   if not markdown then
     vim.notify(("'%s' is not a valid url. Skipping..."):format(line), vim.log.levels.INFO)
     vim.api.nvim_buf_del_extmark(
-      0,
+      buffer,
       helpers.download_namespace,
       downloadables[1][1]
     )
-    vim.defer_fn(tracker.download_next_extmark, 0)
+    vim.defer_fn(download.download_next_extmark, 0)
     return
   end
 
   download_url(
     markdown.url,
     with_video,
-    function(ytdl_file) extmark_callback(downloadables[1][1], ytdl_file) end
+    function(ytdl_file) extmark_callback(buffer, downloadables[1][1], ytdl_file) end
   )
 end
 
-return tracker
+---Start the downloader on the specified buffer.
+---If no buffer is given, starts it on the current one.
+---Lines must be tagged with download extmarks using download.tag_extmark beforehand.
+---
+---@param buffer integer?
+function download.start_downloader(buffer)
+  if vim.b[buffer or 0].mpv_downloader_running then return end
+
+  local current_buffer = vim.api.nvim_get_current_buf()
+  buffer = buffer == 0 and current_buffer or buffer
+
+  vim.api.nvim_buf_call(buffer or current_buffer, function()
+    bind_forward_deletions()
+  end)
+
+  download_next_extmark(buffer or current_buffer)
+end
+
+return download

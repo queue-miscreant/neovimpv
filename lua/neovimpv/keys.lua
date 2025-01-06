@@ -103,14 +103,6 @@ local function goto_relative_mpv(direction)
   vim.cmd(("normal %dG"):format(mpv_instances[1][2] + 1))
 end
 
----@param start integer
----@param end_ integer
----@param with_video boolean
-local function download_range(start, end_, with_video)
-  tracker.tag_extmark(start, end_, with_video)
-  tracker.download_next_extmark()
-end
-
 ---@param with_video? boolean
 local function download_callback(with_video)
   local start = vim.fn.line(".") --[[@as integer]]
@@ -125,7 +117,8 @@ local function download_callback(with_video)
     end_ = vim.fn.line(".")
   end
 
-  download_range(start, end_, with_video or false)
+  tracker.tag_extmark(start, end_, with_video or false)
+  tracker.start_downloader()
 end
 
 -- Open search prompt
