@@ -3,10 +3,10 @@
 -- Basic extmark functionality for creating players and playlist extmarks.
 -- These provide standard ways for interacting with nvim to Python and vimscript
 
+local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
 local formatting = require "neovimpv.formatting"
 local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
-local config = require "neovimpv.config"
 
 local DISPLAY_NAMESPACE = helpers.display_namespace
 local PLAYLIST_NAMESPACE = helpers.playlist_namespace

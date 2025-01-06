@@ -3,6 +3,7 @@
 -- Utility functionality for pushing YouTube contents to nvim.
 -- Interaction is handled by neovimpv.youtube.interact
 
+local helpers = require "neovimpv.helpers"
 local push_results = {}
 
 ---Open some content in a split to run a callback
@@ -96,25 +97,27 @@ end
 function push_results.paste_result(text, window_number, move_cursor)
   -- Insert `value` at the line of the current cursor, if it's empty.
   -- Otherwise, insert it a line below the current line.
-  local buffer_number = vim.fn.winbufnr(window_number)
+  local buffer = vim.fn.winbufnr(window_number)
   local cursor_row = vim.fn.line(".", window_number)
   -- append the text only if the current line isn't blank
-  local append_line = vim.fn.getbufoneline(buffer_number, cursor_row) ~= ""
+  local append_line = vim.fn.getbufoneline(buffer, cursor_row) ~= ""
 
-  local modifiable = vim.api.nvim_buf_get_option(buffer_number, "modifiable")
+  local modifiable = vim.api.nvim_buf_get_option(buffer, "modifiable")
   if not modifiable then
     vim.notify("Buffer is not modifiable. Cannot paste result.")
     return
   end
 
   if append_line then
-    vim.fn.appendbufline(buffer_number, cursor_row, text)
+    vim.fn.appendbufline(buffer, cursor_row, text)
     if move_cursor == nil then
       vim.cmd("normal j")
     end
   else
-    vim.fn.setbufline(buffer_number, cursor_row, text)
+    vim.fn.setbufline(buffer, cursor_row, text)
   end
+
+  helpers.try_write_buffer(buffer)
 end
 
 return push_results

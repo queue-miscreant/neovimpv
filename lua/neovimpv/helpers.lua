@@ -6,8 +6,19 @@ helpers.display_namespace = vim.api.nvim_create_namespace("Neovimpv-displays")
 helpers.playlist_namespace = vim.api.nvim_create_namespace("Neovimpv-playlists")
 helpers.download_namespace = vim.api.nvim_create_namespace("Neovimpv-downloads")
 
+
+-- Try writing the buffer, if the `save_on_modify` configuration is enabled
+--
+---@param buffer integer
+function helpers.try_write_buffer(buffer)
+  if config.save_on_modify and not (vim.bo[buffer].readonly or not vim.bo[buffer].modifiable) then
+    vim.cmd("w")
+  end
+end
+
 -- Insert `value` at the line of the current cursor, if it's empty.
 -- Otherwise, insert it a line below the current line.
+--
 ---@param values string|string[]
 ---@param line_number? integer
 local function try_insert(values, line_number)
@@ -20,6 +31,7 @@ local function try_insert(values, line_number)
     vim.fn.setline(row, values)
   end
 
+  helpers.try_write_buffer(0)
   return append_line
 end
 

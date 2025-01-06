@@ -34,6 +34,9 @@ local default_config = {
   -- Filetypes which should have smart bindings added by default
   smart_filetypes = {},
 
+  -- Save buffers after modifying them, if they are modifiable
+  save_on_modify = false,
+
   -- Path and arguments to youtube-dl command
   youtube_dl = {
     path = "",

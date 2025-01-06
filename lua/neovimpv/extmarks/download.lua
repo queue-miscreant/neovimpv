@@ -209,9 +209,7 @@ local function extmark_callback(buffer, last_extmark, ytdl_file)
       )
     end
 
-    if config.save_on_modify and not vim.bo[buffer].readonly then
-      vim.cmd("w")
-    end
+    helpers.try_write_buffer(buffer)
   end
 
   vim.api.nvim_buf_del_extmark(
