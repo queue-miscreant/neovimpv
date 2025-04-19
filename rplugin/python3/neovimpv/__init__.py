@@ -408,7 +408,7 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         instance exists.
         """
         try_get_mpv = self.nvim.lua.vim._neovimpv_callbacks.get_player_by_line(
-            buffer.number, line
+            buffer.number, line, line, True
         )
         if not try_get_mpv:
             return None

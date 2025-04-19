@@ -3,6 +3,12 @@
 -- Basic extmark functionality for creating players and playlist extmarks.
 -- These provide standard ways for interacting with nvim to Python and vimscript
 
+local notify = assert(
+  vim.notify or vim.api.nvim_notify,
+  "Could not find function vim.notify or vim.api.nvim_notify"
+)
+
+
 local consts = require "neovimpv.consts"
 local formatting = require "neovimpv.formatting"
 local bind_forward_deletions = require "neovimpv.forward_deletions"
@@ -55,7 +61,7 @@ function player.get_player_by_line(buffer, start, end_, no_message)
 
     if #playlist_item == 0 or player_ == nil then
       if not no_message then
-        vim.api.nvim_notify(
+        notify(
           "No mpv found running on that line",
           4,
           {}
