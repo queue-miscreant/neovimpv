@@ -11,6 +11,11 @@ local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
 local DISPLAY_NAMESPACE = helpers.display_namespace
 local PLAYLIST_NAMESPACE = helpers.playlist_namespace
 
+local notify = assert(
+  vim.notify or vim.api.nvim_notify,
+  "Could not find function vim.notify or vim.api.nvim_notify"
+)
+
 local player = {}
 
 ---Get all extmark ids of all players in the display namespace, which should correspond to Python MpvInstances
@@ -52,7 +57,7 @@ function player.get_player_by_line(buffer, start, end_, no_message)
 
     if #playlist_item == 0 or player_ == nil then
       if not no_message then
-        vim.api.nvim_notify(
+        notify(
           "No mpv found running on that line",
           4,
           {}
