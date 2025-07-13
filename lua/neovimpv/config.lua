@@ -63,8 +63,8 @@ local function update_config()
       table.insert(config.smart_filetypes, i)
     end
     config.smart_filetypes = vim.fn.uniq(
-      vim.fn.sort(config.smart_filetypes)
-    )
+      vim.fn.sort(config.smart_filetypes) or {}
+    ) or {}
   end
 end
 
@@ -81,12 +81,13 @@ function config.load_globals(opts)
 
     if global_value ~= nil then
       config[option] = global_value
-    -- Only set lazy-configured options when table_configs 
+    -- Only set lazy-configured options when table_configs
     elseif lazy_value ~= nil and table_configs[option] == nil then
       config[option] = lazy_value
     end
 
     if config[option] == nil then
+      ---@diagnostic disable-next-line
       config[option] = vim.deepcopy(default_value)
     end
   end
