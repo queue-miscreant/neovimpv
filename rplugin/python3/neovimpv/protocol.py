@@ -156,13 +156,15 @@ class MpvProtocol(asyncio.Protocol):
         if self.transport is None or self.transport.is_closing():
             return
         command = {
-            "command": args,
+            "command": list(args),
             "request_id": request_id,
         }
         if ignore_error:
             self._ignore_errors.append(request_id)
-        log.debug("Sent command %s", command)
-        self.transport.write((json.dumps(command) + "\n").encode())  # type: ignore
+        encoded = (json.dumps(command) + "\n").encode()
+
+        log.debug("Sent command %s", encoded)
+        self.transport.write(encoded)  # type: ignore
 
     def get_property(self, property_name, request_id=None, ignore_error=False):
         """

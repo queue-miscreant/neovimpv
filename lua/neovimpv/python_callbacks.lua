@@ -2,6 +2,8 @@
 --
 -- Lua callbacks for python.
 
+local config = require "neovimpv.config"
+local formatting = require "neovimpv.formatting"
 local player = require "neovimpv.player"
 local playlist = require "neovimpv.playlist"
 
@@ -27,4 +29,14 @@ return {
   open_youtube_select_split = youtube_push_results.open_select_split,
   paste_youtube_result = youtube_push_results.paste_result,
   open_youtube_playlist_results = youtube_push_results.open_playlist_results,
+
+  get_options = function()
+    return {
+      mpv_properties = formatting.mpv_properties,
+      markdown_writable = config.markdown_writable,
+      on_playlist_update = config.on_playlist_update,
+      smart_youtube = config.smart_youtube_playlist,
+      default_mpv_args = config.default_args,
+    }
+  end,
 }

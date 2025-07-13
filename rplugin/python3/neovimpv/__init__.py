@@ -125,6 +125,8 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
     @pynvim.command("MpvOpen", nargs="*", range="")
     def open_in_mpv(self, args, range_):
         """Open current line as a file in mpv."""
+        self.mpv_get_options()
+
         start, end = range_
         # For some reason, vim sends the args over space-delimited,
         # instead of with quotes interpreted
@@ -136,6 +138,8 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
     @pynvim.command("MpvNewAtLine", nargs="*", range="")
     def new_mpv_at_line(self, args, range_):
         """Open file from command argument at the current line."""
+        self.mpv_get_options()
+
         start, end = range_
         args = shlex.split(" ".join(args))
         target_link = [args[0]]
@@ -286,6 +290,8 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
     @pynvim.function("MpvSendNvimKeys", sync=True)
     def mpv_send_keypress(self, args):
         """Send keypress to the mpv instance"""
+        self.mpv_get_options()
+
         if len(args) == 3:
             extmark_id, key, count = args
         else:
@@ -306,21 +312,11 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
 
             self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
 
-    @pynvim.function("MpvSetOptions", sync=True)
-    def mpv_set_options(self, args):
-        """Set default options in Python state"""
-        if len(args) != 1:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        self.mpv_properties = args[0]["mpv_properties"]
-        self.do_markdowns = args[0]["markdown_writable"]
-        self.on_playlist_update = args[0]["on_playlist_update"]
-        self.smart_youtube = args[0]["smart_youtube"]
-        MpvManager.set_default_args(args[0]["default_mpv_args"])
-
     @pynvim.function("MpvSetPlaylist", sync=True)
     def mpv_set_playlist(self, args):
         """Set currently playing item"""
+        self.mpv_get_options()
+
         if len(args) == 2:
             player, playlist_item = args
         else:
@@ -447,3 +443,13 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
         instance.buffer = new_buffer
         instance.id = new_display
         self._mpv_instances[(new_buffer, new_display)] = instance
+
+    def mpv_get_options(self):
+        """Set default options in Python state"""
+        options = self.nvim.lua.vim._neovimpv_callbacks.get_options()
+
+        self.mpv_properties = options["mpv_properties"]
+        self.do_markdowns = options["markdown_writable"]
+        self.on_playlist_update = options["on_playlist_update"]
+        self.smart_youtube = options["smart_youtube"]
+        MpvManager.set_default_args(options["default_mpv_args"])
