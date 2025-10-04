@@ -1,8 +1,14 @@
 local mpv_socket = require("neovimpv.mpv.socket")
 local MpvWrapper = require("neovimpv.mpv.wrapper")
-local formatting = require("neovimpv.formatting")
 
+local formatting = require("neovimpv.formatting")
 formatting.mpv_properties = {"pause", "playback-time", "duration", "loop"}
+
+vim._neovimpv_callbacks = {}
+setmetatable(vim._neovimpv_callbacks, {
+  __index = function(_, index) return function(...) vim.print(index, ...) end end
+})
+
 
 local MockManager = {
   playlist = {
@@ -19,7 +25,8 @@ local MockManager = {
 mpv_socket.new(
   "/tmp/mpv-socket",
   function(this)
-    MpvWrapper.new(MockManager, this)
+    local wrapper = MpvWrapper.new(MockManager, this)
+    -- wrapper.no_draw = false
   end
 )
 

@@ -30,26 +30,26 @@ local spairs = vim.spairs
 ---@param self MpvWrapper
 local function add_events(self)
   -- default event handling
-  self.protocol:add_event("error", function(_, err) self:_show_error(err) end)
-  self.protocol:add_event("end-file", function(_, arg) self:_on_end_file(arg) end)
-  self.protocol:add_event("start-file", function(_, data) self:_on_start_file(data) end)
-  self.protocol:add_event("file-loaded", function(_, _) self:_preamble() end)
-  self.protocol:add_event("close", function(_, _) self.manager:close() end)
+  self.socket:add_event("error", function(_, err) self:_show_error(err) end)
+  self.socket:add_event("end-file", function(_, arg) self:_on_end_file(arg) end)
+  self.socket:add_event("start-file", function(_, data) self:_on_start_file(data) end)
+  self.socket:add_event("file-loaded", function(_, _) self:_preamble() end)
+  self.socket:add_event("close", function(_, _) self.manager:close() end)
   -- TODO
-  self.protocol:add_event("property-change", function(_, _) self:draw_update() end)
-  self.protocol:add_event(
+  self.socket:add_event("property-change", function(_, _) self:draw_update() end)
+  self.socket:add_event(
     "got-playlist", function(_, data) self.manager.playlist:update(self, data) end
   )
 
   -- ALWAYS observe this so we can toggle pause
-  self.protocol:observe_property("pause")
+  self.socket:observe_property("pause")
   -- necessary for retaining playlist position
-  self.protocol:observe_property("playlist")
+  self.socket:observe_property("playlist")
   -- for drawing [Window] instead, toggling video
-  self.protocol:observe_property("video-format")
+  self.socket:observe_property("video-format")
   -- observe everything we need to draw the format string
   for _, i in ipairs(formatting.mpv_properties or {}) do
-    self.protocol:observe_property(i)
+    self.socket:observe_property(i)
   end
 end
 
@@ -61,7 +61,7 @@ local function load_playlist(self, playlist)
 
   -- start playing the files
   for _, item in spairs(playlist.playlist_id_to_item) do
-    self.protocol:send_command({"loadfile", item.filename, "append-play"})
+    self.socket:send_command({"loadfile", item.filename, "append-play"})
   end
 end
 
@@ -74,7 +74,7 @@ end
 
 ---@class MpvWrapper
 ---@field manager MpvManager
----@field protocol MpvSocket
+---@field socket MpvSocket
 ---@field no_draw boolean
 ---@field _debounce_playlist boolean
 ---An instance of mpv which is aware of the nvim plugin. Should only be
@@ -83,12 +83,15 @@ end
 local MpvWrapper = {}
 MpvWrapper.__index = MpvWrapper
 
+---Create a new MpvWrapper object.
+---`socket` must have an open transport.
 ---@param manager MpvManager
----@param protocol MpvSocket
-function MpvWrapper.new(manager, protocol)
+---@param socket MpvSocket
+---@return MpvWrapper
+function MpvWrapper.new(manager, socket)
   local ret = {
     manager = manager,
-    protocol = protocol,
+    socket = socket,
     no_draw = true,
     _debounce_playlist = false,
   }
@@ -96,6 +99,8 @@ function MpvWrapper.new(manager, protocol)
 
   add_events(ret)
   load_playlist(ret, manager.playlist)
+
+  return ret
 end
 
 ---Rerender the player extmark to which this mpv instance corresponds
@@ -110,7 +115,7 @@ function MpvWrapper:draw_update(force_virt_text)
     vim._neovimpv_callbacks.update_extmark(
       self.manager.buffer,
       self.manager.id,
-      self.protocol.data,
+      self.socket.data,
       force_virt_text
     )
   end, 0)
@@ -137,8 +142,8 @@ function MpvWrapper:try_update_markdown(playlist_id)
     return
   end
 
-  local media_title = self.protocol:wait_property("media-title")
-  local mpv_filename = self.protocol:wait_property("filename")
+  local media_title = self.socket:wait_property("media-title")
+  local mpv_filename = self.socket:wait_property("filename")
   local cannot_markdown = mpv_item.filename:find("[()]")
   if (
       not mpv_item.update_markdown
@@ -203,9 +208,9 @@ function MpvWrapper:_on_start_file(arg)
   local current_playlist_id = arg["playlist_entry_id"]
 
   if (
-      self.protocol.playlist_new ~= nil
+      self.socket.playlist_new ~= nil
       and current_playlist_id
-      == self.protocol.playlist_new["playlist_insert_id"]
+      == self.socket.playlist_new["playlist_insert_id"]
   ) or self._debounce_playlist then
     return
   end
@@ -226,7 +231,7 @@ end
 function MpvWrapper:_preamble()
   self.no_draw = false
   -- Have enough information to update with video title
-  local current_playlist_id = self.protocol.last_playlist_entry_id
+  local current_playlist_id = self.socket.last_playlist_entry_id
   local playlist_item = self.manager.playlist.playlist_id_to_item[current_playlist_id]
   local redirected_playlist_id = self.manager.playlist.playlist_id_remap[current_playlist_id]
 

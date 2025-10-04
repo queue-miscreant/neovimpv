@@ -104,7 +104,7 @@ local function data_received(self, data)
 
     local event_name = datum.event
     -- handle response
-    if datum.error ~= "success" then
+    if datum.error ~= nil and datum.error ~= "success" then
       if consumed_error then
         log.debug("Ignoring errorful response %s", datum)
         goto continue
@@ -225,8 +225,8 @@ end
 
 ---Write a command to the socket
 ---@param args table<integer, any>
----@param request_id integer?
----@param ignore_error boolean?
+---@param request_id? integer
+---@param ignore_error? boolean
 function MpvSocket:send_command(args, request_id, ignore_error)
   ---@diagnostic disable-next-line
   if self.transport == nil or self.transport:is_closing() then
@@ -333,7 +333,7 @@ end
 ---Send a command to observe a property from the mpv instance.
 ---The value in self.data will be updated on "property-change" events.
 ---@param property_name string
----@param ignore_error boolean
+---@param ignore_error? boolean
 function MpvSocket:observe_property(property_name, ignore_error)
   self:send_command(
     {

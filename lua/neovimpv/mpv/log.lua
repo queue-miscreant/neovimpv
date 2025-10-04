@@ -13,5 +13,6 @@ end
 
 return {
   info = write_log,
+  error = write_log,
   debug = write_log,
 }
