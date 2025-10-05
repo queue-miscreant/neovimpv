@@ -1,4 +1,4 @@
--- mpv/protocol.lua
+-- mpv/socket.lua
 -- Object-oriented interface to the mpv IPC socket
 
 ---@diagnostic disable-next-line

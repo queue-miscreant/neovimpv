@@ -205,7 +205,7 @@ function MpvWrapper:_on_start_file(arg)
   -- Starting the file is enough information to move the player, but not enough
   -- to update the title of the video.
   self.no_draw = true
-  local current_playlist_id = arg["playlist_entry_id"]
+  local current_playlist_id = tostring(arg["playlist_entry_id"])
 
   if (
       self.socket.playlist_new ~= nil
@@ -215,7 +215,7 @@ function MpvWrapper:_on_start_file(arg)
     return
   end
   local redirected_playlist_id = self.manager.playlist.playlist_id_remap[
-    tostring(current_playlist_id)
+    current_playlist_id
   ]
 
   -- use the extmark of this mpv id to move the player
@@ -223,7 +223,9 @@ function MpvWrapper:_on_start_file(arg)
     current_playlist_id = redirected_playlist_id
   end
 
-  self.manager.playlist:move_player_extmark(self, current_playlist_id)
+  vim.defer_fn(function()
+    self.manager.playlist:move_player_extmark(self, current_playlist_id)
+  end, 0)
 end
 
 
@@ -231,22 +233,25 @@ end
 function MpvWrapper:_preamble()
   self.no_draw = false
   -- Have enough information to update with video title
-  local current_playlist_id = self.socket.last_playlist_entry_id
+  local current_playlist_id = tostring(self.socket.last_playlist_entry_id)
   local playlist_item = self.manager.playlist.playlist_id_to_item[current_playlist_id]
   local redirected_playlist_id = self.manager.playlist.playlist_id_remap[current_playlist_id]
 
   if playlist_item ~= nil and playlist_item.show_currently_playing then
-    self.manager.playlist:update_currently_playing(
-      self,
-      current_playlist_id,
-      nil
-    )
+    vim.defer_fn(function()
+      self.manager.playlist:update_currently_playing(
+        self,
+        tostring(current_playlist_id)
+      )
+    end, 0)
   elseif redirected_playlist_id ~= nil then
-    self.manager.playlist:update_currently_playing(
-      self,
-      current_playlist_id,
-      redirected_playlist_id
-    )
+    vim.defer_fn(function()
+      self.manager.playlist:update_currently_playing(
+        self,
+        tostring(current_playlist_id),
+        redirected_playlist_id
+      )
+    end, 0)
   else
     -- Coroutine invokes MpvSocket:wait_property, and therefore should not get GC'd
     coroutine.wrap(function()
