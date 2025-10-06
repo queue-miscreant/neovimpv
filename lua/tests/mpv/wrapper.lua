@@ -26,7 +26,7 @@ mpv_socket.new(
   "/tmp/mpv-socket",
   function(this)
     local wrapper = MpvWrapper.new(MockManager, this)
-    -- wrapper.no_draw = false
+    wrapper.no_draw = false
   end
 )
 

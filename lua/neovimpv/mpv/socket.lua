@@ -13,8 +13,6 @@ local log = require("neovimpv.mpv.log")
 local MPV_SET = 0
 local MPV_GET = 1
 
--- TODO: there seems to be no reason to prefer event_handlers vs coroutine resumes
-
 ---@alias MpvRequestId string Aliased request ID, for use as a key in tables
 ---@alias MpvWaitingProperties [integer, string, thread]
 --- 3-tuple of:
@@ -224,7 +222,7 @@ function MpvSocket:add_event(event_name, callback)
 end
 
 ---Write a command to the socket
----@param args table<integer, any>
+---@param args any[]
 ---@param request_id? integer
 ---@param ignore_error? boolean
 function MpvSocket:send_command(args, request_id, ignore_error)
@@ -402,6 +400,5 @@ function MpvSocket.new(socket_name, callback)
 
   return this
 end
-
 
 return MpvSocket
