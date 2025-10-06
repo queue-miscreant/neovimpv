@@ -1,8 +1,10 @@
 ---@meta
 
+---@alias UpdateAction "stay" | "paste" | "paste_one" | "new_one"
+
 ---@alias DisplayStyle "ligature" | "unicode" | "emoji"
 
----@alias Highlight string
+---@alias Highlight string Vim highlight type
 
 ---@alias VirtText [string, Highlight][]
 
@@ -15,7 +17,7 @@
 ---@class Formatter
 ---@field pattern string
 ---@field fields (FormatterField | [string, string])[]
----@field render fun(self: Formatter, input_dict: {[string]: any}): string
+---@field render fun(self: Formatter, input_dict: table<string, any>): string
 
 ---@class ExtmarkArgs
 ---@field id integer

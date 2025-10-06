@@ -3,6 +3,7 @@ local default_config = {
   -- These ones are settable from vimrc and have no special interpretation
   loading = "[ ... ]",
   format = "[ {pause} {playback-time} / {duration} {loop} ]",
+  ---@type DisplayStyle
   style = "unicode",
   property_thresholds = {},
   omni_open_new_if_empty = true,
@@ -18,7 +19,7 @@ local default_config = {
   draw_playlist_extmarks = "multiple",
 
   -- Controls how playlist updates from mpv can affect changes in the buffer
-  ---@type "stay" | "paste" | "paste_one" | "new_one"
+  ---@type UpdateAction
   on_playlist_update = "stay",
 
   -- Whether or not YouTube playlists are opened 'smartly'.
@@ -40,7 +41,9 @@ local default_config = {
   -- Path and arguments to youtube-dl command
   youtube_dl = {
     path = "",
+    ---@type string[]
     video_args = { "-f", "43" },
+    ---@type string[]
     audio_args = { "-x", "--audio-format", "mp3" },
     download_path = "%",
     replace_brackets = true,
