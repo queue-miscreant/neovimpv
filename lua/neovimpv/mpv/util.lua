@@ -2,6 +2,7 @@
 -- Utility functions for spawning mpv.
 
 local config = require("neovimpv.config")
+local log = require("neovimpv.mpv.log")
 local MpvPlaylist = require("neovimpv.mpv.playlist")
 local MpvManager = require("neovimpv.mpv.manager")
 
@@ -11,7 +12,7 @@ local list_contains = vim.tbl_contains
 local tbl_count = vim.tbl_count
 local tbl_keys = vim.tbl_keys
 
-local MARKDOWN_LINK_RE = "%b[]%(([^()]*)%)"
+local MARKDOWN_LINK_RE = "(%b[])(%b())"
 local YTDL_YOUTUBE_SEARCH_RE = "^ytdl://%s*ytsearch(%d*):"
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 
@@ -72,29 +73,33 @@ end
 
 ---Filter off URLs between start_col and end_col.
 ---If `end_col` is `nil`, then no upper bound for the column will be used.
----Returns a list of filenames and a boolian indicating whether to apply markdown to the line.
+---Returns a list of filenames and a boolean indicating whether to apply markdown to the line.
 ---@param line string
 ---@param start_col integer
 ---@param end_col? integer
 ---@return string[], boolean
 local function links_by_line(line, start_col, end_col)
   local ret = {}
+  local match_count = 0
+  local first_start
   for start, path, end_ in line:gmatch(LINK_RE) do
+    if first_start == nil then first_start = start end
     if end_ >= start_col and (not end_col or start <= end_col) then
       table.insert(ret, path)
     end
+    match_count = match_count + 1
   end
-  log.debug(ret)
-  return ret, (#ret == 1 and ret[0] == 1)
+  return ret, (match_count == 1 and first_start == 1)
 end
 
----Attempt to interpret the line as a file path or as markdown.
+---Attempt to interpret the line as an (absolute) file path or as markdown.
+---Paths are `expand()`ed before checking if the file exists.
 ---If the line is not a valid filename or the markdown match fails, return nil.
 ---@param line string
 ---@return string?
 local function try_path_and_markdown(line)
   local file_link = expand(line)
-  if filereadable(line) == 1 then
+  if file_link:find("/") == 1 and filereadable(file_link) == 1 then
     return file_link
   end
 
@@ -111,14 +116,13 @@ end
 ---and whether or not this is the only openable item on its line
 ---(in other words, whether overwriting it with markdown is acceptable).
 ---@param lines string[]
----@param start [integer, integer]
----@param end_ [integer, integer]
----@param mode VisualMode
+---@param start_line integer
+---@param start_col integer
+---@param end_line integer
+---@param end_col integer?
+---@param mode VisualMode?
 ---@return table<LineNumber, [string[], boolean]>
-local function multi_line(lines, start, end_, mode)
-  local start_line, start_col = unpack(start)
-  local end_line, end_col = unpack(end_)
-
+local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
   ---@type table<string, [string[], boolean]>
   local ret = {}
   for offset, line in ipairs(lines) do
@@ -253,7 +257,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
       mode
     )
     -- TODO: note that we assemble tables here and destruct them immediately afterward
-    return multi_line(lines, {new_start_line, start_col}, {new_end_line, end_col}, mode)
+    return multi_line(lines, new_start_line, start_col, new_end_line, end_col, mode)
   end
 
   log.info("Not in visual or visual block mode. Mode: %s", mode)
@@ -291,7 +295,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
       start_line,
       end_line
   )
-  return multi_line(lines, {start_line, 0}, {end_line, nil}, nil)
+  return multi_line(lines, start_line, 0, end_line, nil, nil)
 end
 
 
@@ -397,11 +401,9 @@ local function create_managed_mpv(
     return nil
   end
 
-  ---@type integer
   ---@diagnostic disable-next-line
   local player_id, playlist_extmark_ids = unpack(err)
 
-  -- TODO
   ---@type [string, ExtmarkId][]
   local zipped = {}
   for i = 1, #playlist_lines do
@@ -421,13 +423,15 @@ local function create_managed_mpv(
   local playlist_length = tbl_count(playlist.playlist_id_to_item)
   if playlist_length == 1 then
     if config.smart_youtube then
-      -- TODO: same types between both
       update_action = try_smart_youtube(playlist.playlist_id_to_item[1].filename)
     end
   elseif local_args.update_action == "new_one" then
-    error(
-      "Cannot create new buffer for playlist of initial size 1!"
+    vim.notify(
+      "Cannot create new buffer for playlist of initial size 1!",
+      vim.log.levels.ERROR,
+      {}
     )
+    return
   end
 
   update_action = local_args.update_action or update_action

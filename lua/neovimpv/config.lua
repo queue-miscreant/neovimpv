@@ -8,10 +8,12 @@ local default_config = {
   property_thresholds = {},
   omni_open_new_if_empty = true,
 
-  -- Markdown-writable files
+  -- Markdown-writable filetypes
+  ---@type string[]
   markdown_writable = {},
 
   -- Default arguments for mpv instances
+  ---@type string[]
   default_args = {},
 
   -- When to show playlist extmarks in the sign column
@@ -33,6 +35,7 @@ local default_config = {
   markdown_smart_bindings = false,
 
   -- Filetypes which should have smart bindings added by default
+  ---@type string[]
   smart_filetypes = {},
 
   -- Save buffers after modifying them, if they are modifiable

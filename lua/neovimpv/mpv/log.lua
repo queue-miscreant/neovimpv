@@ -7,7 +7,11 @@ local function write_log(s, ...)
       args[i] = vim.inspect(j)
     end
   end
-  log_handle:write(s:format(unpack(args)) .. "\n")
+  if type(s) == "table" then
+    log_handle:write(vim.inspect(s) .. "\n")
+  else
+    log_handle:write(tostring(s):format(unpack(args)) .. "\n")
+  end
   log_handle:flush()
 end
 

@@ -9,15 +9,12 @@ local log = require("neovimpv.mpv.log")
 
 local list_extend = vim.list_extend
 local list_slice = vim.list_slice
-local fs_join = vim.fs.joinpath or function(...) vim.fn.join({...}, "/") end
+local fs_join = (vim.fs or {}).joinpath or function(...) vim.fn.join({...}, "/") end
 
 
 -- delay between sending a keypress to mpv and rerequesting properties
 local KEYPRESS_DELAY_MS = 50
 local DEFAULT_MPV_ARGS = {"--no-video"}
----@type string[]
-local MPV_ARGS = {}
-
 
 ---@class MpvManager
 ---Manager for an mpv instance, containing options and arguments particular to it.
@@ -39,6 +36,7 @@ MpvManager.__index = MpvManager
 ---@param mpv_args string[]
 ---@return MpvManager
 function MpvManager.new(buffer, player_id, playlist, update_action, mpv_args)
+  mpv_args = list_extend(list_slice(config.default_args), mpv_args)
 
   local ret = {
     buffer = buffer,
@@ -46,17 +44,13 @@ function MpvManager.new(buffer, player_id, playlist, update_action, mpv_args)
     playlist = playlist,
     update_action = update_action,
     mpv = nil,
-    _mpv_args = list_extend(list_slice(MPV_ARGS), mpv_args),
+    _mpv_args = list_extend(list_slice(DEFAULT_MPV_ARGS), mpv_args),
     _not_spawning_player = nil,
     _transitioning_players = false,
   }
   setmetatable(ret, MpvManager)
 
   return ret
-end
-
-function MpvManager.set_default_args(new_args)
-  MPV_ARGS = list_extend(list_slice(DEFAULT_MPV_ARGS), new_args)
 end
 
 ---Create an instance of mpv which uses MpvProtocol for IPC at the UNIX path `ipc_path`

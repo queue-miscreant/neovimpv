@@ -1,14 +1,14 @@
 -- mpv/socket.lua
 -- Object-oriented interface to the mpv IPC socket
 
+local log = require("neovimpv.mpv.log")
+
 ---@diagnostic disable-next-line
 local new_pipe = vim.uv.new_pipe
 local json_encode = vim.json.encode
 local json_decode = vim.json.decode
 local split = vim.split
 local trim = vim.trim
-
-local log = require("neovimpv.mpv.log")
 
 local MPV_SET = 0
 local MPV_GET = 1

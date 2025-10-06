@@ -9,10 +9,8 @@
 --
 -- from neovimpv.protocol import MpvProtocol
 
-local config = require("neovimpv.config")
 local formatting = require("neovimpv.formatting")
 local log = require("neovimpv.mpv.log")
-local mpv_playlist = require("neovimpv.mpv.playlist")
 
 -- Example behavior of multiline playlist:
 --
