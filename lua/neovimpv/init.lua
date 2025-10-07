@@ -9,6 +9,7 @@ local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
 local youtube_interact = require "neovimpv.youtube.interact"
+local from_python = require "neovimpv.from_python"
 
 
 local neovimpv = {
@@ -69,6 +70,8 @@ function neovimpv.setup(opts)
   if vim.list_contains(config.smart_filetypes, vim.bo.filetype) then
     keys.bind_smart_local()
   end
+
+  from_python()
 end
 
 -- Exposed callbacks for Python

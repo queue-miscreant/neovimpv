@@ -122,106 +122,106 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
 
         self._mpv_instances[(target.buffer, target.id)] = target
 
-    @pynvim.command("MpvOpen", nargs="*", range="")
-    def open_in_mpv(self, args, range_):
-        """Open current line as a file in mpv."""
-        start, end = range_
-        # For some reason, vim sends the args over space-delimited,
-        # instead of with quotes interpreted
-        args = shlex.split(" ".join(args))
-        lines = self.nvim.current.buffer[start - 1 : end]
+    # @pynvim.command("MpvOpen", nargs="*", range="")
+    # def open_in_mpv(self, args, range_):
+    #     """Open current line as a file in mpv."""
+    #     start, end = range_
+    #     # For some reason, vim sends the args over space-delimited,
+    #     # instead of with quotes interpreted
+    #     args = shlex.split(" ".join(args))
+    #     lines = self.nvim.current.buffer[start - 1 : end]
+    #
+    #     self.create_mpv_instance(lines, start, end, args)
 
-        self.create_mpv_instance(lines, start, end, args)
+    # @pynvim.command("MpvNewAtLine", nargs="*", range="")
+    # def new_mpv_at_line(self, args, range_):
+    #     """Open file from command argument at the current line."""
+    #     start, end = range_
+    #     args = shlex.split(" ".join(args))
+    #     target_link = [args[0]]
+    #     self.create_mpv_instance(target_link, start, end, args[1:], ignore_mode=True)
 
-    @pynvim.command("MpvNewAtLine", nargs="*", range="")
-    def new_mpv_at_line(self, args, range_):
-        """Open file from command argument at the current line."""
-        start, end = range_
-        args = shlex.split(" ".join(args))
-        target_link = [args[0]]
-        self.create_mpv_instance(target_link, start, end, args[1:], ignore_mode=True)
+    # @pynvim.command(
+    #     "MpvPause",
+    #     nargs="?",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#mpv_close_pause",
+    # )
+    # def pause_mpv(self, args, range_):
+    #     """Pause/unpause the mpv instance on the current line"""
+    #     if args and args[0] == "all":
+    #         targets = self.query_mpvs(args[0])
+    #         for target in targets:
+    #             target.set_property("pause", True)
+    #         return
+    #
+    #     line = range_[0]
+    #     if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
+    #         target.toggle_pause()
 
-    @pynvim.command(
-        "MpvPause",
-        nargs="?",
-        range="",
-        complete="customlist,neovimpv#complete#mpv_close_pause",
-    )
-    def pause_mpv(self, args, range_):
-        """Pause/unpause the mpv instance on the current line"""
-        if args and args[0] == "all":
-            targets = self.query_mpvs(args[0])
-            for target in targets:
-                target.set_property("pause", True)
-            return
+    # @pynvim.command(
+    #     "MpvClose",
+    #     nargs="?",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#mpv_close_pause",
+    # )
+    # def close_mpv(self, args, range_):
+    #     """Close mpv instance on the current line"""
+    #     if args:
+    #         targets = self.query_mpvs(args[0])
+    #         for target in targets:
+    #             target.close()
+    #         return
+    #
+    #     line = range_[0]
+    #     if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
+    #         target.close()
 
-        line = range_[0]
-        if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
-            target.toggle_pause()
+    # @pynvim.command(
+    #     "MpvSetProperty",
+    #     nargs="+",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#mpv_set_property",
+    # )
+    # def mpv_set_property(self, args, range_):
+    #     """Assign a value to a property of the mpv instance on the current line"""
+    #     line = range_[0]
+    #     if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
+    #         target.set_property(*[try_json(i) for i in args])
 
-    @pynvim.command(
-        "MpvClose",
-        nargs="?",
-        range="",
-        complete="customlist,neovimpv#complete#mpv_close_pause",
-    )
-    def close_mpv(self, args, range_):
-        """Close mpv instance on the current line"""
-        if args:
-            targets = self.query_mpvs(args[0])
-            for target in targets:
-                target.close()
-            return
+    # @pynvim.command(
+    #     "MpvGetProperty",
+    #     nargs="1",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#mpv_get_property",
+    # )
+    # def mpv_get_property(self, args, range_):
+    #     """Request a property from the mpv instance on the current line"""
+    #     if len(args) != 1:
+    #         raise TypeError(f"Expected 1 argument, got {len(args)}")
+    #
+    #     property_name = args[0]
+    #     line = range_[0]
+    #     if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)) is None:
+    #         return
+    #
+    #     async def get_property():
+    #         result = await target.wait_property(property_name)
+    #         self.nvim.async_call(self.nvim.api.notify, str(result), 0, {})
+    #
+    #     self.nvim.loop.create_task(get_property())
 
-        line = range_[0]
-        if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
-            target.close()
-
-    @pynvim.command(
-        "MpvSetProperty",
-        nargs="+",
-        range="",
-        complete="customlist,neovimpv#complete#mpv_set_property",
-    )
-    def mpv_set_property(self, args, range_):
-        """Assign a value to a property of the mpv instance on the current line"""
-        line = range_[0]
-        if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
-            target.set_property(*[try_json(i) for i in args])
-
-    @pynvim.command(
-        "MpvGetProperty",
-        nargs="1",
-        range="",
-        complete="customlist,neovimpv#complete#mpv_get_property",
-    )
-    def mpv_get_property(self, args, range_):
-        """Request a property from the mpv instance on the current line"""
-        if len(args) != 1:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        property_name = args[0]
-        line = range_[0]
-        if (target := self.get_mpv_by_line(self.nvim.current.buffer, line)) is None:
-            return
-
-        async def get_property():
-            result = await target.wait_property(property_name)
-            self.nvim.async_call(self.nvim.api.notify, str(result), 0, {})
-
-        self.nvim.loop.create_task(get_property())
-
-    @pynvim.command(
-        "MpvSend",
-        nargs="+",
-        range="",
-        complete="customlist,neovimpv#complete#mpv_command",
-    )
-    def send_mpv_command(self, args, range_):
-        """Send commands to the mpv instance on the current line"""
-        line = range_[0]
-        if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
-            target.send_command(*[try_json(i) for i in args])
+    # @pynvim.command(
+    #     "MpvSend",
+    #     nargs="+",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#mpv_command",
+    # )
+    # def send_mpv_command(self, args, range_):
+    #     """Send commands to the mpv instance on the current line"""
+    #     line = range_[0]
+    #     if target := self.get_mpv_by_line(self.nvim.current.buffer, line):
+    #         target.send_command(*[try_json(i) for i in args])
 
     @pynvim.command("MpvYoutubeSearch", nargs="?", bang=True, range="")
     def mpv_youtube_search(self, args, _, bang=False):
@@ -243,127 +243,127 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
             open_results_buffer(self.nvim, args[0], self.nvim.current.window)
         )
 
-    @pynvim.command(
-        "MpvLogLevel",
-        nargs="+",
-        range="",
-        complete="customlist,neovimpv#complete#log_level",
-    )
-    def mpv_log_level(self, args, _):
-        """Set logging level from vim"""
-        if len(args) == 2:
-            logger_name, level = args
-        else:
-            raise TypeError(f"Expected 2 arguments, got {len(args)}")
+    # @pynvim.command(
+    #     "MpvLogLevel",
+    #     nargs="+",
+    #     range="",
+    #     complete="customlist,neovimpv#complete#log_level",
+    # )
+    # def mpv_log_level(self, args, _):
+    #     """Set logging level from vim"""
+    #     if len(args) == 2:
+    #         logger_name, level = args
+    #     else:
+    #         raise TypeError(f"Expected 2 arguments, got {len(args)}")
+    #
+    #     logger_name = logger_name.lower()
+    #     if logger_name not in ["mpv", "player", "protocol", "youtube", "all"]:
+    #         raise ValueError(f"Invalid logger name given: {logger_name}")
+    #
+    #     level = level.upper()
+    #     if level not in [
+    #         "INFO",
+    #         "DEBUG",
+    #         "WARNING",
+    #         "WARN",
+    #         "ERROR",
+    #         "FATAL",
+    #         "NOTSET",
+    #     ]:
+    #         raise ValueError(f"Invalid logging level given: {level}")
+    #
+    #     if logger_name == "mpv":
+    #         mpv_logger.setLevel(level)
+    #     elif logger_name == "player":
+    #         player_logger.setLevel(level)
+    #     elif logger_name == "protocol":
+    #         protocol_logger.setLevel(level)
+    #     elif logger_name == "youtube":
+    #         youtube_logger.setLevel(level)
+    #     elif logger_name == "all":
+    #         log.setLevel(level)
 
-        logger_name = logger_name.lower()
-        if logger_name not in ["mpv", "player", "protocol", "youtube", "all"]:
-            raise ValueError(f"Invalid logger name given: {logger_name}")
+    # @pynvim.function("MpvSendNvimKeys", sync=True)
+    # def mpv_send_keypress(self, args):
+    #     """Send keypress to the mpv instance"""
+    #     if len(args) == 3:
+    #         extmark_id, key, count = args
+    #     else:
+    #         raise TypeError(f"Expected 3 arguments, got {len(args)}")
+    #     log.debug(
+    #         "Received keypress: %s\n"
+    #         "Sending to buffer %s.%s\n"
+    #         "mpv_instances: %s",  # pylint: disable=implicit-str-concat
+    #         repr(key),
+    #         self.nvim.current.buffer.number,
+    #         extmark_id,
+    #         self._mpv_instances,
+    #     )
+    #     if target := self._mpv_instances.get(
+    #         (self.nvim.current.buffer.number, extmark_id)
+    #     ):
+    #         real_key = translate_keypress(key)
+    #
+    #         self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
 
-        level = level.upper()
-        if level not in [
-            "INFO",
-            "DEBUG",
-            "WARNING",
-            "WARN",
-            "ERROR",
-            "FATAL",
-            "NOTSET",
-        ]:
-            raise ValueError(f"Invalid logging level given: {level}")
+    # @pynvim.function("MpvSetOptions", sync=True)
+    # def mpv_set_options(self, args):
+    #     """Set default options in Python state"""
+    #     if len(args) != 1:
+    #         raise TypeError(f"Expected 1 argument, got {len(args)}")
+    #
+    #     self.mpv_properties = args[0]["mpv_properties"]
+    #     self.do_markdowns = args[0]["markdown_writable"]
+    #     self.on_playlist_update = args[0]["on_playlist_update"]
+    #     self.smart_youtube = args[0]["smart_youtube"]
+    #     MpvManager.set_default_args(args[0]["default_mpv_args"])
 
-        if logger_name == "mpv":
-            mpv_logger.setLevel(level)
-        elif logger_name == "player":
-            player_logger.setLevel(level)
-        elif logger_name == "protocol":
-            protocol_logger.setLevel(level)
-        elif logger_name == "youtube":
-            youtube_logger.setLevel(level)
-        elif logger_name == "all":
-            log.setLevel(level)
+    # @pynvim.function("MpvSetPlaylist", sync=True)
+    # def mpv_set_playlist(self, args):
+    #     """Set currently playing item"""
+    #     if len(args) == 2:
+    #         player, playlist_item = args
+    #     else:
+    #         raise TypeError(f"Expected 2 arguments, got {len(args)}")
+    #
+    #     mpv_instance = self._mpv_instances.get(
+    #         (self.nvim.current.buffer.number, int(player))
+    #     )
+    #     if mpv_instance is not None:
+    #         self.nvim.loop.create_task(
+    #             mpv_instance.set_current_by_playlist_extmark(playlist_item)
+    #         )
 
-    @pynvim.function("MpvSendNvimKeys", sync=True)
-    def mpv_send_keypress(self, args):
-        """Send keypress to the mpv instance"""
-        if len(args) == 3:
-            extmark_id, key, count = args
-        else:
-            raise TypeError(f"Expected 3 arguments, got {len(args)}")
-        log.debug(
-            "Received keypress: %s\n"
-            "Sending to buffer %s.%s\n"
-            "mpv_instances: %s",  # pylint: disable=implicit-str-concat
-            repr(key),
-            self.nvim.current.buffer.number,
-            extmark_id,
-            self._mpv_instances,
-        )
-        if target := self._mpv_instances.get(
-            (self.nvim.current.buffer.number, extmark_id)
-        ):
-            real_key = translate_keypress(key)
+    # @pynvim.function("MpvForwardDeletions", sync=True)
+    # def mpv_forward_deletions(self, args):
+    #     """Receive updated playlist extmark positions from nvim"""
+    #     if len(args) == 1:
+    #         (updated_playlists,) = args
+    #     else:
+    #         raise TypeError(f"Expected 1 argument, got {len(args)}")
+    #
+    #     for player, removed_items in updated_playlists.items():
+    #         mpv_instance = self._mpv_instances.get(
+    #             (self.nvim.current.buffer.number, int(player))
+    #         )
+    #         if mpv_instance is not None:
+    #             self.nvim.loop.create_task(
+    #                 mpv_instance.forward_deletions(removed_items)
+    #             )
 
-            self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
-
-    @pynvim.function("MpvSetOptions", sync=True)
-    def mpv_set_options(self, args):
-        """Set default options in Python state"""
-        if len(args) != 1:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        self.mpv_properties = args[0]["mpv_properties"]
-        self.do_markdowns = args[0]["markdown_writable"]
-        self.on_playlist_update = args[0]["on_playlist_update"]
-        self.smart_youtube = args[0]["smart_youtube"]
-        MpvManager.set_default_args(args[0]["default_mpv_args"])
-
-    @pynvim.function("MpvSetPlaylist", sync=True)
-    def mpv_set_playlist(self, args):
-        """Set currently playing item"""
-        if len(args) == 2:
-            player, playlist_item = args
-        else:
-            raise TypeError(f"Expected 2 arguments, got {len(args)}")
-
-        mpv_instance = self._mpv_instances.get(
-            (self.nvim.current.buffer.number, int(player))
-        )
-        if mpv_instance is not None:
-            self.nvim.loop.create_task(
-                mpv_instance.set_current_by_playlist_extmark(playlist_item)
-            )
-
-    @pynvim.function("MpvForwardDeletions", sync=True)
-    def mpv_forward_deletions(self, args):
-        """Receive updated playlist extmark positions from nvim"""
-        if len(args) == 1:
-            (updated_playlists,) = args
-        else:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        for player, removed_items in updated_playlists.items():
-            mpv_instance = self._mpv_instances.get(
-                (self.nvim.current.buffer.number, int(player))
-            )
-            if mpv_instance is not None:
-                self.nvim.loop.create_task(
-                    mpv_instance.forward_deletions(removed_items)
-                )
-
-    @pynvim.function("MpvToggleVideo", sync=True)
-    def mpv_toggle_video(self, args):
-        """Turn an audio player into a video player and vice-versa"""
-        if len(args) == 1:
-            (player,) = args
-        else:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        mpv_instance = self._mpv_instances.get(
-            (self.nvim.current.buffer.number, int(player))
-        )
-        if mpv_instance is not None:
-            self.nvim.loop.create_task(mpv_instance.toggle_video())
+    # @pynvim.function("MpvToggleVideo", sync=True)
+    # def mpv_toggle_video(self, args):
+    #     """Turn an audio player into a video player and vice-versa"""
+    #     if len(args) == 1:
+    #         (player,) = args
+    #     else:
+    #         raise TypeError(f"Expected 1 argument, got {len(args)}")
+    #
+    #     mpv_instance = self._mpv_instances.get(
+    #         (self.nvim.current.buffer.number, int(player))
+    #     )
+    #     if mpv_instance is not None:
+    #         self.nvim.loop.create_task(mpv_instance.toggle_video())
 
     @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
     def mpv_open_youtube_playlist(self, args):
