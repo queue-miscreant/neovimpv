@@ -71,7 +71,7 @@ function neovimpv.setup(opts)
     keys.bind_smart_local()
   end
 
-  from_python()
+  from_python.setup_commands()
 end
 
 -- Exposed callbacks for Python

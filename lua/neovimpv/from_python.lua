@@ -1,7 +1,9 @@
 
 local util = require("neovimpv.mpv.util")
+local log = require("neovimpv.mpv.log")
 
 local M = {
+  ---@type table<string, MpvManager>
   _mpv_instances = {},
 }
 
@@ -94,7 +96,7 @@ local function do_managers(args, line, callback)
   end
 end
 
-local function setup_commands()
+function M.setup_commands()
   -- TODO
   vim.api.nvim_create_user_command("MpvOpen", function(a)
     -- local args = shlex.split(a.args)
@@ -163,7 +165,7 @@ local function setup_commands()
 
   vim.api.nvim_create_user_command("MpvGetProperty", function(a)
     if #a.fargs ~= 1 then
-      vim.notify(f"Expected 1 argument, got " .. #a.fargs, vim.log.levels.ERROR, {})
+      vim.notify("Expected 1 argument, got " .. #a.fargs, vim.log.levels.ERROR, {})
     end
 
     local property_name = a.fargs[1]
@@ -192,32 +194,6 @@ local function setup_commands()
     range = true,
     complete = "customlist,neovimpv#complete#mpv_command",
   })
-
-  -- TODO
-  --[[
-    @pynvim.function("MpvSendNvimKeys", sync=True)
-    def mpv_send_keypress(self, args):
-        """Send keypress to the mpv instance"""
-        if len(args) == 3:
-            extmark_id, key, count = args
-        else:
-            raise TypeError(f"Expected 3 arguments, got {len(args)}")
-        log.debug(
-            "Received keypress: %s\n"
-            "Sending to buffer %s.%s\n"
-            "mpv_instances: %s",  # pylint: disable=implicit-str-concat
-            repr(key),
-            self.nvim.current.buffer.number,
-            extmark_id,
-            self._mpv_instances,
-        )
-        if target := self._mpv_instances.get(
-            (self.nvim.current.buffer.number, extmark_id)
-        ):
-            real_key = translate_keypress(key)
-
-            self.nvim.loop.create_task(target.send_keypress(real_key, count=count or 1))
-  ]]
 
   -- TODO
   --[[
@@ -276,4 +252,49 @@ local function setup_commands()
   ]]
 end
 
-return setup_commands
+-- Map from `getcharstr()` special characters to those expected by mpv
+local KEYPRESS_LOOKUP = {
+    ["kl"] = "left",
+    ["kr"] = "right",
+    ["ku"] = "up",
+    ["kd"] = "down",
+    ["kb"] = "bs",
+}
+
+-- Translate a vim keypress from `getchar()` into one intelligible to mpv's keypress command.
+---@param key string
+---@return string?
+local function translate_keypress(key)
+  if key:sub(1, 1) == "\x80" then
+    -- TODO: handle ctrl (\udcfc\x04, then original keypress)
+    -- TODO: handle alt (\udcfc\x08, then original keypress)
+    -- TODO: special (ctrl-right?)
+    log.debug("Special key sequence found: " .. vim.inspect(key))
+    return KEYPRESS_LOOKUP[key:sub(2)]
+  end
+
+  return key
+end
+
+-- Send keypress to the mpv instance
+---@param extmark_id integer
+---@param key string
+---@param count? integer
+function M.mpv_send_keypress(extmark_id, key, count)
+  log.debug(
+    "Received keypress: %s\n"
+    .. "Sending to buffer %s.%s\n"
+    .. "mpv_instances: %s",
+    vim.inspect(key),
+    vim.fn.bufnr(),
+    extmark_id,
+    M._mpv_instances
+  )
+  local target = M._mpv_instances[tostring(vim.fn.bufnr()) .. "." .. tostring(extmark_id)]
+  if target then
+    local real_key = translate_keypress(key)
+    target:send_keypress(real_key, nil, count and math.max(count, 1) or 1)
+  end
+end
+
+return M

@@ -378,7 +378,7 @@ function MpvSocket.new(socket_name, callback)
     try_handle_event(this, "connected", {})
 
     pipe:read_start(function(err, chunk)
-      if err == nil then
+      if err == nil and chunk ~= nil then
         data_received(this, chunk)
       else
         -- Process communication closed. Call close event.

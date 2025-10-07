@@ -29,7 +29,7 @@ local DEFAULT_MPV_ARGS = {"--no-video"}
 ---@field playlist MpvPlaylist
 ---@field update_action UpdateAction
 ---@field _mpv_args string[]
----@field _not_spawning_player nil TODO (asyncio.Event equivalent)
+---@field _after_spawn thread[]
 ---@field _transitioning_players boolean
 local MpvManager = {}
 MpvManager.__index = MpvManager
@@ -50,7 +50,7 @@ function MpvManager.new(buffer, player_id, playlist, update_action, mpv_args)
     update_action = update_action,
     mpv = nil,
     _mpv_args = list_extend(list_slice(DEFAULT_MPV_ARGS), mpv_args),
-    _not_spawning_player = nil,
+    _after_spawn = {},
     _transitioning_players = false,
   }
   setmetatable(ret, MpvManager)
@@ -112,8 +112,8 @@ end
 ---@return MpvManager
 function MpvManager:spawn(timeout_duration_ms)
   if not timeout_duration_ms then timeout_duration_ms = 1000 end
-  -- TODO
-  -- self._not_spawning_player.clear()
+  self._after_spawn= {}
+  self._transitioning_players = true
 
   local ipc_path = fs_join(mpv_socket_dir, tostring(self.id))
   create_mpv(
@@ -127,12 +127,24 @@ function MpvManager:spawn(timeout_duration_ms)
       log.debug("Spawned mpv with args %s", self._mpv_args)
 
       self.mpv = MpvWrapper.new(self, mpv_socket)
-      -- TODO
-      -- self._not_spawning_player.set()
+      self._transitioning_players = false
+      for _, coro in ipairs(self._after_spawn) do
+        coroutine.resume(coro)
+      end
     end
   )
 
   return self
+end
+
+-- If the player is in a transitioning state, save it to be called later when we get the player.
+---@private
+function MpvManager:_maybe_wait_transition()
+  if self._transitioning_players then
+    local coro = coroutine.running()
+    table.insert(self._after_spawn, coro)
+    coroutine.yield()
+  end
 end
 
 -- ==========================================================================
@@ -182,15 +194,13 @@ function MpvManager:wait_property(property_name, ignore_error)
 end
 
 ---Send a keypress and wait for its properties to be updated.
----@async
----@param ignore_error boolean?
----@param count integer?
+---@param ignore_error? boolean
+---@param count integer
 function MpvManager:send_keypress(keypress, ignore_error, count)
   if not ignore_error then ignore_error = false end
-  if not count then count = 1 end
 
   if keypress == "q" then
-    self:close_async()
+    self:close()
     return
   end
 
@@ -200,9 +210,7 @@ function MpvManager:send_keypress(keypress, ignore_error, count)
   end
 
   for _ = 1, count do
-    self.mpv.socket:send_command{
-      "keypress", keypress, ignore_error
-    }
+    self.mpv.socket:send_command({ "keypress", keypress }, nil, ignore_error)
   end
 
   -- some delay is necessary for the keypress to take effect
@@ -264,7 +272,7 @@ function MpvManager:toggle_video()
   self._transitioning_players = false
 
   log.info(
-      "Transition finished! Setting playlist index to %s...", current_position
+    "Transition finished! Setting playlist index to %s...", current_position
   )
   self.mpv.socket:send_command{"playlist-play-index", current_position}
   self.mpv.socket:get_property("playlist")
@@ -279,46 +287,59 @@ end
 ---Set the current file to the mpv file specified by the extmark `playlist_item`
 ---@async
 function MpvManager:set_current_by_playlist_extmark(extmark_id)
-  self._not_spawning_player:wait()
-  if self.mpv == nil then
-    vim.notify("Could not set playlist index! Mpv is closed.", vim.log.levels.ERROR, {})
-    return
-  end
+  coroutine.wrap(function()
+    self:_maybe_wait_transition()
 
-  self.playlist:set_current_by_playlist_extmark(self.mpv, extmark_id)
+    if self.mpv == nil then
+      vim.defer_fn(function()
+        vim.notify(
+          "Could not set playlist index! Mpv is closed.",
+          vim.log.levels.ERROR,
+          {}
+        )
+      end, 0)
+      return
+    end
+
+      self.playlist:set_current_by_playlist_extmark(self.mpv, extmark_id)
+  end)()
 end
 
 --- Forward deletions to mpv
 function MpvManager:forward_deletions(removed_items)
-  self._not_spawning_player:wait()
-  if self.mpv == nil then
-    vim.notify("Could not forward deletions! Mpv is closed.", vim.log.levels.ERROR, {})
-    return
-  end
+  coroutine.wrap(function ()
+    self:_maybe_wait_transition()
 
-  self.playlist:forward_deletions(self.mpv, removed_items)
+    if self.mpv == nil then
+      vim.defer_fn(function()
+        vim.notify(
+          "Could not forward deletions! Mpv is closed.",
+          vim.log.levels.ERROR,
+          {}
+        )
+      end, 0)
+      return
+    end
+
+    self.playlist:forward_deletions(self.mpv, removed_items)
+  end)()
 end
 
----Defer to the plugin to remove the extmark
----@param no_destroy_extmarks? boolean
----@async
-function MpvManager:close_async(no_destroy_extmarks)
-  self._not_spawning_player:wait()
-  if self.mpv ~= nil then
-    self.mpv.socket:send_command{"quit"}  -- just in case
-  end
-
-  if not no_destroy_extmarks then
-    --TODO
-    -- self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
-  end
-end
-
----Defer to the plugin to remove the extmark
+-- Defer to the plugin to remove the extmarks
 function MpvManager:close()
-  local no_destroy_extmarks = self._transitioning_players
-  -- TODO
-  -- self.plugin.nvim.loop.create_task(self:close_async(no_destroy_extmarks))
+  coroutine.wrap(function()
+    local no_destroy_extmarks = self._transitioning_players
+    self:_maybe_wait_transition()
+
+    if self.mpv ~= nil then
+      self.mpv.socket:send_command{"quit"}  -- just in case
+    end
+
+    -- TODO: remove from from_python._mpv_instances
+    -- if not no_destroy_extmarks then
+    --   self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
+    -- end
+  end)()
 end
 
 return MpvManager

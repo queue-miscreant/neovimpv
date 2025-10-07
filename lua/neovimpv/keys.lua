@@ -7,6 +7,8 @@ local helpers = require "neovimpv.helpers"
 local player = require "neovimpv.extmarks.player"
 local tracker = require "neovimpv.extmarks.download"
 
+local from_python = require "neovimpv.from_python"
+
 local keys = {}
 
 local function exit_mode()
@@ -60,7 +62,7 @@ local function omnikey(extra_args)
       if temp == config.playlist_key then
         vim.fn.MpvSetPlaylist(player, playlist_item)
       else
-        vim.fn.MpvSendNvimKeys(player, temp, vim.v.count)
+        from_python.mpv_send_keypress(player, temp, vim.v.count)
       end
     end)
 

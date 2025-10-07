@@ -365,15 +365,15 @@ class Neovimpv:  # pylint: disable=too-many-public-methods
     #     if mpv_instance is not None:
     #         self.nvim.loop.create_task(mpv_instance.toggle_video())
 
-    @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
-    def mpv_open_youtube_playlist(self, args):
-        """(Deprecated) Make a new buffer for a YouTube playlist object"""
-        if len(args) == 2:
-            playlist, extra = args
-        else:
-            raise TypeError(f"Expected 2 argument, got {len(args)}")
-
-        self.nvim.loop.create_task(open_playlist_results(self.nvim, playlist, extra))
+    # @pynvim.function("MpvOpenYoutubePlaylist", sync=True)
+    # def mpv_open_youtube_playlist(self, args):
+    #     """(Deprecated) Make a new buffer for a YouTube playlist object"""
+    #     if len(args) == 2:
+    #         playlist, extra = args
+    #     else:
+    #         raise TypeError(f"Expected 2 argument, got {len(args)}")
+    #
+    #     self.nvim.loop.create_task(open_playlist_results(self.nvim, playlist, extra))
 
     def show_error(self, error, level=4):
         """Show an error to nvim"""
