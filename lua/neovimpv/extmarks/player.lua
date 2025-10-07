@@ -95,10 +95,9 @@ local function update_extmark(buffer, extmark_id, content)
 end
 
 ---Push an update from an mpv property table
----
 ---@param buffer integer
 ---@param extmark_id integer
----@param data {[string]: any}
+---@param data table<string, any>
 ---@param force_text? string
 function player.update_extmark(buffer, extmark_id, data, force_text)
   local display = {
@@ -106,8 +105,8 @@ function player.update_extmark(buffer, extmark_id, data, force_text)
     virt_text_pos = "eol",
   } --[[@as ExtmarkArgs]]
 
-  local video = data["video-format"] ~= vim.NIL
-  if force_text ~= vim.NIL then
+  local video = data["video-format"] ~= nil
+  if force_text then
     display.virt_text = {{force_text, "MpvDefault"}} --[[@as VirtText]]
   elseif video then
     display.virt_text = {{"[ Window ]", "MpvDefault"}} --[[@as VirtText]]

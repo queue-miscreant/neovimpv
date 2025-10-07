@@ -182,7 +182,7 @@ local function parse_mpvopen_args(args)
 
   local local_flag = false
   local video_flag = false
-  for arg in ipairs(args) do
+  for _, arg in ipairs(args) do
     if arg == "--" then
       local_flag = true
     elseif local_flag then
@@ -260,7 +260,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
     return multi_line(lines, new_start_line, start_col, new_end_line, end_col, mode)
   end
 
-  log.info("Not in visual or visual block mode. Mode: %s", mode)
+  log.info("Not in visual or visual block mode. Mode: %s", tostring(mode))
   if mode ~= IGNORE and mode ~= VISUAL_LINE then
     if start_line == end_line then
       local _, new_start_line, start_col = unpack(vim.fn.getpos("."))
@@ -397,7 +397,7 @@ local function create_managed_mpv(
       vim.log.levels.ERROR,
       {}
     )
-    log.debug("%s", err)
+    log.debug(err)
     return nil
   end
 

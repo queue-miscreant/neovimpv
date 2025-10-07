@@ -11,6 +11,11 @@ local list_extend = vim.list_extend
 local list_slice = vim.list_slice
 local fs_join = (vim.fs or {}).joinpath or function(...) vim.fn.join({...}, "/") end
 
+-- setup temp dir
+local tempdir = vim.fn.fnamemodify(vim.fn.tempname(), ":h")
+local mpv_socket_dir = fs_join(tempdir, "neovimpv")
+vim.fn.mkdir(mpv_socket_dir, "p")
+
 
 -- delay between sending a keypress to mpv and rerequesting properties
 local KEYPRESS_DELAY_MS = 50
@@ -110,7 +115,7 @@ function MpvManager:spawn(timeout_duration_ms)
   -- TODO
   -- self._not_spawning_player.clear()
 
-  local ipc_path = fs_join(config.mpv_socket_dir, tostring(self.id))
+  local ipc_path = fs_join(mpv_socket_dir, tostring(self.id))
   create_mpv(
     self._mpv_args,
     ipc_path,

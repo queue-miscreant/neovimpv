@@ -181,7 +181,7 @@ end
 ---@param self MpvSocket
 ---@param json_data table<string, any>
 local function remember_playlist_id(self, json_data)
-  self.last_playlist_entry_id = json_data.get("playlist_entry_id", -1)
+  self.last_playlist_entry_id = json_data["playlist_entry_id"] or -1
 end
 
 ---Handler for file-close events with reason redirect

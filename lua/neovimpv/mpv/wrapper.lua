@@ -110,7 +110,8 @@ function MpvWrapper:draw_update(force_virt_text)
 
   -- draw_update is called asynchronously, so protect against errors from this call
   vim.defer_fn(function()
-    vim._neovimpv_callbacks.update_extmark(
+    pcall(
+      vim._neovimpv_callbacks.update_extmark,
       self.manager.buffer,
       self.manager.id,
       self.socket.data,
