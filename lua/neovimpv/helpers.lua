@@ -74,6 +74,7 @@ function helpers.paste_links(files, window, line_number)
   return unpack(ret)
 end
 
+-- TODO: neovimpv.mpv should use this
 -- Convert a title and URL pair to a markdown string
 --
 ---@param title string
@@ -83,6 +84,7 @@ function helpers.markdownify(title, url)
   return url:find("%(") and url or ("[%s](%s)"):format(title:gsub("[%[%]]", ""), url)
 end
 
+-- TODO: neovimpv.mpv should use this
 -- Extract the title and URL pair from a markdown string
 --
 ---@param markdown string

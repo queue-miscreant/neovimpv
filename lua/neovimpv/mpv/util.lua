@@ -246,6 +246,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
   if mode == VISUAL_BLOCK or mode == VISUAL_RANGE then
     log.info("Attempting action based on vim mode")
     -- Block or visual block modes
+    -- TODO: note that we disassemble `getpos` tables here instead of using them directly
     local _, new_start_line, start_col = unpack(vim.fn.getpos("<"))
     local _, new_end_line, end_col = unpack(vim.fn.getpos(">"))
     log.info("Creating playlist from visual selection")
@@ -256,7 +257,6 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
       {new_end_line, end_col},
       mode
     )
-    -- TODO: note that we assemble tables here and destruct them immediately afterward
     return multi_line(lines, new_start_line, start_col, new_end_line, end_col, mode)
   end
 
@@ -275,8 +275,8 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
           }
         end
         log.info("Finding closest link")
-        log.debug("line: %s\nstart_col: %s", lines[0], start_col)
-        local closest_link, only_link_on_line = find_closest_link(lines[0], start_col)
+        log.debug("line: %s\nstart_col: %s", lines[1], start_col)
+        local closest_link, only_link_on_line = find_closest_link(lines[1], start_col)
         if closest_link ~= nil then
           return {
             [tostring(start_line)] = {{closest_link}, only_link_on_line}

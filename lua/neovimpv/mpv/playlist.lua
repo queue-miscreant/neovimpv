@@ -2,6 +2,7 @@
 -- Storage class for mapping mpv playlists to extmark ids.
 
 local log = require("neovimpv.mpv.log")
+local player_registry = require("neovimpv.players")
 
 local tbl_count = vim.tbl_count
 local list_contains = vim.list_contains
@@ -345,9 +346,9 @@ function MpvPlaylist:_new_playlist_buffer(mpv, new_playlist, playlist_id)
   )
   mpv.no_draw = false
 
-  -- TODO
-  error("No way to update buffer identification")
-  mpv.manager.plugin.set_new_buffer(mpv.manager, new_buffer_id, new_display)
+  player_registry.reregister(mpv.manager, new_buffer_id, new_display)
+  mpv.manager.buffer = new_buffer_id
+  mpv.manager.id = new_display
 
   -- bind the new extmarks to their mpv ids
   for i = 1, #new_playlist do
@@ -365,7 +366,7 @@ function MpvPlaylist:_new_playlist_buffer(mpv, new_playlist, playlist_id)
 end
 
 ---Update state after playlist loaded.
----The playlist retrieved from MpvProtocol is raw, so we need to do a bit of extra processing.
+---The playlist retrieved from MpvSocket is raw, so we need to do a bit of extra processing.
 ---@param mpv MpvWrapper
 ---@param data table
 function MpvPlaylist:update(mpv, data)

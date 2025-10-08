@@ -5,6 +5,7 @@
 local config = require("neovimpv.config")
 local MpvSocket = require("neovimpv.mpv.socket")
 local MpvWrapper = require("neovimpv.mpv.wrapper")
+local player_registry = require("neovimpv.players")
 local log = require("neovimpv.mpv.log")
 
 local list_extend = vim.list_extend
@@ -335,10 +336,11 @@ function MpvManager:close()
       self.mpv.socket:send_command{"quit"}  -- just in case
     end
 
-    -- TODO: remove from from_python._mpv_instances
-    -- if not no_destroy_extmarks then
-    --   self.plugin.nvim.async_call(self.plugin.remove_mpv_instance, self)
-    -- end
+    if not no_destroy_extmarks then
+      vim.defer_fn(function()
+        player_registry.deregister(self)
+      end, 0)
+    end
   end)()
 end
 

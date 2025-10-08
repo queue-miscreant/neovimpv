@@ -33,7 +33,6 @@ local function add_events(self)
   self.socket:add_event("start-file", function(_, data) self:_on_start_file(data) end)
   self.socket:add_event("file-loaded", function(_, _) self:_preamble() end)
   self.socket:add_event("close", function(_, _) self.manager:close() end)
-  -- TODO
   self.socket:add_event("property-change", function(_, _) self:draw_update() end)
   self.socket:add_event(
     "got-playlist", function(_, data) self.manager.playlist:update(self, data) end
@@ -190,7 +189,7 @@ function MpvWrapper:_on_end_file(arg)
   if arg.reason == "error" and err then
     vim.defer_fn(function()
       vim.notify(
-        "File ended: " .. error,
+        "File ended: " .. err,
         vim.log.levels.ERROR,
         {}
       )

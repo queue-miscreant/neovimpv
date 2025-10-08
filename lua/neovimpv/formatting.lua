@@ -166,7 +166,7 @@ end
 
 ---@param format_string string
 function formatting.compile(format_string)
-  ---@type (FormatterField | [string, highlight])[]
+  ---@type (FormatterField | [string, Highlight])[]
   local fields = {}
 
   for match, post in format_string:gmatch("([^}]+)}([^{]*)") do

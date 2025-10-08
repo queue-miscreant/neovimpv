@@ -1,11 +1,8 @@
-
+local player_registry = require("neovimpv.players")
 local util = require("neovimpv.mpv.util")
 local log = require("neovimpv.mpv.log")
 
-local M = {
-  ---@type table<string, MpvManager>
-  _mpv_instances = {},
-}
+local M = {}
 
 ---Interpret each item in `args` as a JSON string.
 ---In other words, convert quoted strings to strings and digit literals to numbers.
@@ -19,47 +16,22 @@ local function try_json(args)
   return command
 end
 
----Get mpv instances that we currently know about for a given buffer
----@return MpvManager[]
-local function get_mpvs_in_buffer(buffer)
-  local matches = {}
-  for key, mpv_instance in pairs(M._mpv_instances) do
-    if key:find(buffer .. "%.") then
-      table.insert(matches, mpv_instance)
-    end
-  end
-  return matches
-end
-
----Interpret a string `arg` as either a buffer number or 'all'.
----Return mpv instances in the buffer, or all of them.
----@param arg string
----@return MpvManager[]
-local function query_mpvs(arg)
-  if arg == "all" then
-    return M._mpv_instances.values()
-  end
-  local buffnum = tonumber(arg)
-
-  return buffnum and get_mpvs_in_buffer(buffnum or vim.fn.bufnr()) or {}
-end
-
 
 ---Get the mpv instance on the current line of the buffer, if such an
 ---instance exists.
----@param buffer integer
+---@param buffer_id integer
 ---@param line integer
 ---@return MpvManager?
-local function get_mpv_by_line(buffer, line)
+local function get_mpv_by_line(buffer_id, line)
   local player_id, _ = vim._neovimpv_callbacks.get_player_by_line(
-    buffer, line, line, true
+    buffer_id, line, line, true
   )
   if not player_id then return nil end
 
-  return M._mpv_instances[tostring(buffer) .. "." .. tostring(player_id)]
+  return player_registry.get(tostring(buffer_id), tostring(player_id))
 end
 
----Create an MpvManager and register it in `_mpv_instances`
+---Create an MpvManager and register it
 ---@param lines string[]
 ---@param start integer
 ---@param end_ integer
@@ -72,11 +44,9 @@ local function create_mpv_instance(lines, start, end_, args, ignore_mode)
   end
 
   local target = util.create_managed_mpv(lines, start, end_, args, ignore_mode or false)
-  if target == nil  then
-    return
-  end
+  if target == nil then return end
 
-  M._mpv_instances[tostring(target.buffer) .. "." .. tostring(target.id)] = target
+  player_registry.register(target)
 end
 
 ---Command builder for `:MpvAction [all|buffer|buffnr]`-style commands
@@ -84,8 +54,8 @@ end
 ---@param line integer
 ---@param callback fun(managers: MpvManager[])
 local function do_managers(args, line, callback)
-  if #args ~= 0 and args[1] == "all" then
-    local targets = query_mpvs(args[0]) --[[@as MpvManager[] ]]
+  if #args ~= 0 and args[1] == "all" or args[1] == "buffer" then
+    local targets = player_registry.query_mpvs(args[1])
     callback(targets)
     return
   end
@@ -266,8 +236,8 @@ local KEYPRESS_LOOKUP = {
 ---@return string?
 local function translate_keypress(key)
   if key:sub(1, 1) == "\x80" then
-    -- TODO: handle ctrl (\udcfc\x04, then original keypress)
-    -- TODO: handle alt (\udcfc\x08, then original keypress)
+    -- TODO: handle ctrl (\xfc\x04, then original keypress)
+    -- TODO: handle alt (\xfc\x08, then original keypress)
     -- TODO: special (ctrl-right?)
     log.debug("Special key sequence found: " .. vim.inspect(key))
     return KEYPRESS_LOOKUP[key:sub(2)]
@@ -281,16 +251,7 @@ end
 ---@param key string
 ---@param count? integer
 function M.mpv_send_keypress(extmark_id, key, count)
-  log.debug(
-    "Received keypress: %s\n"
-    .. "Sending to buffer %s.%s\n"
-    .. "mpv_instances: %s",
-    vim.inspect(key),
-    vim.fn.bufnr(),
-    extmark_id,
-    M._mpv_instances
-  )
-  local target = M._mpv_instances[tostring(vim.fn.bufnr()) .. "." .. tostring(extmark_id)]
+  local target = player_registry.get(tostring(vim.fn.bufnr()), tostring(extmark_id))
   if target then
     local real_key = translate_keypress(key)
     target:send_keypress(real_key, nil, count and math.max(count, 1) or 1)
