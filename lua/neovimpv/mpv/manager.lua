@@ -59,53 +59,6 @@ function MpvManager.new(buffer, player_id, playlist, update_action, mpv_args)
   return ret
 end
 
----Create an instance of mpv which uses MpvProtocol for IPC at the UNIX path `ipc_path`
----Returns tuple of asyncio Process and MpvProtocol in use.
----@param mpv_args string[]
----@param ipc_path string
----@param read_timeout_ms? integer
----@param callback fun(mpv_socket: MpvSocket)
-local function create_mpv(mpv_args, ipc_path, read_timeout_ms, callback)
-  if read_timeout_ms == nil then read_timeout_ms = 1000 end
-
-  ---@diagnostic disable-next-line
-  local stdout = vim.uv.new_pipe()
-  ---@diagnostic disable-next-line
-  vim.uv.spawn("mpv", {
-    args = list_extend(list_slice(mpv_args), {
-      "--input-ipc-server=" .. ipc_path,
-      "--idle=once",
-    }),
-    stdio = {nil, stdout, nil},
-  })
-
-  -- timeout a read from the subprocess's stdout (for errors)
-  local startup_print = false
-  -- TODO: This might be wrong for libuv.
-  stdout:read_start(function(_, _)
-    startup_print = true
-  end)
-
-  vim.defer_fn(function()
-    if startup_print then
-      vim.notify("Mpv terminated early!", vim.log.levels.ERROR, {})
-      return
-    end
-
-    local success = false
-    MpvSocket.new(ipc_path, function(mpv_socket)
-      success = true
-      callback(mpv_socket)
-    end)
-
-    vim.defer_fn(function()
-      if not success then
-        vim.notify("Timed out connecting to protocol!", vim.log.levels.ERROR, {})
-      end
-    end, read_timeout_ms)
-  end, read_timeout_ms)
-end
-
 ---Spawn subprocess and wait `timeout_duration` seconds for error output.
 ---If the connection is successful, the instance's `protocol` member will be set
 ---to an MpvProtocol for IPC.
@@ -117,17 +70,21 @@ function MpvManager:spawn(timeout_duration_ms)
   self._transitioning_players = true
 
   local ipc_path = fs_join(mpv_socket_dir, tostring(self.id))
-  create_mpv(
+  MpvSocket.spawn_new(
     self._mpv_args,
     ipc_path,
     timeout_duration_ms,
-    function(mpv_socket)
-      -- TODO: on error
-      -- self._not_spawning_player.set()
+    function(success, mpv_socket)
+      if not success then
+        vim.defer_fn(function()
+          vim.notify(mpv_socket --[[@as string]], vim.log.levels.ERROR, {})
+        end, 0)
+        self.mpv = nil
+      else
+        log.debug("Spawned mpv with args %s", self._mpv_args)
+        self.mpv = MpvWrapper.new(self, mpv_socket --[[@as MpvSocket]])
+      end
 
-      log.debug("Spawned mpv with args %s", self._mpv_args)
-
-      self.mpv = MpvWrapper.new(self, mpv_socket)
       self._transitioning_players = false
       for _, coro in ipairs(self._after_spawn) do
         coroutine.resume(coro)

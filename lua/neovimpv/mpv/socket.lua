@@ -3,12 +3,13 @@
 
 local log = require("neovimpv.mpv.log")
 
----@diagnostic disable-next-line
-local new_pipe = vim.uv.new_pipe
-local json_encode = vim.json.encode
-local json_decode = vim.json.decode
+local list_extend = vim.list_extend
+local list_slice = vim.list_slice
+local json_encode = (vim.json or {}).encode or vim.fn.json_encode
+local json_decode = (vim.json or {}).decode or vim.fn.json_decode
 local split = vim.split
 local trim = vim.trim
+local uv = vim.uv or vim.loop
 
 local MPV_SET = 0
 local MPV_GET = 1
@@ -28,28 +29,28 @@ local MPV_GET = 1
 ---@alias MpvEventCallback fun(this: MpvSocket, json_data: table<string, any>)
 
 ---@class MpvSocket
----Protocol and storage for interacting with a mpv instance's IPC.
----Supports event callbacks with signature (protocol, data) which can be added with `add_event`.
 ---@field transport UVPipe?
 ---@field data table<string, any>
 ---@field _properties table<string, integer> Table of property names to request IDs.
 ---@field _reverse_properties table<MpvRequestId, string> Table of request ids to property names
 ---@field _last_property integer Last-used property ID.
----@field _event_handlers table<string, MpvEventCallback[]>
 ---Table containing handlers for mpv events.
 ---Events are invoked with the socket instance and the event JSON from mpv.
----@field _waiting_properties table<MpvRequestId, MpvWaitingProperties>
+---@field _event_handlers table<string, MpvEventCallback[]>
 ---Map from request IDs of properties we're waiting for to MpvWaitingProperties.
----@field _ignore_errors table<MpvRequestId, boolean>
+---@field _waiting_properties table<MpvRequestId, MpvWaitingProperties>
 ---Map from request IDs to whether errors should be ignored for that ID.
----@field _waiting_events table<string, thread[]>
+---@field _ignore_errors table<MpvRequestId, boolean>
 ---Map from event names to coroutines waiting to be resumed when the event occurs.
----@field _playlist_request integer
+---@field _waiting_events table<string, thread[]>
 ---Request ID of the playlist request.
----@field playlist_new MpvPlaylistIds?
+---@field _playlist_request integer
 ---Temporary buffer for new playlist lengths and IDs inside mpv during transitions.
----@field last_playlist_entry_id integer
+---@field playlist_new MpvPlaylistIds?
 ---Temporary `playlist_entry_id`, remembered when files are loaded by mpv.
+---@field last_playlist_entry_id integer
+---Protocol and storage for interacting with a mpv instance's IPC.
+---Supports event callbacks with signature (protocol, data) which can be added with `add_event`.
 local MpvSocket = {}
 MpvSocket.__index = MpvSocket
 
@@ -177,14 +178,14 @@ local function property_change(self, json_data)
 end
 
 
----Remember the last playlist_entry_id for when the file gets loaded
+---Remember the last playlist_entry_id for when the file gets loaded.
 ---@param self MpvSocket
 ---@param json_data table<string, any>
 local function remember_playlist_id(self, json_data)
   self.last_playlist_entry_id = json_data["playlist_entry_id"] or -1
 end
 
----Handler for file-close events with reason redirect
+---Handler for file-close events with reason redirect.
 ---@param self MpvSocket
 ---@param json_data table<string, any>
 local function try_playlist(self, json_data)
@@ -193,9 +194,9 @@ local function try_playlist(self, json_data)
   end
   self._playlist_request = self._last_property
   self.playlist_new = {
-      playlist_entry_id = json_data["playlist_entry_id"],
-      playlist_insert_id = json_data["playlist_insert_id"],
-      playlist_insert_num_entries = json_data["playlist_insert_num_entries"],
+    playlist_entry_id = json_data["playlist_entry_id"],
+    playlist_insert_id = json_data["playlist_insert_id"],
+    playlist_insert_num_entries = json_data["playlist_insert_num_entries"],
   }
   self:get_property("playlist", self._playlist_request)
   self._last_property = self._last_property + 1
@@ -345,10 +346,14 @@ function MpvSocket:observe_property(property_name, ignore_error)
 end
 
 
----@param socket_name string
----@param callback fun(MpvSocket)?
----@return MpvSocket
-function MpvSocket.new(socket_name, callback)
+---Create a new socket listening to the Unix-domain socket at `socket_file`.
+---Does not return the socket.
+---Instead, a callback function should be provided as the second argument,
+---which is called with two arguments: a boolean indicating connection success
+---and either the created socket or a string describing the error.
+---@param socket_file string
+---@param callback fun(success: boolean, socket_or_msg: MpvSocket | string)
+function MpvSocket.new(socket_file, callback)
   local this = {
     data = {},
     --
@@ -371,14 +376,19 @@ function MpvSocket.new(socket_name, callback)
   this:add_event("start-file", remember_playlist_id)
   this:add_event("end-file", try_playlist)
 
-  local pipe = new_pipe(true)
-  pipe:connect(socket_name, function()
-    log.debug("Connected to mpv!")
+  ---@diagnostic disable-next-line
+  local pipe = uv.new_pipe(true)
+  pipe:connect(socket_file, function(err)
+    if err then
+      if callback then callback(false, "Failed to connect to mpv") end
+      return
+    end
+
     this.transport = pipe
     try_handle_event(this, "connected", {})
 
-    pipe:read_start(function(err, chunk)
-      if err == nil and chunk ~= nil then
+    pipe:read_start(function(pipe_err, chunk)
+      if pipe_err == nil and chunk ~= nil then
         data_received(this, chunk)
       else
         -- Process communication closed. Call close event.
@@ -395,10 +405,60 @@ function MpvSocket.new(socket_name, callback)
       end
     end)
 
-    if callback then callback(this) end
+    if callback then callback(true, this) end
   end)
 
   return this
+end
+
+---Create a mpv subprocess with an IPC server and wrap its socket in an `MpvSocket` object.
+---Does not return the socket.
+---Instead, a callback function should be provided as the second argument,
+---which is called with two arguments: a boolean indicating connection success
+---and either the created socket or a string describing the error.
+---@param mpv_args string[]
+---@param ipc_path string
+---@param read_timeout_ms? integer
+---@param callback fun(success: boolean, socket_or_msg: MpvSocket | string)
+function MpvSocket.spawn_new(mpv_args, ipc_path, read_timeout_ms, callback)
+  if read_timeout_ms == nil then read_timeout_ms = 1000 end
+
+  ---@diagnostic disable-next-line
+  local stdout = uv.new_pipe(true)
+  ---@diagnostic disable-next-line
+  uv.spawn("mpv", {
+    args = list_extend(list_slice(mpv_args), {
+      "--input-ipc-server=" .. ipc_path,
+      "--idle=once",
+    }),
+    stdio = {nil, stdout, nil},
+  })
+
+  -- timeout a read from the subprocess's stdout (for errors)
+  local startup_print = false
+  -- TODO: This might be wrong for libuv.
+  stdout:read_start(function(_, _)
+    startup_print = true
+  end)
+
+  vim.defer_fn(function()
+    if startup_print then
+      if callback then callback(false, "Mpv terminated early!") end
+      return
+    end
+
+    local did_callback = false
+    MpvSocket.new(ipc_path, function(success, mpv_socket)
+      did_callback = true
+      if callback then callback(success, mpv_socket) end
+    end)
+
+    vim.defer_fn(function()
+      if not did_callback then
+        if callback then callback(false, "Timed out connecting to protocol!") end
+      end
+    end, read_timeout_ms)
+  end, read_timeout_ms)
 end
 
 return MpvSocket
