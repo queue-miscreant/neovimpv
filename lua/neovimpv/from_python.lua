@@ -1,6 +1,12 @@
 local player_registry = require("neovimpv.players")
+local MpvManager = require("neovimpv.mpv.manager")
+local MpvPlaylist = require("neovimpv.mpv.playlist")
 local util = require("neovimpv.mpv.util")
+local config = require("neovimpv.config")
 local log = require("neovimpv.mpv.log")
+
+local list_contains = vim.list_contains
+local tbl_count = vim.tbl_count
 
 local M = {}
 
@@ -31,22 +37,79 @@ local function get_mpv_by_line(buffer_id, line)
   return player_registry.get(tostring(buffer_id), tostring(player_id))
 end
 
----Create an MpvManager and register it
----@param lines string[]
----@param start integer
----@param end_ integer
----@param args string[]
----@param ignore_mode? boolean
-local function create_mpv_instance(lines, start, end_, args, ignore_mode)
-  if start == end_ and get_mpv_by_line(vim.fn.bufnr(), start) then
+
+-- Create a MpvManager instance from line data and ranges from the vim.
+-- This also spawns a task for creating an mpv subprocess and opening a communication channel.
+---@param line_data string[]
+---@param start_line integer
+---@param end_line integer
+---@param extra_args string[]?
+---@param ignore_mode boolean?
+---@return MpvManager?
+local function create_managed_mpv(
+    line_data,
+    start_line,
+    end_line,
+    extra_args,
+    ignore_mode
+)
+  local current_buffer = vim.fn.bufnr()
+  local current_filetype = vim.bo.filetype
+
+  if start_line == end_line and get_mpv_by_line(current_buffer, start_line) then
     vim.notify("Mpv is already open on this line!", vim.log.levels.ERROR, {})
+    return nil
+  end
+
+  local local_args = util.parse_mpvopen_args(extra_args or {})
+
+  local success, maybe_playlist, maybe_player_id = pcall(function()
+    return MpvPlaylist.new(
+      current_buffer,
+      line_data,
+      start_line,
+      end_line,
+      ignore_mode and "ignore" or local_args.visual,
+      list_contains(config.markdown_writable, current_filetype)
+    )
+  end)
+
+  if not success then
+    vim.notify(maybe_playlist --[[@as string]], vim.log.levels.ERROR, {})
     return
   end
 
-  local target = util.create_managed_mpv(lines, start, end_, args, ignore_mode or false)
-  if target == nil then return end
+  ---@cast maybe_playlist MpvPlaylist
+  ---@cast maybe_player_id integer
+
+  -- Update actions and "smart youtube"-ness
+  local update_action = config.on_playlist_update
+  local playlist_length = tbl_count(maybe_playlist.playlist_id_to_item)
+  if playlist_length == 1 then
+    if config.smart_youtube then
+      update_action = util.try_smart_youtube(maybe_playlist.playlist_id_to_item[1].filename)
+    end
+  elseif local_args.update_action == "new_one" then
+    vim.notify(
+      "Cannot create new buffer for playlist of initial size 1!",
+      vim.log.levels.ERROR,
+      {}
+    )
+    return
+  end
+
+  update_action = local_args.update_action or update_action
+
+  local target = MpvManager.new(
+      current_buffer,
+      maybe_player_id,
+      maybe_playlist,
+      update_action,
+      local_args.mpv_args
+  ):spawn()
 
   player_registry.register(target)
+  return target
 end
 
 ---Command builder for `:MpvAction [all|buffer|buffnr]`-style commands
@@ -67,11 +130,11 @@ local function do_managers(args, line, callback)
 end
 
 function M.setup_commands()
-  -- TODO
   vim.api.nvim_create_user_command("MpvOpen", function(a)
+    -- TODO: lexical shell parsing
     -- local args = shlex.split(a.args)
 
-    create_mpv_instance(
+    create_managed_mpv(
       vim.fn.getline(a.line1, a.line2) --[[@as string[] ]],
       a.line1,
       a.line2,
@@ -79,11 +142,11 @@ function M.setup_commands()
     )
   end, { nargs = "*", range = true})
 
-  -- TODO
   vim.api.nvim_create_user_command("MpvNewAtLine", function(a)
+    -- TODO: lexical shell parsing
     -- local args = shlex.split(a.args)
 
-    create_mpv_instance(
+    create_managed_mpv(
       { "" },
       a.line1,
       a.line2,

@@ -1,6 +1,5 @@
--- mpv/player.lua
+-- mpv/manager.lua
 -- A container class for forwarding plugin commands to the correct MpvSocket
--- Also contains playlist extmark manager.
 
 local config = require("neovimpv.config")
 local MpvSocket = require("neovimpv.mpv.socket")

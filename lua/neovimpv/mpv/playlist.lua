@@ -3,8 +3,10 @@
 
 local log = require("neovimpv.mpv.log")
 local player_registry = require("neovimpv.players")
+local util = require("neovimpv.mpv.util")
 
 local tbl_count = vim.tbl_count
+local tbl_keys = vim.tbl_keys
 local list_contains = vim.list_contains
 local list_extend = vim.list_extend
 
@@ -28,9 +30,59 @@ local list_extend = vim.list_extend
 local MpvPlaylist = {}
 MpvPlaylist.__index = MpvPlaylist
 
----@param playlist_id_to_item table<PlaylistId, MpvItem>
----@return MpvPlaylist
-function MpvPlaylist.new(playlist_id_to_item)
+---@param buffer_id integer
+---@param line_data string[]
+---@param start_line integer
+---@param end_line integer
+---@param do_markdown boolean
+---@return MpvPlaylist, integer
+function MpvPlaylist.new(buffer_id, line_data, start_line, end_line, ignore_mode, do_markdown)
+  local preliminary_playlist = util.construct_playlist_items(
+      line_data,
+      start_line,
+      end_line,
+      ignore_mode
+  )
+  if tbl_count(preliminary_playlist) == 0 then
+    error(
+      (start_line == end_line and "Line does" or "Lines do")
+      .. " not contain a file path or valid URL"
+    )
+  end
+
+  local playlist_lines = tbl_keys(preliminary_playlist)
+  table.sort(playlist_lines)
+
+  -- TODO
+  local success, err = pcall(function()
+    -- TODO
+    return vim._neovimpv_callbacks.create_player(
+      buffer_id,
+      playlist_lines  -- only the line number, not the file name
+    )
+  end)
+
+  if not success then error("Could not create playlist in nvim!") end
+
+  ---@diagnostic disable-next-line
+  local player_id, playlist_extmark_ids = unpack(err)
+
+  local file_index = 1
+  local playlist_id_to_item = {}
+  for i, line in ipairs(playlist_lines) do
+    local extmark_id = playlist_extmark_ids[i]
+    local files, rewritable_line = unpack(preliminary_playlist[line])
+    for _, file in ipairs(files or {}) do
+      playlist_id_to_item[tostring(file_index)] = {
+          filename = file,
+          extmark_id = extmark_id,
+          update_markdown = rewritable_line and do_markdown,
+          show_currently_playing = not rewritable_line,
+      } --[[@as MpvItem]]
+      file_index = file_index + 1
+    end
+  end
+
   local ret = {
     playlist_id_to_item = playlist_id_to_item,
     playlist_id_remap = {},
@@ -40,7 +92,7 @@ function MpvPlaylist.new(playlist_id_to_item)
   }
   setmetatable(ret, MpvPlaylist)
 
-  return ret
+  return ret, player_id
 end
 
 function MpvPlaylist:__len()

@@ -1,25 +1,15 @@
 -- mpv/util.lua
 -- Utility functions for spawning mpv.
 
-local config = require("neovimpv.config")
 local log = require("neovimpv.mpv.log")
-local MpvPlaylist = require("neovimpv.mpv.playlist")
-local MpvManager = require("neovimpv.mpv.manager")
 
 local expand = vim.fn.expand
 local filereadable = vim.fn.filereadable
 local list_contains = vim.tbl_contains
-local tbl_count = vim.tbl_count
-local tbl_keys = vim.tbl_keys
 
 local MARKDOWN_LINK_RE = "(%b[])(%b())"
 local YTDL_YOUTUBE_SEARCH_RE = "^ytdl://%s*ytsearch(%d*):"
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
-
-local VISUAL_RANGE = "visual"
-local VISUAL_LINE = "vline"
-local VISUAL_BLOCK = "vblock"
-local IGNORE = "ignore"
 
 ---@alias VisualMode "visual" | "vline" | "vblock" | "ignore" | nil
 ---@alias LineNumber string
@@ -141,7 +131,7 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
     local links = {}
     local markdownable = false
 
-    if mode == VISUAL_RANGE then
+    if mode == "visual" then  -- visual range
       if start_line == end_line then
         links, markdownable = links_by_line(line, start_col, end_col)
       elseif line_number == start_line then
@@ -149,7 +139,7 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
       elseif line_number == end_line then
         links, markdownable = links_by_line(line, 0, end_col)
       end
-    elseif mode == VISUAL_BLOCK then
+    elseif mode == "vblock" then
       links, markdownable = links_by_line(line, start_col, end_col)
     else
       links, markdownable = links_by_line(line, 0, nil)
@@ -195,12 +185,8 @@ local function parse_mpvopen_args(args)
         update_action = "new_one"
       end
       -- Visual modes
-      if arg == "visual" then
-        visual = VISUAL_RANGE
-      elseif arg == "vblock" then
-        visual = VISUAL_BLOCK
-      elseif arg == "vline" then
-        visual = VISUAL_LINE
+      if list_contains({"visual", "vline", "vblock"}, arg) then
+        visual = arg
       end
 
       if arg == "video" then
@@ -236,14 +222,13 @@ end
 
 ---Read over the list of lines, skipping those which are not files or URLs.
 ---Make note of which need to be turned into markdown.
----TODO `getpos` unpacking is slightly ugly
 ---@param lines string[]
 ---@param start_line integer
 ---@param end_line integer
 ---@param mode VisualMode
 ---@return table<LineNumber, [string[], boolean]>
 local function construct_playlist_items(lines, start_line, end_line, mode)
-  if mode == VISUAL_BLOCK or mode == VISUAL_RANGE then
+  if mode == "visual" or mode == "vblock" then
     log.info("Attempting action based on vim mode")
     -- Block or visual block modes
     -- TODO: note that we disassemble `getpos` tables here instead of using them directly
@@ -261,7 +246,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
   end
 
   log.info("Not in visual or visual block mode. Mode: %s", tostring(mode))
-  if mode ~= IGNORE and mode ~= VISUAL_LINE then
+  if mode ~= "ignore" and mode ~= "vline" then
     if start_line == end_line then
       local _, new_start_line, start_col = unpack(vim.fn.getpos("."))
       -- If somehow we were given a range without the cursor actually being there,
@@ -299,34 +284,6 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
 end
 
 
----Convert the playlist from `construct_playlist_items` to a `playlist_id_to_extmark_id`
----value for MpvPlaylist. This is a dict of tuples from playlist indices (starting with 1)
----to extmark indices.
----@param preliminary_playlist table<LineNumber, [string[], boolean]>
----@param lines_ids_zip [LineNumber, ExtmarkId][]
----@param acknowledge_markdowns boolean
----@return table<string, MpvItem>
-local function construct_mpv_item_map(preliminary_playlist, lines_ids_zip, acknowledge_markdowns)
-  local file_index = 1
-  local playlist_id_to_item = {}
-  for _, item in ipairs(lines_ids_zip) do
-    local line, extmark_id = unpack(item)
-    local files, rewritable_line = unpack(preliminary_playlist[line])
-    for _, file in ipairs(files or {}) do
-      playlist_id_to_item[tostring(file_index)] = {
-          filename = file,
-          extmark_id = extmark_id,
-          update_markdown = rewritable_line and acknowledge_markdowns,
-          show_currently_playing = not rewritable_line,
-      } --[[@as MpvItem]]
-      file_index = file_index + 1
-    end
-  end
-
-  return playlist_id_to_item
-end
-
-
 ---Attempt to generate a "smart Youtube" playlist update action.
 ---This pastes the first result of "ytsearch://" URLs over the original contents of the line.
 ---Otherwise, results are opened in a new buffer inside a split.
@@ -340,111 +297,6 @@ local function try_smart_youtube(filename)
   return "new_one"
 end
 
-
--- Create a MpvManager instance from line data and ranges from the nvim plugin.
--- This also spawns a task for creating an mpv subprocess and opening a communication channel.
---
--- The plugin MUST be in a state where its `current` data is accessible, for example, when
--- using async_call or in a command callback.
----@param line_data string[]
----@param start_line integer
----@param end_line integer
----@param extra_args string[]
----@param ignore_mode boolean
-local function create_managed_mpv(
-    line_data,
-    start_line,
-    end_line,
-    extra_args,
-    ignore_mode
-)
-  local current_buffer = vim.fn.bufnr()
-  local current_filetype = vim.bo.filetype
-
-  local local_args = parse_mpvopen_args(extra_args)
-
-  local preliminary_playlist = construct_playlist_items(
-      line_data,
-      start_line,
-      end_line,
-      ignore_mode and IGNORE or local_args.visual
-  )
-  log.debug(preliminary_playlist)
-  if tbl_count(preliminary_playlist) == 0 then
-    vim.notify(
-      (start_line == end_line and "Line does" or "Lines do") .. " not contain a file path or valid URL",
-      vim.log.levels.ERROR,
-      {}
-    )
-    return nil
-  end
-
-  local playlist_lines = tbl_keys(preliminary_playlist)
-  table.sort(playlist_lines)
-
-  -- TODO
-  local success, err = pcall(function()
-    -- TODO
-    return vim._neovimpv_callbacks.create_player(
-      current_buffer,
-      playlist_lines  -- only the line number, not the file name
-    )
-  end)
-
-  if not success then
-    vim.notify(
-      "Could not create playlist in nvim!",
-      vim.log.levels.ERROR,
-      {}
-    )
-    log.debug(err)
-    return nil
-  end
-
-  ---@diagnostic disable-next-line
-  local player_id, playlist_extmark_ids = unpack(err)
-
-  ---@type [string, ExtmarkId][]
-  local zipped = {}
-  for i = 1, #playlist_lines do
-    table.insert(zipped, { playlist_lines[i], playlist_extmark_ids[i] })
-  end
-
-  local playlist = MpvPlaylist.new(
-    construct_mpv_item_map(
-      preliminary_playlist,
-      zipped,
-      list_contains(config.markdown_writable, current_filetype)
-    )
-  )
-
-  -- Update actions and "smart youtube"-ness
-  local update_action = config.on_playlist_update
-  local playlist_length = tbl_count(playlist.playlist_id_to_item)
-  if playlist_length == 1 then
-    if config.smart_youtube then
-      update_action = try_smart_youtube(playlist.playlist_id_to_item[1].filename)
-    end
-  elseif local_args.update_action == "new_one" then
-    vim.notify(
-      "Cannot create new buffer for playlist of initial size 1!",
-      vim.log.levels.ERROR,
-      {}
-    )
-    return
-  end
-
-  update_action = local_args.update_action or update_action
-
-  return MpvManager.new(
-      current_buffer,
-      player_id,
-      playlist,
-      update_action,
-      local_args.mpv_args
-  ):spawn()
-end
-
 return {
   find_closest_link = find_closest_link,
   links_by_line = links_by_line,
@@ -453,5 +305,4 @@ return {
   parse_mpvopen_args = parse_mpvopen_args,
   construct_playlist_items = construct_playlist_items,
   try_smart_youtube = try_smart_youtube,
-  create_managed_mpv = create_managed_mpv,
 }
