@@ -158,7 +158,7 @@ end
 ---@param with_video boolean Download with video
 function download.tag_extmark(start, end_, with_video)
   if start > end_ then return end
-  local lines = vim.fn.getline(start, end_)
+  local lines = vim.fn.getline(start, end_) --[[@as string[] ]]
 
   for i, line in ipairs(lines) do
     if extract_url(line) then

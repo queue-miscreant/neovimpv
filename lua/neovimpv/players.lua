@@ -1,3 +1,6 @@
+local helpers = require "neovimpv.helpers"
+
+local list_contains = vim.list_contains
 local list_slice = vim.list_slice
 local list_extend = vim.list_extend
 
@@ -5,8 +8,8 @@ local list_extend = vim.list_extend
 ---@alias ExtmarkIdStr string
 
 local M = {
-  ---@type table<string, table<string, MpvManager>>
   ---@private
+  ---@type table<string, table<string, MpvManager>>
   _players = {},
 }
 
@@ -45,7 +48,7 @@ end
 function M.deregister(manager)
   local success, err = pcall(function()
     (manager.mpv or {}).no_draw = true
-    vim._neovimpv_callbacks.remove_player(manager.buffer, manager.id);
+    manager.playlist.extmarks:remove();
     (M._players[manager.buffer] or {})[manager.id] = nil
   end)
   if not success then
@@ -112,6 +115,43 @@ end
 ---@return MpvManager?
 function M.get(buffer_id, extmark_id)
   return (M._players[tostring(buffer_id)] or {})[tostring(extmark_id)]
+end
+
+
+---Try to get the playlist extmarks from `start` to `end` in a `buffer`.
+---@param buffer_id integer
+---@param start_line integer
+---@param end_line? integer
+---@param show_message? boolean
+---@return MpvManager?, integer?
+function M.get_player_by_line(buffer_id, start_line, end_line, show_message)
+  if buffer_id == 0 then buffer_id = vim.fn.bufnr() end
+  if end_line == nil then end_line = start_line end
+
+  local playlist_item = vim.api.nvim_buf_get_extmarks(
+    buffer_id,
+    helpers.playlist_namespace,
+    {start_line - 1, 0},
+    {end_line - 1, -1},
+    {}
+  )[1] or {}
+
+  local found_player
+  for _, player in pairs(M._players[tostring(buffer_id)] or {}) do
+    if list_contains(player.playlist.extmarks.playlist_ids, playlist_item[1]) then
+      found_player = player
+      break
+    end
+  end
+
+  if not found_player then
+    if show_message then
+      vim.notify("No mpv found running on that line", 4, {})
+    end
+    return
+  end
+
+  return found_player, playlist_item[1]
 end
 
 return M

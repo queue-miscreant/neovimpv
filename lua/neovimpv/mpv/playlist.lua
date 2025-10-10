@@ -3,7 +3,7 @@
 
 local log = require("neovimpv.mpv.log")
 local player_registry = require("neovimpv.players")
-local util = require("neovimpv.mpv.util")
+local buffer_extmarks = require("neovimpv.extmarks.buffer")
 
 local tbl_count = vim.tbl_count
 local tbl_keys = vim.tbl_keys
@@ -16,6 +16,8 @@ local list_extend = vim.list_extend
 ---@class MpvPlaylist
 ---Playlist information cached in the plugin, such as filenames, extmark id, and
 ---whether the line can be rewritten in markdown.
+---@field extmarks BufferExtmarks
+---Player/playlist extmark manager
 ---@field playlist_id_to_item table<PlaylistId, MpvItem>
 ---Remaps from one mpv id to another
 ---@field playlist_id_remap table<PlaylistId, PlaylistId>
@@ -31,52 +33,24 @@ local MpvPlaylist = {}
 MpvPlaylist.__index = MpvPlaylist
 
 ---@param buffer_id integer
----@param line_data string[]
----@param start_line integer
----@param end_line integer
----@param do_markdown boolean
----@return MpvPlaylist, integer
-function MpvPlaylist.new(buffer_id, line_data, start_line, end_line, ignore_mode, do_markdown)
-  local preliminary_playlist = util.construct_playlist_items(
-      line_data,
-      start_line,
-      end_line,
-      ignore_mode
-  )
-  if tbl_count(preliminary_playlist) == 0 then
-    error(
-      (start_line == end_line and "Line does" or "Lines do")
-      .. " not contain a file path or valid URL"
-    )
-  end
-
-  local playlist_lines = tbl_keys(preliminary_playlist)
+---@param lines_to_links table<LineNumber, [string[], boolean]>
+---@return MpvPlaylist
+function MpvPlaylist.new(buffer_id, lines_to_links)
+  local playlist_lines = tbl_keys(lines_to_links)
   table.sort(playlist_lines)
 
-  -- TODO
-  local success, err = pcall(function()
-    -- TODO
-    return vim._neovimpv_callbacks.create_player(
-      buffer_id,
-      playlist_lines  -- only the line number, not the file name
-    )
-  end)
-
-  if not success then error("Could not create playlist in nvim!") end
-
-  ---@diagnostic disable-next-line
-  local player_id, playlist_extmark_ids = unpack(err)
+  local extmarks = buffer_extmarks.new(buffer_id, playlist_lines)
 
   local file_index = 1
   local playlist_id_to_item = {}
   for i, line in ipairs(playlist_lines) do
-    local extmark_id = playlist_extmark_ids[i]
-    local files, rewritable_line = unpack(preliminary_playlist[line])
+    local extmark_id = extmarks.playlist_ids[i]
+    local files, rewritable_line = unpack(lines_to_links[line])
     for _, file in ipairs(files or {}) do
       playlist_id_to_item[tostring(file_index)] = {
           filename = file,
           extmark_id = extmark_id,
-          update_markdown = rewritable_line and do_markdown,
+          update_markdown = rewritable_line,
           show_currently_playing = not rewritable_line,
       } --[[@as MpvItem]]
       file_index = file_index + 1
@@ -84,6 +58,7 @@ function MpvPlaylist.new(buffer_id, line_data, start_line, end_line, ignore_mode
   end
 
   local ret = {
+    extmarks = extmarks,
     playlist_id_to_item = playlist_id_to_item,
     playlist_id_remap = {},
     _updated_indices = {},
@@ -92,7 +67,7 @@ function MpvPlaylist.new(buffer_id, line_data, start_line, end_line, ignore_mode
   }
   setmetatable(ret, MpvPlaylist)
 
-  return ret, player_id
+  return ret
 end
 
 function MpvPlaylist:__len()
@@ -176,12 +151,7 @@ function MpvPlaylist:move_player_extmark(mpv, playlist_id, show_text)
   local mpv_item = self.playlist_id_to_item[playlist_id]
   ---@type boolean
   local success = mpv_item ~= nil
-    and vim._neovimpv_callbacks.move_player(
-        mpv.manager.buffer,
-        mpv.manager.id,
-        mpv_item.extmark_id,
-        show_text
-    )
+    and self.extmarks:move(mpv_item.extmark_id, show_text)
 
   if not success then
     local filename = (self.playlist_id_to_item[playlist_id] or {}).filename
@@ -263,11 +233,7 @@ function MpvPlaylist:update_currently_playing(
     return
   end
 
-  vim._neovimpv_callbacks.show_playlist_current(
-    mpv.manager.buffer,
-    mpv_item.extmark_id,
-    current_title
-  )
+  self.extmarks:show_currently_playing(mpv_item.extmark_id, current_title)
   mpv.no_draw = false
 end
 
@@ -330,6 +296,8 @@ function MpvPlaylist:_paste_playlist(mpv, new_playlist, playlist_id)
     return
   end
 
+  -- TODO: check markdown writeable
+  -- list_contains(config.markdown_writable, current_filetype)
   local write_lines = get_write_lines(new_playlist, mpv_item.update_markdown)
   local new_extmarks = vim._neovimpv_callbacks.paste_playlist(
       mpv.manager.buffer,

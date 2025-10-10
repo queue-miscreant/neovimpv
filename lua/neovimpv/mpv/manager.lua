@@ -26,7 +26,7 @@ local DEFAULT_MPV_ARGS = {"--no-video"}
 ---@field buffer integer
 ---@field id integer
 ---@field mpv MpvWrapper?
----@field playlist MpvPlaylist
+---@field playlist MpvPlaylist?
 ---@field update_action UpdateAction
 ---@field _mpv_args string[]
 ---@field _after_spawn thread[]
@@ -150,10 +150,36 @@ function MpvManager:wait_property(property_name, ignore_error)
   return self.mpv.socket:wait_property(property_name, ignore_error)
 end
 
----Send a keypress and wait for its properties to be updated.
----@param ignore_error? boolean
+-- Map from `getcharstr()` special characters to those expected by mpv
+local KEYPRESS_LOOKUP = {
+    ["kl"] = "left",
+    ["kr"] = "right",
+    ["ku"] = "up",
+    ["kd"] = "down",
+    ["kb"] = "bs",
+}
+
+-- Translate a vim keypress from `getchar()` into one intelligible to mpv's keypress command.
+---@param key string
+---@return string?
+local function translate_keypress(key)
+  if key:sub(1, 1) == "\x80" then
+    -- TODO: handle ctrl (\xfc\x04, then original keypress)
+    -- TODO: handle alt (\xfc\x08, then original keypress)
+    -- TODO: special (ctrl-right?)
+    log.debug("Special key sequence found: " .. vim.inspect(key))
+    return KEYPRESS_LOOKUP[key:sub(2)]
+  end
+
+  return key
+end
+
+---Send an nvim keypress and wait for its properties to be updated.
 ---@param count integer
-function MpvManager:send_keypress(keypress, ignore_error, count)
+---@param ignore_error? boolean
+function MpvManager:send_keypress(raw_key, count, ignore_error)
+  local keypress = translate_keypress(raw_key)
+  count = math.max(count, 1) or 1
   if not ignore_error then ignore_error = false end
 
   if keypress == "q" then

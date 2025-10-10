@@ -4,9 +4,10 @@
 -- Usually tries to delete extmarks if a delete action was taken on the line.
 
 local helpers = require "neovimpv.helpers"
+local player_registry = require "neovimpv.players"
 
 ---@diagnostic disable-next-line
----@cast vim.b.mpv_playlists_to_displays {[string]: integer}
+---@cast vim.b.mpv_playlists_to_displays table<string, integer>?
 
 ---@return GetExtmark[]?
 local function calculate_change(new_lines)
@@ -56,17 +57,17 @@ end
 -- Remove playlist items in `removed_playlist` and clean up the map to the player.
 --
 ---@param removed_playlist GetExtmark[]
----@return {[string]: integer[]} A table whose keys are player ids and whose values
+---@return table<string, integer[]> A table whose keys are player ids and whose values
 --- are playlist ids that survived the change.
 local function get_players_with_deletions(removed_playlist)
-  ---@type {[string]: boolean}
+  ---@type table<string, boolean>
   local removed_ids = {}
   for _, extmark_data in ipairs(removed_playlist or {}) do
     removed_ids[tostring(extmark_data[1])] = true
   end
 
   local altered_players = {}
-  ---@type {[string]: integer[]}
+  ---@type table<string, integer[]>
   local removed_items = vim.empty_dict()
 
   for playlist_item, player_id in pairs(vim.b.mpv_playlists_to_displays or {}) do
@@ -105,6 +106,7 @@ end
 --
 ---@param old_extmarks GetExtmark[]?
 local function buffer_change_callback(old_extmarks)
+  -- TODO: we build persisted ids from removed ones, then re-build removed ones
   if old_extmarks ~= nil then
     local new_playlists = get_players_with_deletions(old_extmarks)
     vim.fn.MpvForwardDeletions(new_playlists)
@@ -119,7 +121,8 @@ local function buffer_change_callback(old_extmarks)
   )
   -- Close all players which fell outside the bounds
   for _, i in ipairs(invisible_extmarks) do
-    vim.fn.MpvSendNvimKeys(i[1], "q", 1)
+    local player = player_registry.get(tostring(vim.fn.bufnr()), tostring(i[1]))
+    if player then player:send_keypress("q", 1) end
   end
 end
 

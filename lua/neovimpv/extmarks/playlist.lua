@@ -3,7 +3,6 @@
 -- Extmark functionality which deals with playlist interactions, mainly ones
 -- which are dynamically loaded by mpv.
 
-local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
 local player = require "neovimpv.extmarks.player"
 local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
@@ -17,7 +16,7 @@ local playlist = {}
 ---@param content string New line contents.
 function playlist.write_line_of_playlist_item(buffer, playlist_id, content)
   -- Don't bother if not modifiable
-  if not vim.api.nvim_buf_get_option(buffer, "modifiable") then
+  if not vim.bo[buffer].modifiable then
     return
   end
 
@@ -177,7 +176,7 @@ function playlist.new_playlist_buffer(buffer, display_id, old_playlist_id, new_p
     -- set options for new buffer
     vim.bo.modifiable = false
     vim.bo.bufhidden = "wipe"
-    vim.bo.filetype = vim.api.nvim_buf_get_option(buffer, "filetype")
+    vim.bo.filetype = vim.bo[buffer].filetype
   end)
 
   -- "Move" player extmark between buffers.

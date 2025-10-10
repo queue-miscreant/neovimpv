@@ -5,7 +5,7 @@ local util = require("neovimpv.mpv.util")
 local config = require("neovimpv.config")
 local log = require("neovimpv.mpv.log")
 
-local list_contains = vim.list_contains
+local get_mpv_by_line = player_registry.get_player_by_line
 local tbl_count = vim.tbl_count
 
 local M = {}
@@ -20,21 +20,6 @@ local function try_json(args)
     table.insert(command, success and val or arg)
   end
   return command
-end
-
-
----Get the mpv instance on the current line of the buffer, if such an
----instance exists.
----@param buffer_id integer
----@param line integer
----@return MpvManager?
-local function get_mpv_by_line(buffer_id, line)
-  local player_id, _ = vim._neovimpv_callbacks.get_player_by_line(
-    buffer_id, line, line, true
-  )
-  if not player_id then return nil end
-
-  return player_registry.get(tostring(buffer_id), tostring(player_id))
 end
 
 
@@ -54,24 +39,32 @@ local function create_managed_mpv(
     ignore_mode
 )
   local current_buffer = vim.fn.bufnr()
-  local current_filetype = vim.bo.filetype
-
-  if start_line == end_line and get_mpv_by_line(current_buffer, start_line) then
-    vim.notify("Mpv is already open on this line!", vim.log.levels.ERROR, {})
-    return nil
-  end
-
   local local_args = util.parse_mpvopen_args(extra_args or {})
 
-  local success, maybe_playlist, maybe_player_id = pcall(function()
-    return MpvPlaylist.new(
-      current_buffer,
+  local success, maybe_playlist = pcall(function()
+
+    if
+      start_line == end_line
+      and get_mpv_by_line(current_buffer, start_line)
+    then
+      error("Mpv is already open on this line!")
+    end
+
+    local lines_to_links = util.construct_playlist_items(
       line_data,
       start_line,
       end_line,
-      ignore_mode and "ignore" or local_args.visual,
-      list_contains(config.markdown_writable, current_filetype)
+      ignore_mode and "ignore" or local_args.visual
     )
+
+    if tbl_count(lines_to_links) == 0 then
+      error(
+        (start_line == end_line and "Line does" or "Lines do")
+        .. " not contain a file path or valid URL"
+      )
+    end
+
+    return MpvPlaylist.new(current_buffer, lines_to_links)
   end)
 
   if not success then
@@ -80,7 +73,6 @@ local function create_managed_mpv(
   end
 
   ---@cast maybe_playlist MpvPlaylist
-  ---@cast maybe_player_id integer
 
   -- Update actions and "smart youtube"-ness
   local update_action = config.on_playlist_update
@@ -102,7 +94,7 @@ local function create_managed_mpv(
 
   local target = MpvManager.new(
       current_buffer,
-      maybe_player_id,
+      maybe_playlist.extmarks.player_id,
       maybe_playlist,
       update_action,
       local_args.mpv_args
@@ -230,25 +222,6 @@ function M.setup_commands()
 
   -- TODO
   --[[
-    @pynvim.function("MpvSetPlaylist", sync=True)
-    def mpv_set_playlist(self, args):
-        """Set currently playing item"""
-        if len(args) == 2:
-            player, playlist_item = args
-        else:
-            raise TypeError(f"Expected 2 arguments, got {len(args)}")
-
-        mpv_instance = self._mpv_instances.get(
-            (self.nvim.current.buffer.number, int(player))
-        )
-        if mpv_instance is not None:
-            self.nvim.loop.create_task(
-                mpv_instance.set_current_by_playlist_extmark(playlist_item)
-            )
-  ]]
-
-  -- TODO
-  --[[
     @pynvim.function("MpvForwardDeletions", sync=True)
     def mpv_forward_deletions(self, args):
         """Receive updated playlist extmark positions from nvim"""
@@ -266,59 +239,6 @@ function M.setup_commands()
                     mpv_instance.forward_deletions(removed_items)
                 )
   ]]
-
-  -- TODO
-  --[[
-    @pynvim.function("MpvToggleVideo", sync=True)
-    def mpv_toggle_video(self, args):
-        """Turn an audio player into a video player and vice-versa"""
-        if len(args) == 1:
-            (player,) = args
-        else:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        mpv_instance = self._mpv_instances.get(
-            (self.nvim.current.buffer.number, int(player))
-        )
-        if mpv_instance is not None:
-            self.nvim.loop.create_task(mpv_instance.toggle_video())
-  ]]
-end
-
--- Map from `getcharstr()` special characters to those expected by mpv
-local KEYPRESS_LOOKUP = {
-    ["kl"] = "left",
-    ["kr"] = "right",
-    ["ku"] = "up",
-    ["kd"] = "down",
-    ["kb"] = "bs",
-}
-
--- Translate a vim keypress from `getchar()` into one intelligible to mpv's keypress command.
----@param key string
----@return string?
-local function translate_keypress(key)
-  if key:sub(1, 1) == "\x80" then
-    -- TODO: handle ctrl (\xfc\x04, then original keypress)
-    -- TODO: handle alt (\xfc\x08, then original keypress)
-    -- TODO: special (ctrl-right?)
-    log.debug("Special key sequence found: " .. vim.inspect(key))
-    return KEYPRESS_LOOKUP[key:sub(2)]
-  end
-
-  return key
-end
-
--- Send keypress to the mpv instance
----@param extmark_id integer
----@param key string
----@param count? integer
-function M.mpv_send_keypress(extmark_id, key, count)
-  local target = player_registry.get(tostring(vim.fn.bufnr()), tostring(extmark_id))
-  if target then
-    local real_key = translate_keypress(key)
-    target:send_keypress(real_key, nil, count and math.max(count, 1) or 1)
-  end
 end
 
 return M

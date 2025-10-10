@@ -128,7 +128,7 @@ end
 ---
 ---@param buffer integer
 ---@param lines integer[] A list of line numbers (1-indexed) to add to the playlist
----@param contents (string | nil) String to use in the sign column
+---@param contents string? String to use in the sign column
 ---@param display_id integer
 ---@return integer[]
 local function create_playlist(buffer, lines, contents, display_id)

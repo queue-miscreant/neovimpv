@@ -4,10 +4,8 @@
 
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
-local player = require "neovimpv.extmarks.player"
 local tracker = require "neovimpv.extmarks.download"
-
-local from_python = require "neovimpv.from_python"
+local player_registry = require "neovimpv.players"
 
 local keys = {}
 
@@ -27,18 +25,17 @@ local function omnikey(extra_args)
   end
 
   local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
-  local try_get_mpv = player.get_player_by_line(0, first_line, last_line, true)
+  local player, playlist_item = player_registry.get_player_by_line(0, first_line, last_line)
 
-  if #try_get_mpv == 0 then
+  if not player then
     -- no playlist on that line found, trying to open
     if config.omni_open_new_if_empty then
       vim.cmd((":%d,%dMpvOpen %s"):format(first_line, last_line, extra_args))
     end
   elseif not is_visual then
-    local player, playlist_item = unpack(try_get_mpv) ---@diagnostic disable-line
-
+    ---@cast playlist_item integer
     if extra_args:find("--video=auto") then
-      vim.fn.MpvToggleVideo(player)
+      player:toggle_video()
       exit_mode()
       return
     end
@@ -60,9 +57,9 @@ local function omnikey(extra_args)
     pcall(function()
       local temp = vim.fn.getcharstr()
       if temp == config.playlist_key then
-        vim.fn.MpvSetPlaylist(player, playlist_item)
+        player:set_current_by_playlist_extmark(playlist_item)
       else
-        from_python.mpv_send_keypress(player, temp, vim.v.count)
+        player:send_keypress(temp, vim.v.count)
       end
     end)
 
