@@ -369,6 +369,22 @@ function MpvManager:set_property(property_name, value, update, ignore_error)
   )
 end
 
+---TODO: this should be callback-based instead
+---Asynchronously request a property on the mpv subprocess.
+---@async
+---@param property_name string
+---@param ignore_error? boolean
+function MpvManager:wait_property(property_name, ignore_error)
+  if self.socket == nil then
+    vim.defer_fn(function()
+      vim.notify("Mpv not ready yet!", vim.log.levels.ERROR, {})
+    end, 0)
+    return
+  end
+
+  return self.socket:wait_property(property_name, ignore_error)
+end
+
 -- Map from `getcharstr()` special characters to those expected by mpv
 local KEYPRESS_LOOKUP = {
     ["kl"] = "left",
