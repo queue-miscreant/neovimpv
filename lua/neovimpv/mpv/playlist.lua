@@ -132,7 +132,7 @@ end
 -- Invoke the Lua callback for moving the player to the line of a playlist extmark.
 -- Used when the mpv subprocess starts a queued item to move the player to the correct line.
 -- Nvim is assumed to not be in a fast callabck.
----@param mpv MpvWrapper
+---@param mpv MpvManager
 ---@param playlist_id PlaylistId Playlist ID from mpv, converted for mapping
 ---@param show_text string?
 function MpvPlaylist:move_player_extmark(mpv, playlist_id, show_text)
@@ -175,7 +175,7 @@ end
 ---Invoke the Lua callback for updating the currently playing text.
 ---Used when the mpv subprocess loads a queued item to update a "Currently Playing" display.
 ---Nvim is assumed to not be in a fast callabck.
----@param mpv MpvWrapper
+---@param mpv MpvManager
 ---@param current_playlist_id PlaylistId
 ---@param redirected_playlist_id? PlaylistId
 function MpvPlaylist:update_currently_playing(
@@ -454,7 +454,7 @@ end
 
 ---Update state after playlist loaded.
 ---The playlist retrieved from MpvSocket is raw, so we need to do a bit of extra processing.
----@param mpv MpvWrapper
+---@param mpv MpvManager
 ---@param data table
 function MpvPlaylist:update(mpv, data)
   log.debug(
@@ -477,9 +477,9 @@ function MpvPlaylist:update(mpv, data)
 
   -- "stay" if we've been told to or we're not a single playlist
   local do_stay = (
-    mpv.manager.update_action == "stay"
+    mpv.update_action == "stay"
     or tbl_count(self.playlist_id_to_item) > 1
-    and list_contains({"paste_one", "new_one"}, mpv.manager.update_action)
+    and list_contains({"paste_one", "new_one"}, mpv.update_action)
   )
 
   -- map the old playlist id to the first item in the new one
@@ -490,7 +490,7 @@ function MpvPlaylist:update(mpv, data)
     for i = start, (end_ - 1) do
       self.playlist_id_remap[i] = original_entry
     end
-  elseif list_contains({"paste", "paste_one"}, mpv.manager.update_action) then
+  elseif list_contains({"paste", "paste_one"}, mpv.update_action) then
     mpv.no_draw = true
     vim.defer_fn(function()
       self:_paste_playlist(
@@ -499,7 +499,7 @@ function MpvPlaylist:update(mpv, data)
       )
       mpv.no_draw = false
     end, 0)
-  elseif mpv.manager.update_action == "new_one" then
+  elseif mpv.update_action == "new_one" then
     mpv.no_draw = true
     mpv._debounce_playlist = true
     vim.defer_fn(function()
@@ -511,17 +511,17 @@ function MpvPlaylist:update(mpv, data)
       mpv._debounce_playlist = false
 
       if success then
-        player_registry.reregister(mpv.manager, self.extmarks.buffer_id, self.extmarks.player_id)
+        player_registry.reregister(mpv, self.extmarks.buffer_id, self.extmarks.player_id)
         -- TODO: may be unnecessary
-        mpv.manager.buffer = self.extmarks.buffer_id
-        mpv.manager.id = self.extmarks.player_id
+        mpv.buffer = self.extmarks.buffer_id
+        mpv.id = self.extmarks.player_id
       end
     end, 0)
   end
 end
 
 ---Set the current file to the mpv file specified by the extmark `playlist_item`
----@param mpv MpvWrapper
+---@param mpv MpvManager
 ---@param extmark_id ExtmarkId
 function MpvPlaylist:set_current_by_playlist_extmark(mpv, extmark_id)
   -- try to remap the extmark to the one it came from
@@ -603,7 +603,7 @@ end
 
 ---Forward deletions to mpv.
 ---Used when deletions or changes occur in the buffer.
----@param mpv MpvWrapper
+---@param mpv MpvManager
 ---@param removed_items integer[]
 function MpvPlaylist:forward_deletions(mpv, removed_items)
   local playlist_ids = {}

@@ -6,10 +6,8 @@ local helpers = require("neovimpv.helpers")
 
 local expand = vim.fn.expand
 local filereadable = vim.fn.filereadable
-local list_contains = vim.tbl_contains
+local list_contains = vim.list_contains
 
-local MARKDOWN_LINK_RE = "(%b[])(%b())"
-local YTDL_YOUTUBE_SEARCH_RE = "^ytdl://%s*ytsearch(%d*):"
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 
 ---@alias VisualMode "visual" | "vline" | "vblock" | "ignore" | nil
@@ -287,7 +285,7 @@ end
 ---@param filename string
 ---@return UpdateAction
 local function try_smart_youtube(filename)
-  local is_search = filename:match(YTDL_YOUTUBE_SEARCH_RE)
+  local is_search = filename:match("^ytdl://%s*ytsearch(%d*):")
   if is_search == "" or is_search == "1" then
     return "paste"
   end

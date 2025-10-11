@@ -198,7 +198,14 @@ function M.setup_commands()
     if target == nil then return end
 
     coroutine.wrap(function()
-      local result = target:wait_property(property_name)
+      if target.socket == nil then
+        vim.defer_fn(function()
+          vim.notify("Mpv not ready yet!", vim.log.levels.ERROR, {})
+        end, 0)
+        return
+      end
+
+      local result = target.socket:wait_property(property_name)
       vim.defer_fn(function()
         vim.notify(vim.inspect(result))
       end, 0)
