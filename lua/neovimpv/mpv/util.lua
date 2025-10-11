@@ -2,6 +2,7 @@
 -- Utility functions for spawning mpv.
 
 local log = require("neovimpv.mpv.log")
+local helpers = require("neovimpv.helpers")
 
 local expand = vim.fn.expand
 local filereadable = vim.fn.filereadable
@@ -93,12 +94,8 @@ local function try_path_and_markdown(line)
     return file_link
   end
 
-  local _, try_markdown = line:match(MARKDOWN_LINK_RE)
-  if try_markdown then
-    return try_markdown:sub(2, -2)
-  end
-
-  return nil
+  local _, maybe_file = helpers.unmarkdownify(line)
+  return maybe_file
 end
 
 

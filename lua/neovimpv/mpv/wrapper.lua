@@ -1,15 +1,8 @@
 -- Implements a plugin-aware container for an mpv asyncio protocol object and a manager
 -- for playlist extmarks.
---
--- from dataclasses import dataclass
--- import logging
--- from typing import TYPE_CHECKING
---
--- import pynvim
---
--- from neovimpv.protocol import MpvProtocol
 
 local formatting = require("neovimpv.formatting")
+local helpers = require("neovimpv.helpers")
 local log = require("neovimpv.mpv.log")
 
 -- Example behavior of multiline playlist:
@@ -113,10 +106,12 @@ function MpvWrapper:draw_update(force_virt_text)
   end, 0)
 end
 
+
 ---Wait until we've got the title and filename, then format the line where
 ---mpv is being displayed as markdown.
+---@param playlist_id integer
 ---@async
-function MpvWrapper:try_update_markdown(playlist_id)
+function MpvWrapper:_try_update_markdown(playlist_id)
   local mpv_item = self.manager.playlist.playlist_id_to_item[tostring(playlist_id)]
   if mpv_item == nil then
     vim.defer_fn(function()
@@ -136,21 +131,34 @@ function MpvWrapper:try_update_markdown(playlist_id)
 
   local media_title = self.socket:wait_property("media-title")
   local mpv_filename = self.socket:wait_property("filename")
+
+  local buffer_id = self.manager.playlist.extmarks.buffer_id
   local cannot_markdown = mpv_item.filename:find("[()]")
   if (
-      not mpv_item.update_markdown
-      or media_title == mpv_filename
-      or cannot_markdown
+    not mpv_item.update_markdown
+    or media_title == mpv_filename
+    or cannot_markdown
   ) then
       return
   end
 
   vim.defer_fn(function()
-    vim._neovimpv_callbacks.write_line_of_playlist_item(
-      self.manager.buffer,
+    if not vim.bo[buffer_id].modifiable then return end
+
+    ---TODO: messy. We shouldn't need to touch extmarks via the raw interface
+    local loc = vim.api.nvim_buf_get_extmark_by_id(
+      buffer_id,
+      helpers.playlist_namespace,
       mpv_item.extmark_id,
-      ("[%s](%s)"):format(media_title:gsub('%[', '('):gsub('%]',')'), mpv_item.filename)
+      {}
     )
+
+    local line_content = helpers.markdownify(media_title, mpv_item.filename)
+    -- Update the buffer only on mismatches
+    if line_content ~= vim.fn.getbufline(buffer_id, loc[1] + 1)[1] then
+      vim.fn.setbufline(buffer_id, loc[1] + 1, line_content)
+      helpers.try_write_buffer(buffer_id)
+    end
   end, 0)
 end
 
@@ -225,29 +233,30 @@ end
 function MpvWrapper:_preamble()
   self.no_draw = false
   -- Have enough information to update with video title
-  local current_playlist_id = tostring(self.socket.last_playlist_entry_id)
-  local playlist_item = self.manager.playlist.playlist_id_to_item[current_playlist_id]
-  local redirected_playlist_id = self.manager.playlist.playlist_id_remap[current_playlist_id]
+  local current_playlist_id = self.socket.last_playlist_entry_id
+  local current_playlist_id_str = tostring(current_playlist_id)
+  local playlist_item = self.manager.playlist.playlist_id_to_item[current_playlist_id_str]
+  local redirected_playlist_id = self.manager.playlist.playlist_id_remap[current_playlist_id_str]
 
   if playlist_item ~= nil and playlist_item.show_currently_playing then
     vim.defer_fn(function()
       self.manager.playlist:update_currently_playing(
         self,
-        tostring(current_playlist_id)
+        tostring(current_playlist_id_str)
       )
     end, 0)
   elseif redirected_playlist_id ~= nil then
     vim.defer_fn(function()
       self.manager.playlist:update_currently_playing(
         self,
-        tostring(current_playlist_id),
+        tostring(current_playlist_id_str),
         redirected_playlist_id
       )
     end, 0)
   else
     -- Coroutine invokes MpvSocket:wait_property, and therefore should not get GC'd
     coroutine.wrap(function()
-      self:try_update_markdown(current_playlist_id)
+      self:_try_update_markdown(current_playlist_id)
     end)()
   end
 end

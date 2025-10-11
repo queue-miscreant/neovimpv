@@ -8,6 +8,7 @@ local config = require "neovimpv.config"
 local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
+local youtube_push_results = require "neovimpv.youtube.push_results"
 local youtube_interact = require "neovimpv.youtube.interact"
 local from_python = require "neovimpv.from_python"
 
@@ -74,7 +75,12 @@ function neovimpv.setup(opts)
   from_python.setup_commands()
 end
 
--- Exposed callbacks for Python
-vim._neovimpv_callbacks = require "neovimpv.python_callbacks"
+-- Exposed Lua callbacks for Python
+vim._neovimpv_callbacks = {
+  -- youtube.py
+  open_youtube_select_split = youtube_push_results.open_select_split,
+  paste_youtube_result = youtube_push_results.paste_result,
+  open_youtube_playlist_results = youtube_push_results.open_playlist_results,
+}
 
 return neovimpv
