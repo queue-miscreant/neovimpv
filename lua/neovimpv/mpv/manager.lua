@@ -59,45 +59,32 @@ local function show_error(_, err)
       {}
     )
   end, 0)
-  log.error("Error occurred: %s", err)
+  log.log{ "Error occurred", error = err }
 end
 
 ---@class MpvManager
----@field buffer integer
----@field id integer
----@field no_draw boolean
 ---@field socket MpvSocket?
 ---@field buffer_actions MpvBufferTracker
----@field update_action UpdateAction
 ---@field _mpv_args string[]
 ---@field _after_spawn thread[]
 ---@field _transitioning_players boolean
----@field _debounce_playlist boolean
 ---Manager for an mpv instance, containing options and arguments particular to it.
 ---TODO: transitioning_players unneeded with merged sockets?
 local MpvManager = {}
 MpvManager.__index = MpvManager
 
----@param buffer integer
----@param player_id integer
 ---@param buffer_actions MpvBufferTracker
----@param update_action UpdateAction
 ---@param mpv_args string[]
 ---@return MpvManager
-function MpvManager.new(buffer, player_id, buffer_actions, update_action, mpv_args)
+function MpvManager.new(buffer_actions, mpv_args)
   mpv_args = list_extend(list_slice(config.default_args), mpv_args)
 
   local ret = {
-    buffer = buffer,
-    id = player_id,
-    no_draw = true,
     buffer_actions = buffer_actions,
-    update_action = update_action,
-    mpv = nil,
+    socket = nil,
     _mpv_args = list_extend(list_slice(DEFAULT_MPV_ARGS), mpv_args),
     _after_spawn = {},
     _transitioning_players = false,
-    _debounce_playlist = false,
   }
   setmetatable(ret, MpvManager)
 
@@ -114,7 +101,12 @@ function MpvManager:spawn(timeout_duration_ms)
   self._after_spawn= {}
   self._transitioning_players = true
 
-  local ipc_path = fs_join(mpv_socket_dir, tostring(self.id))
+  local extmarks = self.buffer_actions.extmarks
+  local ipc_path = fs_join(
+    mpv_socket_dir,
+    ("%d.%d"):format(extmarks.buffer_id, extmarks.player_id)
+  )
+
   MpvSocket.spawn_new(
     self._mpv_args,
     ipc_path,
@@ -128,20 +120,33 @@ function MpvManager:spawn(timeout_duration_ms)
         return
       end
 
-      log.debug("Spawned mpv with args %s", self._mpv_args)
+      log.log{"Spawned mpv!", args = self._mpv_args}
       ---@cast mpv_socket MpvSocket
       self.socket = mpv_socket
 
       -- default event handling
       mpv_socket:add_event("error", show_error)
-      mpv_socket:add_event("end-file", function(_, arg) self.buffer_actions:on_end_file(self, arg) end)
-      mpv_socket:add_event("start-file", function(_, data) self.buffer_actions:on_start_file(self, data) end)
-      mpv_socket:add_event("file-loaded", function(_, _) self.buffer_actions:on_file_loaded(self) end)
-      mpv_socket:add_event("close", function(_, _) self:close() end)
-      mpv_socket:add_event("property-change", function(_, _) self.buffer_actions:draw_update(self) end)
-      mpv_socket:add_event(
-        "got-playlist", function(_, data) self.buffer_actions:update_playlist(self, data) end
-      )
+      mpv_socket:add_event("end-file", function(_, arg)
+        self.buffer_actions:on_end_file(self.socket, arg)
+      end)
+      mpv_socket:add_event("start-file", function(_, data)
+        self.buffer_actions:on_start_file(self.socket, data)
+      end)
+      mpv_socket:add_event("file-loaded", function(_, _)
+        self.buffer_actions:on_file_loaded(self.socket)
+      end)
+      mpv_socket:add_event("close", function(_, _)
+        self:close()
+      end)
+      mpv_socket:add_event("property-change", function(_, _)
+        self.buffer_actions:draw_update(self.socket.data)
+      end)
+      mpv_socket:add_event("got-playlist", function(_, data)
+        local old_extmarks = self.buffer_actions.extmarks
+        self.buffer_actions:update_playlist(data, function()
+          player_registry.reregister(self, old_extmarks)
+        end)
+      end)
 
       -- ALWAYS observe this so we can toggle pause
       mpv_socket:observe_property("pause")
@@ -154,9 +159,8 @@ function MpvManager:spawn(timeout_duration_ms)
         mpv_socket:observe_property(i)
       end
 
-      local playlist = (self.buffer_actions or {}).playlist_id_to_item or {}
-      log.info("Loading playlist!")
-      log.debug("%s", playlist)
+      local playlist = self.buffer_actions.playlist_id_to_item or {}
+      log.log{"Loading playlist!", playlist = playlist}
 
       -- start playing the files
       for _, item in spairs(playlist) do
@@ -311,7 +315,7 @@ function MpvManager:toggle_video()
     local track_list = self.socket:wait_property("track-list")
     for _, track in ipairs(track_list) do
       if track.type == "video" then
-        log.info("Player has video track. Cycling video instead.")
+        log.log{"Player has video track. Cycling video instead."}
         self.socket:send_command{"cycle", "video"}
         break
       end
@@ -321,7 +325,7 @@ function MpvManager:toggle_video()
     local current_time = self.socket:wait_property("playback-time")
     local old_playlist = self.socket.data.playlist or {}
 
-    log.info("Beginning transition...")
+    log.log{"Beginning transition..."}
     self._transitioning_players = true
     self.socket:send_command{"quit"}
     -- Draw a filler line
@@ -329,27 +333,27 @@ function MpvManager:toggle_video()
     self.buffer_actions:draw_update(self)
     self.socket:next_event("close")
 
-    log.info("Spawning player...")
+    log.log{"Spawning player..."}
     table.insert(self._mpv_args, "--video=auto")
     self:spawn()
     self._transitioning_players = false
 
-    log.info(
-      "Transition finished! Setting playlist index to %s...", current_position
-    )
+    log.log{
+      "Transition finished!",
+      new_playlist_index = current_position
+    }
     self.socket:send_command{"playlist-play-index", current_position}
     self.socket:get_property("playlist")
 
-    log.info("Waiting for file to be loaded...")
+    log.log{"Waiting for file to be loaded..."}
     self.socket:next_event("file-loaded")
 
-    log.info("File loaded! Seeking...")
+    log.log{"File loaded! Seeking..."}
     self.socket:send_command{"seek", current_time}
   end)()
 end
 
 ---Set the current file to the mpv file specified by the extmark `playlist_item`
----@async
 function MpvManager:set_current_by_playlist_extmark(extmark_id)
   coroutine.wrap(function()
     self:_maybe_wait_transition()
@@ -365,7 +369,7 @@ function MpvManager:set_current_by_playlist_extmark(extmark_id)
       return
     end
 
-    self.buffer_actions:set_current_by_playlist_extmark(self, extmark_id)
+    self.buffer_actions:set_current_by_playlist_extmark(self.socket, extmark_id)
   end)()
 end
 
@@ -385,7 +389,7 @@ function MpvManager:forward_deletions(removed_items)
       return
     end
 
-    self.buffer_actions:forward_deletions(self, removed_items)
+    self.buffer_actions:forward_deletions(self.socket, removed_items)
   end)()
 end
 

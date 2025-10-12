@@ -71,7 +71,11 @@ local function try_handle_event(self, event_name, json_data)
   end
   -- set futures
   for _, future in ipairs(self._waiting_events[event_name] or {}) do
-    log.info("%s %s %s", event_name, future, coroutine.status(future))
+    log.log{
+      event_name = event_name,
+      future = future,
+      status = coroutine.status(future),
+    }
     if not coroutine.status(future) == "suspended" then
       coroutine.resume(future, true)
     end
@@ -79,7 +83,10 @@ local function try_handle_event(self, event_name, json_data)
   self._waiting_events[event_name] = {}
 
   if event_name ~= "property-change" then
-    log.info("Received event %s: %s", event_name, json_data)
+    log.log{
+      "Received event",
+      [event_name] = json_data,
+    }
   end
 end
 
@@ -105,7 +112,7 @@ local function data_received(self, data)
     -- handle response
     if datum.error ~= nil and datum.error ~= "success" then
       if consumed_error then
-        log.debug("Ignoring errorful response %s", datum)
+        log.log{"Ignoring errorful response", datum = datum}
         goto continue
       end
       -- reverse lookup the property name for convenience
@@ -120,7 +127,7 @@ local function data_received(self, data)
       -- reverse lookup the property name for convenience
       local property_name = self._reverse_properties[request_id]
       self.data[property_name] = datum.data
-      log.debug("Got property %s: %s", property_name, datum)
+      log.log{"Got property", [property_name] = datum}
     elseif request_id ~= nil and request_id == self._playlist_request then
       try_handle_event(
         self,
@@ -139,14 +146,14 @@ local function data_received(self, data)
 
       if type_ == MPV_GET then
         self.data[property_name] = datum["data"]
-        log.debug("Got awaited property %s: %s", property_name, datum)
+        log.log{"Got awaited property", [property_name] = datum}
         coroutine.resume(future, datum["data"])
       elseif type_ == MPV_SET then
         self.data[property_name] = future
-        log.debug("Successfully set %s to %s", property_name, datum)
+        log.log{"Successfully set property", [property_name] = datum}
       end
     else
-      log.debug("Unknown data received from mpv: %s", datum)
+      log.log{"Unknown data received from mpv", datum = datum}
     end
     ::continue::
   end
@@ -240,7 +247,7 @@ function MpvSocket:send_command(args, request_id, ignore_error)
     self._ignore_errors[tostring(request_id)] = true
   end
 
-  log.debug("Sent command %s", command)
+  log.log{"Sent command", command = command}
   self.transport:write(json_encode(command) .. "\n")
 end
 

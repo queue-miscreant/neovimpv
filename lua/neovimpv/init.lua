@@ -38,7 +38,7 @@ local function try_json(args)
 end
 
 
--- Create a MpvManager instance from line data and ranges from the vim.
+-- Create a MpvManager instance from line data and ranges from nvim
 -- This also spawns a task for creating an mpv subprocess and opening a communication channel.
 ---@param line_data string[]
 ---@param start_line integer
@@ -55,6 +55,11 @@ local function create_managed_mpv(
 )
   local current_buffer = vim.fn.bufnr()
   local local_args = util.parse_mpvopen_args(extra_args or {})
+
+  -- Update actions and "smart youtube"-ness
+  local update_action = config.on_playlist_update
+
+  update_action = local_args.update_action or update_action
 
   local success, maybe_buffer_actions = pcall(function()
 
@@ -79,7 +84,7 @@ local function create_managed_mpv(
       )
     end
 
-    return MpvBufferActions.new(current_buffer, lines_to_links)
+    return MpvBufferActions.new(current_buffer, lines_to_links, update_action)
   end)
 
   if not success then
@@ -89,29 +94,8 @@ local function create_managed_mpv(
 
   ---@cast maybe_buffer_actions MpvBufferTracker
 
-  -- Update actions and "smart youtube"-ness
-  local update_action = config.on_playlist_update
-  local playlist_length = tbl_count(maybe_buffer_actions.playlist_id_to_item)
-  if playlist_length == 1 then
-    if config.smart_youtube then
-      update_action = util.try_smart_youtube(maybe_buffer_actions.playlist_id_to_item[1].filename)
-    end
-  elseif local_args.update_action == "new_one" then
-    vim.notify(
-      "Cannot create new buffer for playlist of initial size 1!",
-      vim.log.levels.ERROR,
-      {}
-    )
-    return
-  end
-
-  update_action = local_args.update_action or update_action
-
   local target = MpvManager.new(
-      current_buffer,
-      maybe_buffer_actions.extmarks.player_id,
       maybe_buffer_actions,
-      update_action,
       local_args.mpv_args
   ):spawn()
 

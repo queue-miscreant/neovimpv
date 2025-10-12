@@ -224,57 +224,60 @@ end
 ---@return table<LineNumber, [string[], boolean]>
 local function construct_playlist_items(lines, start_line, end_line, mode)
   if mode == "visual" or mode == "vblock" then
-    log.info("Attempting action based on vim mode")
     -- Block or visual block modes
     -- TODO: note that we disassemble `getpos` tables here instead of using them directly
     local _, new_start_line, start_col = unpack(vim.fn.getpos("<"))
     local _, new_end_line, end_col = unpack(vim.fn.getpos(">"))
-    log.info("Creating playlist from visual selection")
-    log.debug(
-      "lines: %s\nstart: %s\nend: %s\nmode: %s",
-      lines,
-      {new_start_line, start_col},
-      {new_end_line, end_col},
-      mode
-    )
+    log.log{
+      "Creating playlist from visual selection",
+      lines = lines,
+      start = {new_start_line, start_col},
+      ["end"] = {new_end_line, end_col},
+      mode = mode,
+    }
     return multi_line(lines, new_start_line, start_col, new_end_line, end_col, mode)
   end
 
-  log.info("Not in visual or visual block mode. Mode: %s", tostring(mode))
+  log.log{
+    "Not in visual or visual block mode.",
+    mode = mode,
+  }
   if mode ~= "ignore" and mode ~= "vline" then
     if start_line == end_line then
       local _, new_start_line, start_col = unpack(vim.fn.getpos("."))
       -- If somehow we were given a range without the cursor actually being there,
       -- assume the start of the line
       if start_line == new_start_line then
-        log.info("Trying path/markdown")
+        log.log{"Trying path/markdown"}
         local single_file = try_path_and_markdown(lines[1])
         if single_file ~= nil then
           return {
             [tostring(start_line)] = { {single_file}, true }
           }
         end
-        log.info("Finding closest link")
-        log.debug("line: %s\nstart_col: %s", lines[1], start_col)
+        log.log{
+          "Finding closest link",
+          line = lines[1],
+          start_col = start_col,
+        }
         local closest_link, only_link_on_line = find_closest_link(lines[1], start_col)
         if closest_link ~= nil then
           return {
             [tostring(start_line)] = {{closest_link}, only_link_on_line}
           }
         end
-        log.info("No results found from default action")
+        log.log{"No results found from default action"}
         return {}
       end
     end
   end
 
-  log.info("Creating playlist as default")
-  log.debug(
-      "lines: %s\nstart: %s\nend: %s",
-      lines,
-      start_line,
-      end_line
-  )
+  log.log{
+    "Creating playlist as default",
+    lines = lines,
+    start = start_line,
+    ["end"] = end_line,
+  }
   return multi_line(lines, start_line, 0, end_line, nil, nil)
 end
 
