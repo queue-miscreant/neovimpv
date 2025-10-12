@@ -1,8 +1,9 @@
 local config = require "neovimpv.config"
-local formatting = require "neovimpv.formatting"
 local helpers = require "neovimpv.helpers"
 
 local list_contains = vim.list_contains
+local list_slice = vim.list_slice
+local tbl_map = vim.tbl_map
 
 local DISPLAY_NAMESPACE = helpers.display_namespace
 local PLAYLIST_NAMESPACE = helpers.playlist_namespace
@@ -77,22 +78,9 @@ function BufferExtmarks.new(buffer_id, lines)
 end
 
 ---Push an update from an mpv property table
----@param data table<string, any>
----@param force_text? string
-function BufferExtmarks:update(data, force_text)
-
-  local video = data["video-format"] ~= nil
-  ---@type VirtText?
-  local virt_text
-  if force_text then
-    virt_text = {{force_text, "MpvDefault"}}
-  elseif video then
-    virt_text = {{"[ Window ]", "MpvDefault"}}
-  else
-    virt_text = formatting.render(data)
-  end
-
-  if virt_text == nil or force_text == "" then
+---@param virt_text VirtText?
+function BufferExtmarks:update(virt_text)
+  if virt_text == nil then
     virt_text = {{config.loading, "MpvDefault"}}
   end
 
@@ -210,6 +198,89 @@ function BufferExtmarks:show_currently_playing(playlist_id, virt_text)
       }
     )
   end
+end
+
+---Paste new line data "on top" of a playlist item.
+---@param playlist_id integer Playlist ID of item to replace.
+---@param line_content string New line content
+function BufferExtmarks:paste_line(playlist_id, line_content)
+  if not vim.bo[self.buffer_id].modifiable then return end
+  if not list_contains(self.playlist_ids, playlist_id) then return end
+
+  local loc = vim.api.nvim_buf_get_extmark_by_id(
+    self.buffer_id,
+    helpers.playlist_namespace,
+    playlist_id,
+    {}
+  )
+
+  -- Update the buffer only on mismatches
+  if line_content ~= vim.fn.getbufline(self.buffer_id, loc[1] + 1)[1] then
+    vim.fn.setbufline(self.buffer_id, loc[1] + 1, line_content)
+    helpers.try_write_buffer(self.buffer_id)
+  end
+end
+
+---Paste in whole playlist "on top" of an old playlist item.
+---Before doing so, try to move the player to the new item so its position
+---is always valid.
+---@param old_playlist_id integer Playlist ID of item to replace.
+---@param new_playlist string[] Replacement buffer content for playlist item
+---@param current_index integer Index (NOT ID) in the playlist to move the player to after pasting.
+---@return integer[]
+function BufferExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index)
+  if not vim.bo[self.buffer_id].modifiable then return {} end
+
+  -- get the old location of the playlist item
+  local loc = vim.api.nvim_buf_get_extmark_by_id(
+    self.buffer_id,
+    helpers.playlist_namespace,
+    old_playlist_id,
+    {}
+  )
+
+  -- replace the playlist and add new lines afterward
+  vim.fn.setbufline(self.buffer_id, loc[1] + 1, new_playlist[1])
+  vim.fn.appendbufline(self.buffer_id, loc[1] + 1, list_slice(new_playlist, 2))
+  helpers.try_write_buffer(self.buffer_id)
+
+  local save_extmarks = {{loc[1], old_playlist_id}}
+  for i = 2, #new_playlist do
+    -- And create a playlist extmark for it
+    local extmark_id = vim.api.nvim_buf_set_extmark(
+      self.buffer_id,
+      helpers.playlist_namespace,
+      loc[1] + 1,
+      0,
+      {}
+    )
+
+    save_extmarks[i] = {loc[1] + i - 1, extmark_id}
+  end
+
+  -- TODO: remember playlist items created!
+  for i = 1, #save_extmarks do
+    local playlist_item = save_extmarks[i]
+    -- Set the extmarks in the same manner as create_player
+    vim.api.nvim_buf_set_extmark(
+      self.buffer_id,
+      helpers.playlist_namespace,
+      playlist_item[1],
+      0,
+      {
+        id = playlist_item[2],
+        sign_text = "|",
+        sign_hl_group = "MpvPlaylistSign"
+      }
+    )
+    -- move the player just in case
+    if i == current_index then
+      self:move(playlist_item[2])
+    end
+  end
+
+  -- only return extmark ids
+  return tbl_map(function(i) return i[2] end, save_extmarks)
 end
 
 ---Delete extmarks in the displays and playlists namespace.

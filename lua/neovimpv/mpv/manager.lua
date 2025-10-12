@@ -6,7 +6,6 @@
 -- Buffer interactions should be done with a manager (e.g., `MpvPlaylist`) rather than being done ad-hoc here
 
 local config = require("neovimpv.config")
-local helpers = require("neovimpv.helpers")
 local formatting = require("neovimpv.formatting")
 local MpvSocket = require("neovimpv.mpv.socket")
 local player_registry = require("neovimpv.players")
@@ -43,63 +42,6 @@ local DEFAULT_MPV_ARGS = {"--no-video"}
 ---@field update_markdown boolean
 ---@field show_currently_playing boolean
 
-
----Wait until we've got the title and filename, then format the line where
----mpv is being displayed as markdown.
----@param self MpvManager
----@param playlist_id integer
----@async
-local function try_update_markdown(self, playlist_id)
-  local mpv_item = self.playlist.playlist_id_to_item[tostring(playlist_id)]
-  if mpv_item == nil then
-    vim.defer_fn(function()
-      vim.notify(
-        "Playlist transition failed!",
-        vim.log.levels.ERROR,
-        {}
-      )
-    end, 0)
-    log.debug(
-        "Playlist transition failed! Mpv id %s does not exist in %s",
-        playlist_id,
-        self.playlist.playlist_id_to_item
-    )
-    return
-  end
-
-  local media_title = self.socket:wait_property("media-title")
-  local mpv_filename = self.socket:wait_property("filename")
-
-  local buffer_id = self.playlist.extmarks.buffer_id
-  local cannot_markdown = mpv_item.filename:find("[()]")
-  if (
-    not mpv_item.update_markdown
-    or media_title == mpv_filename
-    or cannot_markdown
-  ) then
-      return
-  end
-
-  vim.defer_fn(function()
-    if not vim.bo[buffer_id].modifiable then return end
-
-    ---TODO: messy. We shouldn't need to touch extmarks via the raw interface
-    local loc = vim.api.nvim_buf_get_extmark_by_id(
-      buffer_id,
-      helpers.playlist_namespace,
-      mpv_item.extmark_id,
-      {}
-    )
-
-    local line_content = helpers.markdownify(media_title, mpv_item.filename)
-    -- Update the buffer only on mismatches
-    if line_content ~= vim.fn.getbufline(buffer_id, loc[1] + 1)[1] then
-      vim.fn.setbufline(buffer_id, loc[1] + 1, line_content)
-      helpers.try_write_buffer(buffer_id)
-    end
-  end, 0)
-end
-
 ---Event callback for reporting error contents to nvim.
 ---First argument consumes the mpv socket instance.
 ---@param err {property-name: string?, error: string?}
@@ -125,7 +67,7 @@ end
 ---@field id integer
 ---@field no_draw boolean
 ---@field socket MpvSocket?
----@field playlist MpvPlaylist?
+---@field buffer_actions MpvBufferTracker
 ---@field update_action UpdateAction
 ---@field _mpv_args string[]
 ---@field _after_spawn thread[]
@@ -138,18 +80,18 @@ MpvManager.__index = MpvManager
 
 ---@param buffer integer
 ---@param player_id integer
----@param playlist MpvPlaylist
+---@param buffer_actions MpvBufferTracker
 ---@param update_action UpdateAction
 ---@param mpv_args string[]
 ---@return MpvManager
-function MpvManager.new(buffer, player_id, playlist, update_action, mpv_args)
+function MpvManager.new(buffer, player_id, buffer_actions, update_action, mpv_args)
   mpv_args = list_extend(list_slice(config.default_args), mpv_args)
 
   local ret = {
     buffer = buffer,
     id = player_id,
     no_draw = true,
-    playlist = playlist,
+    buffer_actions = buffer_actions,
     update_action = update_action,
     mpv = nil,
     _mpv_args = list_extend(list_slice(DEFAULT_MPV_ARGS), mpv_args),
@@ -192,13 +134,13 @@ function MpvManager:spawn(timeout_duration_ms)
 
       -- default event handling
       mpv_socket:add_event("error", show_error)
-      mpv_socket:add_event("end-file", function(_, arg) self:_on_end_file(arg) end)
-      mpv_socket:add_event("start-file", function(_, data) self:_on_start_file(data) end)
-      mpv_socket:add_event("file-loaded", function(_, _) self:_on_file_loaded() end)
+      mpv_socket:add_event("end-file", function(_, arg) self.buffer_actions:on_end_file(self, arg) end)
+      mpv_socket:add_event("start-file", function(_, data) self.buffer_actions:on_start_file(self, data) end)
+      mpv_socket:add_event("file-loaded", function(_, _) self.buffer_actions:on_file_loaded(self) end)
       mpv_socket:add_event("close", function(_, _) self:close() end)
-      mpv_socket:add_event("property-change", function(_, _) self:draw_update() end)
+      mpv_socket:add_event("property-change", function(_, _) self.buffer_actions:draw_update(self) end)
       mpv_socket:add_event(
-        "got-playlist", function(_, data) self.playlist:update(self, data) end
+        "got-playlist", function(_, data) self.buffer_actions:update_playlist(self, data) end
       )
 
       -- ALWAYS observe this so we can toggle pause
@@ -212,7 +154,7 @@ function MpvManager:spawn(timeout_duration_ms)
         mpv_socket:observe_property(i)
       end
 
-      local playlist = (self.playlist or {}).playlist_id_to_item or {}
+      local playlist = (self.buffer_actions or {}).playlist_id_to_item or {}
       log.info("Loading playlist!")
       log.debug("%s", playlist)
 
@@ -231,87 +173,6 @@ function MpvManager:spawn(timeout_duration_ms)
   return self
 end
 
----Report an error to nvim if the file ended because of an error.
----@private
-function MpvManager:_on_end_file(arg)
-  self.no_draw = true
-  self:draw_update("")
-
-  local err = arg["file_error"]
-  if arg.reason == "error" and err then
-    vim.defer_fn(function()
-      vim.notify(
-        "File ended: " .. err,
-        vim.log.levels.ERROR,
-        {}
-      )
-    end, 0)
-  end
-end
-
----Update state after new file started.
----Move the player to new playlist item and suspend drawing until complete.
----@private
-function MpvManager:_on_start_file(arg)
-  -- Starting the file is enough information to move the player, but not enough
-  -- to update the title of the video.
-  self.no_draw = true
-  local current_playlist_id = tostring(arg["playlist_entry_id"])
-
-  if (
-      self.socket.playlist_new ~= nil
-      and current_playlist_id
-      == self.socket.playlist_new["playlist_insert_id"]
-  ) or self._debounce_playlist then
-    return
-  end
-  local redirected_playlist_id = self.playlist.playlist_id_remap[
-    current_playlist_id
-  ]
-
-  -- use the extmark of this mpv id to move the player
-  if redirected_playlist_id ~= nil then
-    current_playlist_id = redirected_playlist_id
-  end
-
-  vim.defer_fn(function()
-    self.playlist:move_player_extmark(self, current_playlist_id)
-  end, 0)
-end
-
----Update buffer text after new file loaded.
----@private
-function MpvManager:_on_file_loaded()
-  self.no_draw = false
-  -- Have enough information to update with video title
-  local current_playlist_id = self.socket.last_playlist_entry_id
-  local current_playlist_id_str = tostring(current_playlist_id)
-  local playlist_item = self.playlist.playlist_id_to_item[current_playlist_id_str]
-  local redirected_playlist_id = self.playlist.playlist_id_remap[current_playlist_id_str]
-
-  if playlist_item ~= nil and playlist_item.show_currently_playing then
-    vim.defer_fn(function()
-      self.playlist:update_currently_playing(
-        self,
-        tostring(current_playlist_id_str)
-      )
-    end, 0)
-  elseif redirected_playlist_id ~= nil then
-    vim.defer_fn(function()
-      self.playlist:update_currently_playing(
-        self,
-        tostring(current_playlist_id_str),
-        redirected_playlist_id
-      )
-    end, 0)
-  else
-    -- Coroutine invokes MpvSocket:wait_property, and therefore should not get GC'd
-    coroutine.wrap(function()
-      try_update_markdown(self, current_playlist_id)
-    end)()
-  end
-end
-
 -- If the player is in a transitioning state, save it to be called later when we get the player.
 ---@private
 ---@async
@@ -323,21 +184,8 @@ function MpvManager:_maybe_wait_transition()
   end
 end
 
----Rerender the player extmark to which this mpv instance corresponds
----@param force_virt_text string?
-function MpvManager:draw_update(force_virt_text)
-  if self.no_draw and force_virt_text == nil then
-    return
-  end
-
-  -- draw_update is called asynchronously, so protect against errors from this call
-  vim.defer_fn(function()
-    self.playlist.extmarks:update(self.socket.data, force_virt_text)
-  end, 0)
-end
-
 -- ==========================================================================
--- Convenience functions for accessing from nvim.plugin
+-- Convenience methods for interacting with the rest of the plugin
 -- ==========================================================================
 
 ---Send a command to the mpv subprocess.
@@ -365,7 +213,7 @@ function MpvManager:set_property(property_name, value, update, ignore_error)
     return
   end
   self.socket:set_property(
-      property_name, value, update, ignore_error
+    property_name, value, update, ignore_error
   )
 end
 
@@ -402,7 +250,6 @@ local function translate_keypress(key)
     -- TODO: handle ctrl (\xfc\x04, then original keypress)
     -- TODO: handle alt (\xfc\x08, then original keypress)
     -- TODO: special (ctrl-right?)
-    log.debug("Special key sequence found: " .. vim.inspect(key))
     return KEYPRESS_LOOKUP[key:sub(2)]
   end
 
@@ -410,12 +257,11 @@ local function translate_keypress(key)
 end
 
 ---Send an nvim keypress and wait for its properties to be updated.
----@param count integer
+---@param count? integer
 ---@param ignore_error? boolean
 function MpvManager:send_keypress(raw_key, count, ignore_error)
   local keypress = translate_keypress(raw_key)
-  count = math.max(count, 1) or 1
-  if not ignore_error then ignore_error = false end
+  count = math.max(count or 1, 1)
 
   if keypress == "q" then
     self:close()
@@ -479,8 +325,8 @@ function MpvManager:toggle_video()
     self._transitioning_players = true
     self.socket:send_command{"quit"}
     -- Draw a filler line
-    self.playlist.reorder_by_index(old_playlist)
-    self:draw_update()
+    self.buffer_actions:reorder_by_index(old_playlist)
+    self.buffer_actions:draw_update(self)
     self.socket:next_event("close")
 
     log.info("Spawning player...")
@@ -519,7 +365,7 @@ function MpvManager:set_current_by_playlist_extmark(extmark_id)
       return
     end
 
-      self.playlist:set_current_by_playlist_extmark(self, extmark_id)
+    self.buffer_actions:set_current_by_playlist_extmark(self, extmark_id)
   end)()
 end
 
@@ -539,7 +385,7 @@ function MpvManager:forward_deletions(removed_items)
       return
     end
 
-    self.playlist:forward_deletions(self, removed_items)
+    self.buffer_actions:forward_deletions(self, removed_items)
   end)()
 end
 

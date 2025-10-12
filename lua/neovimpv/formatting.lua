@@ -105,7 +105,7 @@ local function bind_new_highlights(highlights)
   end
 end
 
----@param thresholds_table {[string]: [any]|[any, any]}
+---@param thresholds_table table<string, [any]|[any, any]>
 function formatting.compile_thresholds(thresholds_table)
   local new_handlers = {}
   local new_highlights = {}
@@ -226,9 +226,14 @@ function formatting.parse_user_settings()
   formatting.compile(config.format)
 end
 
----@param input_dict {[string]: any}
+---@param input_dict table<string, any>
 ---@return VirtText
 function formatting.render(input_dict)
+
+  if input_dict["video-format"] ~= nil then
+    return {{"[ Window ]", "MpvDefault"}}
+  end
+
   return vim.tbl_map(
     function(field)
       if field.handler == nil then return field end

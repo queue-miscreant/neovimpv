@@ -12,7 +12,7 @@ local youtube_push_results = require "neovimpv.youtube.push_results"
 local youtube_interact = require "neovimpv.youtube.interact"
 local player_registry = require "neovimpv.players"
 local MpvManager = require "neovimpv.mpv.manager"
-local MpvPlaylist = require "neovimpv.mpv.playlist"
+local MpvBufferActions = require "neovimpv.mpv.buffer_tracker"
 local util = require "neovimpv.mpv.util"
 
 local neovimpv = {
@@ -56,7 +56,7 @@ local function create_managed_mpv(
   local current_buffer = vim.fn.bufnr()
   local local_args = util.parse_mpvopen_args(extra_args or {})
 
-  local success, maybe_playlist = pcall(function()
+  local success, maybe_buffer_actions = pcall(function()
 
     if
       start_line == end_line
@@ -79,22 +79,22 @@ local function create_managed_mpv(
       )
     end
 
-    return MpvPlaylist.new(current_buffer, lines_to_links)
+    return MpvBufferActions.new(current_buffer, lines_to_links)
   end)
 
   if not success then
-    vim.notify(maybe_playlist --[[@as string]], vim.log.levels.ERROR, {})
+    vim.notify(maybe_buffer_actions --[[@as string]], vim.log.levels.ERROR, {})
     return
   end
 
-  ---@cast maybe_playlist MpvPlaylist
+  ---@cast maybe_buffer_actions MpvBufferTracker
 
   -- Update actions and "smart youtube"-ness
   local update_action = config.on_playlist_update
-  local playlist_length = tbl_count(maybe_playlist.playlist_id_to_item)
+  local playlist_length = tbl_count(maybe_buffer_actions.playlist_id_to_item)
   if playlist_length == 1 then
     if config.smart_youtube then
-      update_action = util.try_smart_youtube(maybe_playlist.playlist_id_to_item[1].filename)
+      update_action = util.try_smart_youtube(maybe_buffer_actions.playlist_id_to_item[1].filename)
     end
   elseif local_args.update_action == "new_one" then
     vim.notify(
@@ -109,8 +109,8 @@ local function create_managed_mpv(
 
   local target = MpvManager.new(
       current_buffer,
-      maybe_playlist.extmarks.player_id,
-      maybe_playlist,
+      maybe_buffer_actions.extmarks.player_id,
+      maybe_buffer_actions,
       update_action,
       local_args.mpv_args
   ):spawn()

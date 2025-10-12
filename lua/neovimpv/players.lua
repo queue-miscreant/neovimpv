@@ -14,13 +14,13 @@ local M = {
 }
 
 ---@param manager MpvManager
----@param buffer_id BufferIdStr
----@param extmark_id ExtmarkIdStr
 ---@return boolean
-function M._register(manager, buffer_id, extmark_id)
+function M.register(manager)
+  local extmarks = manager.buffer_actions.extmarks
+  local buffer_id, player_id = tostring(extmarks.buffer_id), tostring(extmarks.player_id)
   local players_in_buffer = M._players[buffer_id] or {}
 
-  if players_in_buffer[extmark_id] then
+  if players_in_buffer[player_id] then
     vim.notify(
       "Error: buffer and extmark already correspond to a MpvManager",
       vim.log.levels.ERROR,
@@ -28,33 +28,26 @@ function M._register(manager, buffer_id, extmark_id)
     )
     return false
   end
-  players_in_buffer[extmark_id] = manager
+  players_in_buffer[player_id] = manager
 
   M._players[buffer_id] = players_in_buffer
   return true
-end
-
-
--- Register a MpvManager using its buffer and extmark id
----@param manager MpvManager
----@return boolean
-function M.register(manager)
-  return M._register(manager, tostring(manager.buffer), tostring(manager.id))
 end
 
 -- Remove a MpvManager and clean up its extmarks
 ---@param manager MpvManager
 ---@return boolean
 function M.deregister(manager)
-  local success, err = pcall(function()
-    (manager.mpv or {}).no_draw = true
-    manager.playlist.extmarks:remove();
-    (M._players[manager.buffer] or {})[manager.id] = nil
+  local extmarks = manager.buffer_actions.extmarks
+  local success, _ = pcall(function()
+    manager.no_draw = true
+    (M._players[extmarks.buffer_id] or {})[extmarks.player_id] = nil
+    extmarks:remove()
   end)
   if not success then
     vim.notify(
       "Unknown error occurred: could not delete player .. "
-      .. tostring(manager.buffer) .. "." .. tostring(manager.id),
+      .. tostring(extmarks.buffer_id) .. "." .. tostring(extmarks.player_id),
       vim.log.levels.ERROR,
       {}
     )
@@ -66,14 +59,13 @@ end
 
 -- Register a MpvManager using its buffer and extmark id
 ---@param manager MpvManager
----@param buffer_id integer
----@param extmark_id integer
+---@param old_extmarks BufferExtmarks
 ---@return boolean
-function M.reregister(manager, buffer_id, extmark_id)
-  local old_buffer, old_extmark = tostring(manager.buffer), tostring(manager.id);
+function M.reregister(manager, old_extmarks)
+  local old_buffer, old_extmark = tostring(old_extmarks.buffer_id), tostring(old_extmarks.player_id);
   (M._players[old_buffer] or {})[old_extmark] = nil
 
-  return M._register(manager, tostring(buffer_id), tostring(extmark_id))
+  return M.register(manager)
 end
 
 
@@ -138,7 +130,7 @@ function M.get_player_by_line(buffer_id, start_line, end_line, show_message)
 
   local found_player
   for _, player in pairs(M._players[tostring(buffer_id)] or {}) do
-    if list_contains(player.playlist.extmarks.playlist_ids, playlist_item[1]) then
+    if list_contains(player.buffer_actions.extmarks.playlist_ids, playlist_item[1]) then
       found_player = player
       break
     end
