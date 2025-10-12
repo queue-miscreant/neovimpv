@@ -1,15 +1,11 @@
 -- mpv/manager.lua
 -- A container class for forwarding plugin commands to the correct MpvSocket
---
--- TODO: this interface should focus on being a generically spawnable
--- interface to mpv which the rest of the plugin can access consistently via its methods.
--- Buffer interactions should be done with a manager (e.g., `MpvPlaylist`) rather than being done ad-hoc here
 
-local config = require("neovimpv.config")
-local formatting = require("neovimpv.formatting")
-local MpvSocket = require("neovimpv.mpv.socket")
-local player_registry = require("neovimpv.players")
-local log = require("neovimpv.mpv.log")
+local config = require "neovimpv.config"
+local formatting = require "neovimpv.formatting"
+local MpvSocket = require "neovimpv.mpv.socket"
+local player_registry = require "neovimpv.players"
+local log = require "neovimpv.log"
 
 -- Required: nvim >=0.9(?)
 local spairs = vim.spairs
@@ -261,6 +257,7 @@ local function translate_keypress(key)
 end
 
 ---Send an nvim keypress and wait for its properties to be updated.
+---@param raw_key string
 ---@param count? integer
 ---@param ignore_error? boolean
 function MpvManager:send_keypress(raw_key, count, ignore_error)

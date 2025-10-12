@@ -13,7 +13,7 @@ local youtube_interact = require "neovimpv.youtube.interact"
 local player_registry = require "neovimpv.players"
 local MpvManager = require "neovimpv.mpv.manager"
 local MpvBufferActions = require "neovimpv.mpv.buffer_tracker"
-local util = require "neovimpv.mpv.util"
+local helpers = require "neovimpv.helpers"
 
 local neovimpv = {
   formatting = formatting,
@@ -54,7 +54,7 @@ local function create_managed_mpv(
     ignore_mode
 )
   local current_buffer = vim.fn.bufnr()
-  local local_args = util.parse_mpvopen_args(extra_args or {})
+  local local_args = helpers.parse_mpvopen_args(extra_args or {})
 
   -- Update actions and "smart youtube"-ness
   local update_action = config.on_playlist_update
@@ -70,7 +70,7 @@ local function create_managed_mpv(
       error("Mpv is already open on this line!")
     end
 
-    local lines_to_links = util.construct_playlist_items(
+    local lines_to_links = helpers.construct_playlist_items(
       line_data,
       start_line,
       end_line,

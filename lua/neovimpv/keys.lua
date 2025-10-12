@@ -1,5 +1,4 @@
 -- neovimpv.keys
---
 -- Keybinds and callbacks thereof. Keys include omnikey and navigation.
 
 local config = require "neovimpv.config"
@@ -222,8 +221,8 @@ function keys.bind_smart_local()
       spec[1],
       spec[2],
       {
-        silent=true,
-        buffer=0,
+        silent = true,
+        buffer = 0,
       }
     )
   end

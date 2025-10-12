@@ -1,7 +1,7 @@
 -- mpv/socket.lua
 -- Object-oriented interface to the mpv IPC socket
 
-local log = require("neovimpv.mpv.log")
+local log = require "neovimpv.log"
 
 local list_extend = vim.list_extend
 local list_slice = vim.list_slice
@@ -450,19 +450,19 @@ function MpvSocket.spawn_new(mpv_args, ipc_path, read_timeout_ms, callback)
 
   vim.defer_fn(function()
     if startup_print then
-      if callback then callback(false, "Mpv terminated early!") end
+      callback(false, "Mpv terminated early!")
       return
     end
 
     local did_callback = false
     MpvSocket.new(ipc_path, function(success, mpv_socket)
       did_callback = true
-      if callback then callback(success, mpv_socket) end
+      callback(success, mpv_socket)
     end)
 
     vim.defer_fn(function()
       if not did_callback then
-        if callback then callback(false, "Timed out connecting to protocol!") end
+        callback(false, "Timed out connecting to protocol!")
       end
     end, read_timeout_ms)
   end, read_timeout_ms)

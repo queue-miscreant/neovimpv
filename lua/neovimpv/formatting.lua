@@ -11,7 +11,7 @@ local DEFAULT_STYLE = "unicode"
 
 --- Dict of static display styles.
 --- Exact values (as table entries) are converted to a string-highlight pair
----@type {[DisplayStyle]: {[string]: {[any]: [string, Highlight]}}}
+---@type table<DisplayStyle, table<string, table<any, [string, Highlight]>>>
 local DISPLAY_STYLES = {
   ligature = {
     pause = {
@@ -209,7 +209,7 @@ function formatting.compile(format_string)
 
   format_settings.fields = fields
 
-  -- mpv groups for Python to be aware of
+  -- mpv groups to be aware of
   formatting.mpv_properties = vim.tbl_values(
     vim.tbl_map(
       function(field) return field.name end,

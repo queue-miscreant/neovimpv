@@ -1,12 +1,11 @@
 -- mpv/playlist.lua
 -- Storage class for mapping mpv playlists to extmark ids.
 
-local log = require("neovimpv.mpv.log")
-local formatting = require("neovimpv.formatting")
-local BufferExtmarks = require("neovimpv.extmarks.buffer")
-local helpers = require("neovimpv.helpers")
-local config = require("neovimpv.config")
-local util = require("neovimpv.mpv.util")
+local log = require "neovimpv.log"
+local formatting = require "neovimpv.formatting"
+local BufferExtmarks = require "neovimpv.extmarks.buffer"
+local helpers = require "neovimpv.helpers"
+local config = require "neovimpv.config"
 
 local tbl_count = vim.tbl_count
 local tbl_keys = vim.tbl_keys
@@ -73,7 +72,7 @@ function MpvBufferTracker.new(buffer_id, lines_to_links, update_action)
   -- Only one file
   if file_index == 2 then
     if config.smart_youtube then
-      update_action = util.try_smart_youtube(playlist_id_to_item[1].filename)
+      update_action = helpers.try_smart_youtube(playlist_id_to_item[1].filename)
     end
   elseif update_action == "new_one" then
     error("`new_one` is only valid for a single filename!")

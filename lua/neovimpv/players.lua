@@ -40,7 +40,7 @@ end
 function M.deregister(manager)
   local extmarks = manager.buffer_actions.extmarks
   local success, _ = pcall(function()
-    manager.no_draw = true
+    manager.buffer_actions.no_draw = true
     (M._players[extmarks.buffer_id] or {})[extmarks.player_id] = nil
     extmarks:remove()
   end)
