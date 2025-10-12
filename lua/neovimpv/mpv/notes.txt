@@ -1,0 +1,4 @@
+It is no longer necessary to remember `do_markdown` -- this can be done on-demand now
+  Check whether a line is _only_ a line empty, or can be replaced with its markdown equivalent
+
+_loaded_titles nonsense

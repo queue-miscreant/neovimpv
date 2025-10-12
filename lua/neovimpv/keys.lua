@@ -3,8 +3,8 @@
 
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
-local tracker = require "neovimpv.extmarks.download"
-local player_registry = require "neovimpv.players"
+local download_tracker = require "neovimpv.youtube.extmarks"
+local registry = require "neovimpv.mpv.registry"
 
 local keys = {}
 
@@ -24,7 +24,7 @@ local function omnikey(extra_args)
   end
 
   local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
-  local player, playlist_item = player_registry.get_player_by_line(0, first_line, last_line)
+  local player, playlist_item = registry.get_player_by_line(0, first_line, last_line)
 
   if not player then
     -- no playlist on that line found, trying to open
@@ -115,8 +115,8 @@ local function download_callback(with_video)
     end_ = vim.fn.line(".")
   end
 
-  tracker.tag_extmark(start, end_, with_video or false)
-  tracker.start_downloader()
+  download_tracker.tag_extmark(start, end_, with_video or false)
+  download_tracker.start_downloader()
 end
 
 -- Open search prompt

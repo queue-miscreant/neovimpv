@@ -83,7 +83,7 @@ local function update_config()
     end
     config.smart_filetypes = vim.fn.uniq(
       vim.fn.sort(config.smart_filetypes)
-    )
+    ) --[[@as string[] ]]
   end
 
   -- Find yt-dlp/youtube-dl

@@ -10,9 +10,9 @@ local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
 local youtube_push_results = require "neovimpv.youtube.push_results"
 local youtube_interact = require "neovimpv.youtube.interact"
-local player_registry = require "neovimpv.players"
+local registry = require "neovimpv.mpv.registry"
 local MpvManager = require "neovimpv.mpv.manager"
-local MpvBufferActions = require "neovimpv.mpv.buffer_tracker"
+local MpvCallbacks = require "neovimpv.mpv.callbacks"
 local helpers = require "neovimpv.helpers"
 
 local neovimpv = {
@@ -21,7 +21,7 @@ local neovimpv = {
   paste_and_play = actions.paste_and_play,
 }
 
-local get_mpv_by_line = player_registry.get_player_by_line
+local get_mpv_by_line = registry.get_player_by_line
 local tbl_count = vim.tbl_count
 
 
@@ -84,7 +84,7 @@ local function create_managed_mpv(
       )
     end
 
-    return MpvBufferActions.new(current_buffer, lines_to_links, update_action)
+    return MpvCallbacks.new(current_buffer, lines_to_links, update_action)
   end)
 
   if not success then
@@ -92,14 +92,14 @@ local function create_managed_mpv(
     return
   end
 
-  ---@cast maybe_buffer_actions MpvBufferTracker
+  ---@cast maybe_buffer_actions MpvCallbacks
 
   local target = MpvManager.new(
       maybe_buffer_actions,
       local_args.mpv_args
   ):spawn()
 
-  player_registry.register(target)
+  registry.register(target)
   return target
 end
 
@@ -110,7 +110,7 @@ end
 ---@param callback fun(managers: MpvManager[])
 local function do_managers(args, line, callback)
   if #args ~= 0 and args[1] == "all" or args[1] == "buffer" then
-    local targets = player_registry.query_mpvs(args[1])
+    local targets = registry.query_mpvs(args[1])
     callback(targets)
     return
   end

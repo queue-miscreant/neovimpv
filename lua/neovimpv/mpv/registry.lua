@@ -1,3 +1,6 @@
+-- mpv/registry.lua
+-- MpvManager registry
+
 local helpers = require "neovimpv.helpers"
 
 local list_contains = vim.list_contains
@@ -16,7 +19,7 @@ local M = {
 ---@param manager MpvManager
 ---@return boolean
 function M.register(manager)
-  local extmarks = manager.buffer_actions.extmarks
+  local extmarks = manager.callbacks.extmarks
   local buffer_id, player_id = tostring(extmarks.buffer_id), tostring(extmarks.player_id)
   local players_in_buffer = M._players[buffer_id] or {}
 
@@ -38,9 +41,9 @@ end
 ---@param manager MpvManager
 ---@return boolean
 function M.deregister(manager)
-  local extmarks = manager.buffer_actions.extmarks
+  local extmarks = manager.callbacks.extmarks
   local success, _ = pcall(function()
-    manager.buffer_actions.no_draw = true
+    manager.callbacks.no_draw = true
     (M._players[extmarks.buffer_id] or {})[extmarks.player_id] = nil
     extmarks:remove()
   end)
@@ -59,7 +62,7 @@ end
 
 -- Register a MpvManager using its buffer and extmark id
 ---@param manager MpvManager
----@param old_extmarks BufferExtmarks
+---@param old_extmarks MpvExtmarks
 ---@return boolean
 function M.reregister(manager, old_extmarks)
   local old_buffer, old_extmark = tostring(old_extmarks.buffer_id), tostring(old_extmarks.player_id);
@@ -130,7 +133,7 @@ function M.get_player_by_line(buffer_id, start_line, end_line, show_message)
 
   local found_player
   for _, player in pairs(M._players[tostring(buffer_id)] or {}) do
-    if list_contains(player.buffer_actions.extmarks.playlist_ids, playlist_item[1]) then
+    if list_contains(player.callbacks.extmarks.playlist_ids, playlist_item[1]) then
       found_player = player
       break
     end

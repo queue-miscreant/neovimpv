@@ -1,6 +1,6 @@
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
-local tracker = require "neovimpv.extmarks.download"
+local download_tracker = require "neovimpv.youtube.extmarks"
 
 local actions = {}
 
@@ -72,8 +72,8 @@ function actions.paste_and_download(files, with_video, window, line_number)
     local start, end_ = paste_links(files, window, line_number)
 
     if start and end_ then
-      tracker.tag_extmark(start, end_, with_video)
-      tracker.start_downloader()
+      download_tracker.tag_extmark(start, end_, with_video)
+      download_tracker.start_downloader()
     end
   end)
 end

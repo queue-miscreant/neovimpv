@@ -1,3 +1,6 @@
+-- mpv/extmarks.lua
+-- Buffer-related functionality mostly decoupled from the mpv instance
+
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
 
@@ -43,19 +46,19 @@ local function create_playlist(buffer_id, lines, contents)
   return extmark_ids
 end
 
----@class BufferExtmarks
+---@class MpvExtmarks
 ---@field buffer_id integer Buffer in which the extmarks controlled by this table live.
 ---@field player_id integer Extmark ID of the player.
 ---@field playlist_ids integer[] Extmark ID of the player.
-local BufferExtmarks = {}
-BufferExtmarks.__index = BufferExtmarks
+local MpvExtmarks = {}
+MpvExtmarks.__index = MpvExtmarks
 
 ---From a list of `lines` in a buffer, create extmarks for a player (which displays
 ---current playback state) and a playlist (which is a list of lines to play next).
 ---@param buffer_id integer
 ---@param lines integer[] A list of line numbers (1-indexed) to add to the playlist
----@return BufferExtmarks
-function BufferExtmarks.new(buffer_id, lines)
+---@return MpvExtmarks
+function MpvExtmarks.new(buffer_id, lines)
   local player_id = vim.api.nvim_buf_set_extmark(
     buffer_id,
     DISPLAY_NAMESPACE,
@@ -72,14 +75,14 @@ function BufferExtmarks.new(buffer_id, lines)
     player_id = player_id,
     playlist_ids = create_playlist(buffer_id, lines, "|")
   }
-  setmetatable(ret, BufferExtmarks)
+  setmetatable(ret, MpvExtmarks)
 
   return ret
 end
 
 ---Push an update from an mpv property table
 ---@param virt_text VirtText?
-function BufferExtmarks:update(virt_text)
+function MpvExtmarks:update(virt_text)
   if virt_text == nil then
     virt_text = {{config.loading, "MpvDefault"}}
   end
@@ -111,7 +114,7 @@ end
 ---@param new_playlist_id integer The playlist ID to which the player should be moved.
 ---@param new_text? string Text to set on the player.
 ---@return boolean success
-function BufferExtmarks:move(new_playlist_id, new_text)
+function MpvExtmarks:move(new_playlist_id, new_text)
   -- get the destination line
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     self.buffer_id,
@@ -172,7 +175,7 @@ end
 ---Update a playlist extmark to also show the currently playing item
 ---@param playlist_id integer
 ---@param virt_text string
-function BufferExtmarks:show_currently_playing(playlist_id, virt_text)
+function MpvExtmarks:show_currently_playing(playlist_id, virt_text)
   if not list_contains(self.playlist_ids, playlist_id) then return end
 
   local loc = vim.api.nvim_buf_get_extmark_by_id(
@@ -203,7 +206,7 @@ end
 ---Paste new line data "on top" of a playlist item.
 ---@param playlist_id integer Playlist ID of item to replace.
 ---@param line_content string New line content
-function BufferExtmarks:paste_line(playlist_id, line_content)
+function MpvExtmarks:paste_line(playlist_id, line_content)
   if not vim.bo[self.buffer_id].modifiable then return end
   if not list_contains(self.playlist_ids, playlist_id) then return end
 
@@ -228,7 +231,7 @@ end
 ---@param new_playlist string[] Replacement buffer content for playlist item
 ---@param current_index integer Index (NOT ID) in the playlist to move the player to after pasting.
 ---@return integer[]
-function BufferExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index)
+function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index)
   if not vim.bo[self.buffer_id].modifiable then return {} end
 
   -- get the old location of the playlist item
@@ -285,7 +288,7 @@ end
 
 ---Delete extmarks in the displays and playlists namespace.
 ---Also clears up playlist information in the buffer.
-function BufferExtmarks:remove()
+function MpvExtmarks:remove()
   -- Buffer already deleted
   if #vim.fn.getbufinfo(buffer) == 0 then return end
 
@@ -303,4 +306,4 @@ function BufferExtmarks:remove()
   end
 end
 
-return BufferExtmarks
+return MpvExtmarks

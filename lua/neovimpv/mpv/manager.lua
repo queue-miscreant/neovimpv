@@ -4,7 +4,7 @@
 local config = require "neovimpv.config"
 local formatting = require "neovimpv.formatting"
 local MpvSocket = require "neovimpv.mpv.socket"
-local player_registry = require "neovimpv.players"
+local registry = require "neovimpv.mpv.registry"
 local log = require "neovimpv.log"
 
 -- Required: nvim >=0.9(?)
@@ -60,7 +60,7 @@ end
 
 ---@class MpvManager
 ---@field socket MpvSocket?
----@field buffer_actions MpvBufferTracker
+---@field callbacks MpvCallbacks
 ---@field _mpv_args string[]
 ---@field _after_spawn thread[]
 ---@field _transitioning_players boolean
@@ -69,14 +69,14 @@ end
 local MpvManager = {}
 MpvManager.__index = MpvManager
 
----@param buffer_actions MpvBufferTracker
+---@param callbacks MpvCallbacks
 ---@param mpv_args string[]
 ---@return MpvManager
-function MpvManager.new(buffer_actions, mpv_args)
+function MpvManager.new(callbacks, mpv_args)
   mpv_args = list_extend(list_slice(config.default_args), mpv_args)
 
   local ret = {
-    buffer_actions = buffer_actions,
+    callbacks = callbacks,
     socket = nil,
     _mpv_args = list_extend(list_slice(DEFAULT_MPV_ARGS), mpv_args),
     _after_spawn = {},
@@ -97,7 +97,7 @@ function MpvManager:spawn(timeout_duration_ms)
   self._after_spawn= {}
   self._transitioning_players = true
 
-  local extmarks = self.buffer_actions.extmarks
+  local extmarks = self.callbacks.extmarks
   local ipc_path = fs_join(
     mpv_socket_dir,
     ("%d.%d"):format(extmarks.buffer_id, extmarks.player_id)
@@ -123,24 +123,24 @@ function MpvManager:spawn(timeout_duration_ms)
       -- default event handling
       mpv_socket:add_event("error", show_error)
       mpv_socket:add_event("end-file", function(_, arg)
-        self.buffer_actions:on_end_file(self.socket, arg)
+        self.callbacks:on_end_file(self.socket, arg)
       end)
       mpv_socket:add_event("start-file", function(_, data)
-        self.buffer_actions:on_start_file(self.socket, data)
+        self.callbacks:on_start_file(self.socket, data)
       end)
       mpv_socket:add_event("file-loaded", function(_, _)
-        self.buffer_actions:on_file_loaded(self.socket)
+        self.callbacks:on_file_loaded(self.socket)
       end)
       mpv_socket:add_event("close", function(_, _)
         self:close()
       end)
       mpv_socket:add_event("property-change", function(_, _)
-        self.buffer_actions:draw_update(self.socket.data)
+        self.callbacks:draw_update(self.socket.data)
       end)
       mpv_socket:add_event("got-playlist", function(_, data)
-        local old_extmarks = self.buffer_actions.extmarks
-        self.buffer_actions:update_playlist(data, function()
-          player_registry.reregister(self, old_extmarks)
+        local old_extmarks = self.callbacks.extmarks
+        self.callbacks:update_playlist(data, function()
+          registry.reregister(self, old_extmarks)
         end)
       end)
 
@@ -155,7 +155,7 @@ function MpvManager:spawn(timeout_duration_ms)
         mpv_socket:observe_property(i)
       end
 
-      local playlist = self.buffer_actions.playlist_id_to_item or {}
+      local playlist = self.callbacks.playlist_id_to_item or {}
       log.log{"Loading playlist!", playlist = playlist}
 
       -- start playing the files
@@ -326,8 +326,8 @@ function MpvManager:toggle_video()
     self._transitioning_players = true
     self.socket:send_command{"quit"}
     -- Draw a filler line
-    self.buffer_actions:reorder_by_index(old_playlist)
-    self.buffer_actions:draw_update(self)
+    self.callbacks:reorder_by_index(old_playlist)
+    self.callbacks:draw_update(self)
     self.socket:next_event("close")
 
     log.log{"Spawning player..."}
@@ -366,7 +366,7 @@ function MpvManager:set_current_by_playlist_extmark(extmark_id)
       return
     end
 
-    self.buffer_actions:set_current_by_playlist_extmark(self.socket, extmark_id)
+    self.callbacks:set_current_by_playlist_extmark(self.socket, extmark_id)
   end)()
 end
 
@@ -386,7 +386,7 @@ function MpvManager:forward_deletions(removed_items)
       return
     end
 
-    self.buffer_actions:forward_deletions(self.socket, removed_items)
+    self.callbacks:forward_deletions(self.socket, removed_items)
   end)()
 end
 
@@ -402,7 +402,7 @@ function MpvManager:close()
 
     if not no_destroy_extmarks then
       vim.defer_fn(function()
-        player_registry.deregister(self)
+        registry.deregister(self)
       end, 0)
     end
   end)()

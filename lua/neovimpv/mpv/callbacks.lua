@@ -1,11 +1,11 @@
--- mpv/playlist.lua
--- Storage class for mapping mpv playlists to extmark ids.
+-- mpv/callbacks.lua
+-- Class for managing buffer callbacks.
 
 local log = require "neovimpv.log"
 local formatting = require "neovimpv.formatting"
-local BufferExtmarks = require "neovimpv.extmarks.buffer"
 local helpers = require "neovimpv.helpers"
 local config = require "neovimpv.config"
+local MpvExtmarks = require "neovimpv.mpv.extmarks"
 
 local tbl_count = vim.tbl_count
 local tbl_keys = vim.tbl_keys
@@ -22,11 +22,11 @@ local list_extend = vim.list_extend
 ---@field playing boolean
 ---@field title string?
 
----@class MpvBufferTracker
+---@class MpvCallbacks
 ---@field no_draw boolean
 ---@field update_action UpdateAction
 ---Player/playlist extmark manager.
----@field extmarks BufferExtmarks
+---@field extmarks MpvExtmarks
 ---Map from mpv playlist ids to cached items.
 ---Unless transitioning, should be valid for spawning an MpvManager.
 ---@field playlist_id_to_item table<MpvPlaylistId, MpvItem>
@@ -38,20 +38,21 @@ local list_extend = vim.list_extend
 ---@field _new_items table<MpvPlaylistId, MpvItem>
 ---Internal debounce for playlist updates.
 ---@field _debounce_playlist boolean
----Object containing state about current state of an mpv playlist.
----Responsible for remembering how to map mpv ids to extmark ids in nvim.
-local MpvBufferTracker = {}
-MpvBufferTracker.__index = MpvBufferTracker
+---Object responsible for callbacks from the mpv socket to the buffer.
+---Responsible for remembering the current state of an mpv playlist
+---and how to map mpv ids to extmark ids in nvim.
+local MpvCallbacks = {}
+MpvCallbacks.__index = MpvCallbacks
 
 ---@param buffer_id integer
 ---@param lines_to_links table<LineNumber, [string[], boolean]>
 ---@param update_action UpdateAction
----@return MpvBufferTracker
-function MpvBufferTracker.new(buffer_id, lines_to_links, update_action)
+---@return MpvCallbacks
+function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
   local playlist_lines = tbl_keys(lines_to_links)
   table.sort(playlist_lines)
 
-  local extmarks = BufferExtmarks.new(buffer_id, playlist_lines)
+  local extmarks = MpvExtmarks.new(buffer_id, playlist_lines)
 
   local file_index = 1
   local playlist_id_to_item = {}
@@ -88,12 +89,12 @@ function MpvBufferTracker.new(buffer_id, lines_to_links, update_action)
     _new_items = nil,
     _debounce_playlist = false,
   }
-  setmetatable(ret, MpvBufferTracker)
+  setmetatable(ret, MpvCallbacks)
 
   return ret
 end
 
-function MpvBufferTracker:__len()
+function MpvCallbacks:__len()
   -- Set-like table for remap targets
   local remap_dests = {}
   for _, val in pairs(self._playlist_id_remap) do
@@ -117,7 +118,7 @@ end
 
 ---Update buffer text after new file loaded.
 ---@param socket MpvSocket
-function MpvBufferTracker:on_file_loaded(socket)
+function MpvCallbacks:on_file_loaded(socket)
   self.no_draw = false
   -- Have enough information to update with video title
   local current_playlist_id = socket.last_playlist_entry_id
@@ -153,7 +154,7 @@ end
 ---Update state after new file started.
 ---Move the player to new playlist item and suspend drawing until complete.
 ---@param socket MpvSocket
-function MpvBufferTracker:on_start_file(socket, arg)
+function MpvCallbacks:on_start_file(socket, arg)
   -- Starting the file is enough information to move the player, but not enough
   -- to update the title of the video.
   self.no_draw = true
@@ -183,7 +184,7 @@ end
 ---Report an error to nvim if the file ended because of an error.
 ---@param socket MpvSocket
 ---@param arg table<string, any>
-function MpvBufferTracker:on_end_file(socket, arg)
+function MpvCallbacks:on_end_file(socket, arg)
   self.no_draw = true
   self:draw_update(socket.data, "")
 
@@ -204,7 +205,7 @@ end
 ---@param playlist_id integer
 ---@param media_title string
 ---@param new_filename string
-function MpvBufferTracker:_try_update_markdown(media_title, new_filename, playlist_id)
+function MpvCallbacks:_try_update_markdown(media_title, new_filename, playlist_id)
   assert(not vim.in_fast_event())
 
   local mpv_item = self.playlist_id_to_item[tostring(playlist_id)]
@@ -238,7 +239,7 @@ end
 ---@param socket MpvSocket
 ---@param current_playlist_id MpvPlaylistId
 ---@param redirected_playlist_id? MpvPlaylistId
-function MpvBufferTracker:_update_currently_playing(
+function MpvCallbacks:_update_currently_playing(
     socket, current_playlist_id, redirected_playlist_id
 )
   assert(not vim.in_fast_event())
@@ -298,7 +299,7 @@ end
 ---@param socket MpvSocket
 ---@param playlist_id MpvPlaylistId Playlist ID from mpv, converted for mapping
 ---@param show_text string?
-function MpvBufferTracker:_move_player_extmark(socket, playlist_id, show_text)
+function MpvCallbacks:_move_player_extmark(socket, playlist_id, show_text)
   assert(not vim.in_fast_event())
 
   log.log{
@@ -312,7 +313,7 @@ function MpvBufferTracker:_move_player_extmark(socket, playlist_id, show_text)
     and self.extmarks:move(mpv_item.extmark_id, show_text)
 
   if not success then
-    local filename = (self.playlist_id_to_item[playlist_id] or {}).filename
+    local filename = (self.playlist_id_to_item[playlist_id] or {}).filename or ""
 
     vim.notify(
       "Could not move the player (current file: " .. filename .. ")!",
@@ -338,7 +339,7 @@ end
 ---Rerender the player extmark to which this mpv instance corresponds
 ---@param data table<string, any>
 ---@param force_text? string
-function MpvBufferTracker:draw_update(data, force_text)
+function MpvCallbacks:draw_update(data, force_text)
   ---@type VirtText?
   local virt_text
   if force_text then
@@ -356,7 +357,7 @@ end
 
 ---Reorder playlist_ids by their index in the playlist.
 ---This is used when transitioning between two mpv instances while maintaining the playlist.
-function MpvBufferTracker:reorder_by_index(old_playlist)
+function MpvCallbacks:reorder_by_index(old_playlist)
   ---@type table<MpvPlaylistId,MpvPlaylistId>
   local new_remap = {}
   ---@type table<MpvPlaylistId,MpvItem>
@@ -430,7 +431,7 @@ end
 ---Nvim is assumed to not be in a fast callback.
 ---@param new_playlist table
 ---@param playlist_id MpvPlaylistId
-function MpvBufferTracker:_paste_playlist(new_playlist, playlist_id)
+function MpvCallbacks:_paste_playlist(new_playlist, playlist_id)
   assert(not vim.in_fast_event())
 
   log.log{
@@ -487,7 +488,7 @@ end
 ---@param new_playlist table
 ---@param playlist_id MpvPlaylistId
 ---@return boolean?
-function MpvBufferTracker:_new_playlist_buffer(new_playlist, playlist_id)
+function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
   assert(not vim.in_fast_event())
 
   log.log{
@@ -520,7 +521,7 @@ function MpvBufferTracker:_new_playlist_buffer(new_playlist, playlist_id)
 
   -- "Move" player extmark between buffers.
   self.extmarks:remove()
-  local new_player = BufferExtmarks.new(new_buffer, {1, -1})
+  local new_player = MpvExtmarks.new(new_buffer, {1, -1})
   self.extmarks = new_player
 
   -- TODO
@@ -552,7 +553,7 @@ end
 ---The playlist retrieved from MpvSocket is raw, so we need to do a bit of extra processing.
 ---@param data table
 ---@param callback fun()
-function MpvBufferTracker:update_playlist(data, callback)
+function MpvCallbacks:update_playlist(data, callback)
   log.log{
     "Got updated playlist!",
     playlist = data,
@@ -613,7 +614,7 @@ end
 ---Set the current file to the mpv file specified by the extmark `playlist_item`
 ---@param socket MpvSocket
 ---@param extmark_id ExtmarkId
-function MpvBufferTracker:set_current_by_playlist_extmark(socket, extmark_id)
+function MpvCallbacks:set_current_by_playlist_extmark(socket, extmark_id)
   -- try to remap the extmark to the one it came from
   local s_extmark_id = tostring(extmark_id)
   ---@type string?
@@ -695,7 +696,7 @@ end
 ---Used when deletions or changes occur in the buffer.
 ---@param socket MpvSocket
 ---@param removed_items integer[]
-function MpvBufferTracker:forward_deletions(socket, removed_items)
+function MpvCallbacks:forward_deletions(socket, removed_items)
   local playlist_ids = {}
   for i, mpv_item in pairs(self.playlist_id_to_item) do
     if list_contains(removed_items, mpv_item) then
@@ -737,4 +738,4 @@ function MpvBufferTracker:forward_deletions(socket, removed_items)
   end
 end
 
-return MpvBufferTracker
+return MpvCallbacks

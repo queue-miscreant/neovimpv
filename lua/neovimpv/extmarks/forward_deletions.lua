@@ -4,7 +4,7 @@
 -- Usually tries to delete extmarks if a delete action was taken on the line.
 
 local helpers = require "neovimpv.helpers"
-local player_registry = require "neovimpv.players"
+local registry = require "neovimpv.mpv.registry"
 
 ---@diagnostic disable-next-line
 ---@cast vim.b.mpv_playlists_to_displays table<string, integer>?
@@ -121,7 +121,7 @@ local function buffer_change_callback(old_extmarks)
   )
   -- Close all players which fell outside the bounds
   for _, i in ipairs(invisible_extmarks) do
-    local player = player_registry.get(tostring(vim.fn.bufnr()), tostring(i[1]))
+    local player = registry.get(tostring(vim.fn.bufnr()), tostring(i[1]))
     if player then player:send_keypress("q", 1) end
   end
 end
