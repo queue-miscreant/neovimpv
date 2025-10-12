@@ -1,7 +1,7 @@
 -- mpv/socket.lua
 -- Object-oriented interface to the mpv IPC socket
 
-local log = require "neovimpv.log"
+local log = require("neovimpv.log").new(true)
 
 local list_extend = vim.list_extend
 local list_slice = vim.list_slice
@@ -71,7 +71,7 @@ local function try_handle_event(self, event_name, json_data)
   end
   -- set futures
   for _, future in ipairs(self._waiting_events[event_name] or {}) do
-    log.log{
+    log:log{
       event_name = event_name,
       future = future,
       status = coroutine.status(future),
@@ -83,7 +83,7 @@ local function try_handle_event(self, event_name, json_data)
   self._waiting_events[event_name] = {}
 
   if event_name ~= "property-change" then
-    log.log{
+    log:log{
       "Received event",
       [event_name] = json_data,
     }
@@ -112,7 +112,7 @@ local function data_received(self, data)
     -- handle response
     if datum.error ~= nil and datum.error ~= "success" then
       if consumed_error then
-        log.log{"Ignoring errorful response", datum = datum}
+        log:log{"Ignoring errorful response", datum = datum}
         goto continue
       end
       -- reverse lookup the property name for convenience
@@ -127,8 +127,8 @@ local function data_received(self, data)
       -- reverse lookup the property name for convenience
       local property_name = self._reverse_properties[request_id]
       self.data[property_name] = datum.data
-      log.log{"Got property", [property_name] = datum}
-    elseif request_id ~= nil and request_id == self._playlist_request then
+      log:log{"Got property", [property_name] = datum}
+    elseif request_id ~= nil and datum.request_id == self._playlist_request then
       try_handle_event(
         self,
         "got-playlist",
@@ -146,14 +146,14 @@ local function data_received(self, data)
 
       if type_ == MPV_GET then
         self.data[property_name] = datum["data"]
-        log.log{"Got awaited property", [property_name] = datum}
+        log:log{"Got awaited property", [property_name] = datum}
         coroutine.resume(future, datum["data"])
       elseif type_ == MPV_SET then
         self.data[property_name] = future
-        log.log{"Successfully set property", [property_name] = datum}
+        log:log{"Successfully set property", [property_name] = datum}
       end
     else
-      log.log{"Unknown data received from mpv", datum = datum}
+      log:log{"Unknown data received from mpv", datum = datum}
     end
     ::continue::
   end
@@ -247,7 +247,7 @@ function MpvSocket:send_command(args, request_id, ignore_error)
     self._ignore_errors[tostring(request_id)] = true
   end
 
-  log.log{"Sent command", command = command}
+  log:log{"Sent command", command = command}
   self.transport:write(json_encode(command) .. "\n")
 end
 

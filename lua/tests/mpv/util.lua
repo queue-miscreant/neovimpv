@@ -1,4 +1,4 @@
-local util = require("neovimpv.mpv.util")
+local util = require("neovimpv.helpers")
 
 local link1 = "https://youtu.be/foobar"
 local link2 = "https://youtu.be/bazqux"

@@ -15,12 +15,20 @@ local list_extend = vim.list_extend
 ---@alias MpvPlaylistId string
 ---@alias ExtmarkId integer
 
+---@class MpvItem
+---@field filename string
+---@field extmark_id integer
+---@field update_markdown boolean
+---@field show_currently_playing boolean
+---Local representation of an item from an mpv playlist
+
 ---@class MpvPlaylistData
 ---@field current boolean
 ---@field filename string
 ---@field id integer
 ---@field playing boolean
 ---@field title string?
+---Raw mpv playlist entry from the socket
 
 ---@class MpvCallbacks
 ---@field no_draw boolean
@@ -90,6 +98,8 @@ function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
     _debounce_playlist = false,
   }
   setmetatable(ret, MpvCallbacks)
+
+  log.log(ret)
 
   return ret
 end
@@ -244,17 +254,18 @@ function MpvCallbacks:_update_currently_playing(
 )
   assert(not vim.in_fast_event())
 
-  ---@type table<string, any>
+  ---@type MpvPlaylistData
   local playlist_from_mpv = socket.data.playlist or {}
   ---@type string?
   local current_title
   for _, item in ipairs(playlist_from_mpv) do
-    if item.id == current_playlist_id then
+    if tostring(item.id) == current_playlist_id then
       current_title = item.title
       break
     end
   end
   log.log{
+    current_title = current_title,
     current_playlist_id = current_playlist_id,
     redirected_playlist_id = redirected_playlist_id,
   }
@@ -313,7 +324,7 @@ function MpvCallbacks:_move_player_extmark(socket, playlist_id, show_text)
     and self.extmarks:move(mpv_item.extmark_id, show_text)
 
   if not success then
-    local filename = (self.playlist_id_to_item[playlist_id] or {}).filename or ""
+    local filename = (self.playlist_id_to_item[playlist_id] or {}).filename or "(none)"
 
     vim.notify(
       "Could not move the player (current file: " .. filename .. ")!",
@@ -552,8 +563,8 @@ end
 ---Update state after playlist loaded.
 ---The playlist retrieved from MpvSocket is raw, so we need to do a bit of extra processing.
 ---@param data table
----@param callback fun()
-function MpvCallbacks:update_playlist(data, callback)
+---@param new_buffer_callback fun()
+function MpvCallbacks:update_playlist(data, new_buffer_callback)
   log.log{
     "Got updated playlist!",
     playlist = data,
@@ -579,12 +590,12 @@ function MpvCallbacks:update_playlist(data, callback)
   )
 
   -- map the old playlist id to the first item in the new one
-  self._updated_indices[original_entry] = start
+  self._updated_indices[tostring(original_entry)] = start
 
   if do_stay then
     -- add remaps (i.e., old playlist id to new playlist id)
     for i = start, (end_ - 1) do
-      self._playlist_id_remap[i] = original_entry
+      self._playlist_id_remap[tostring(i)] = tostring(original_entry)
     end
   elseif list_contains({"paste", "paste_one"}, self.update_action) then
     self.no_draw = true
@@ -606,7 +617,7 @@ function MpvCallbacks:update_playlist(data, callback)
       self.no_draw = false
       self._debounce_playlist = false
 
-      if success then callback() end
+      if success then new_buffer_callback() end
     end, 0)
   end
 end

@@ -32,12 +32,6 @@ local DEFAULT_MPV_ARGS = {"--no-video"}
 --                                       Player arrives, sees playlist, updates "currently playing"
 --                                       Item 5 has markdown, "currently playing" if "stay" mode
 
----@class MpvItem
----@field filename string
----@field extmark_id integer
----@field update_markdown boolean
----@field show_currently_playing boolean
-
 ---Event callback for reporting error contents to nvim.
 ---First argument consumes the mpv socket instance.
 ---@param err {property-name: string?, error: string?}

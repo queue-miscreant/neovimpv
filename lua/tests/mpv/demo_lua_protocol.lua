@@ -1,11 +1,13 @@
-local mpv_socket = require("neovimpv.mpv.protocol")
+local mpv_socket = require("neovimpv.mpv.socket")
 
 mpv_socket.new(
   "/tmp/mpv-socket",
-  function(this)
-    this:observe_property("playback-time")
+  function(success, socket)
+    if not success then return end
+    ---@cast socket MpvSocket
+    socket:observe_property("playback-time")
     local f = coroutine.wrap(function()
-      local foo = this:wait_property("playback-time")
+      local foo = socket:wait_property("playback-time")
       print(foo)
     end)
     f()
