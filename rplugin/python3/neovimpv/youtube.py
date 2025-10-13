@@ -366,10 +366,9 @@ async def open_playlist_results(nvim, playlist, extra):
 if __name__ == "__main__":
     import sys
 
-    print(
-        json.dumps(
-            Youtube.search(
-                sys.argv[1], sys.argv[2] == "--raw" if len(sys.argv) > 2 else False
-            )
-        )
-    )
+    logging.basicConfig(level=logging.DEBUG)
+
+    search = sys.argv[1]
+    raw = sys.argv[2] == "--raw" if len(sys.argv) > 2 else False
+
+    print(json.dumps(Youtube.search(search, raw)))

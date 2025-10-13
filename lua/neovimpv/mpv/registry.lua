@@ -10,6 +10,27 @@ local list_extend = vim.list_extend
 ---@alias BufferId integer
 ---@alias ExtmarkId integer
 
+-- The general layout of the plugin is as follows:
+--
+-- Registry
+--  |
+--  |---MpvManager
+--  |   |    A wrapper object which delivers plugin commands to the correct subprocess.
+--  |   |
+--  |   |---MpvCallbacks
+--  |   |   |    Keeps track of the relationship between mpv playlist data and buffer data.
+--  |   |   |    Provides internal callbacks.
+--  |   |   |
+--  |   |   |---MpvExtmarks
+--  |   |       Extmarks manager for the plugin, providing a "nicer" drawing/pasting interface.
+--  |   |
+--  |   |---MpvSocket
+--  |       Interface to mpv's IPC socket, wrapping a libuv pipe.
+--  |
+--  |---MpvManager
+--  |
+--  |---MpvManager
+
 local M = {
   ---@private
   ---@type table<BufferId, table<ExtmarkId, MpvManager>>
