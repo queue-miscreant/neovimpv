@@ -6,3 +6,6 @@ Player vanishes when opening playlist
 cleanup on MpvOpen failure
 
 cleanup on buffer close
+
+cleanup player extmarks if registry lookup fails by playlist id(?)
+  Mostly occurs on failed transitions

@@ -513,6 +513,7 @@ function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
 
   local write_lines = get_write_lines(new_playlist, mpv_item.update_markdown)
 
+  local old_filetype = vim.bo.filetype
   -- open split to an empty scratch
   vim.cmd("bel split")
   local win = vim.api.nvim_get_current_win()
@@ -524,11 +525,16 @@ function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
 
   vim.bo[new_buffer].modifiable = false
   vim.bo[new_buffer].bufhidden = "wipe"
-  vim.bo[new_buffer].filetype = vim.bo[buffer].filetype
+  vim.bo[new_buffer].filetype = old_filetype
 
   -- "Move" player extmark between buffers.
   self.extmarks:remove()
-  local new_player = MpvExtmarks.new(new_buffer, {1, -1})
+
+  local lines = {}
+  for i = 1, vim.fn.line("$") do
+    table.insert(lines, i)
+  end
+  local new_player = MpvExtmarks.new(new_buffer, lines)
   self.extmarks = new_player
 
   -- TODO

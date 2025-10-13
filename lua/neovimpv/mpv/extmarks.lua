@@ -30,19 +30,17 @@ local function create_playlist(buffer_id, lines, contents)
     extmark = {}
   end
 
-  vim.api.nvim_buf_call(buffer_id, function()
-    -- add each playlist extmark
-    for i, j in pairs(lines) do
-      local extmark_id = vim.api.nvim_buf_set_extmark(
-        buffer_id,
-        PLAYLIST_NAMESPACE,
-        j - 1,
-        0,
-        extmark
-      )
-      extmark_ids[i] = extmark_id
-    end
-  end)
+  -- add each playlist extmark
+  for i, j in pairs(lines) do
+    local extmark_id = vim.api.nvim_buf_set_extmark(
+      buffer_id,
+      PLAYLIST_NAMESPACE,
+      j - 1,
+      0,
+      extmark
+    )
+    extmark_ids[i] = extmark_id
+  end
   return extmark_ids
 end
 
@@ -56,7 +54,7 @@ MpvExtmarks.__index = MpvExtmarks
 ---From a list of `lines` in a buffer, create extmarks for a player (which displays
 ---current playback state) and a playlist (which is a list of lines to play next).
 ---@param buffer_id integer
----@param lines integer[] A list of line numbers (1-indexed) to add to the playlist
+---@param lines integer[] A list of line numbers (1-indexed) to add to the playlist.
 ---@return MpvExtmarks
 function MpvExtmarks.new(buffer_id, lines)
   local player_id = vim.api.nvim_buf_set_extmark(
