@@ -195,11 +195,11 @@ local function parse_mpvopen_args(args)
   ---@type VisualMode
   local visual = nil
 
-  local local_flag = false
+  local local_flag = true
   local video_flag = false
   for _, arg in ipairs(args) do
     if arg == "--" then
-      local_flag = true
+      local_flag = false
     elseif local_flag then
       -- Update actions
       if arg == "stay" then
@@ -254,7 +254,7 @@ end
 -- Try writing the buffer, if the `save_on_modify` configuration is enabled
 ---@param buffer_id integer
 local function try_write_buffer(buffer_id)
-  if config.save_on_modify and not (vim.bo[buffer].readonly or not vim.bo[buffer].modifiable) then
+  if config.save_on_modify and not (vim.bo[buffer_id].readonly or not vim.bo[buffer_id].modifiable) then
     vim.api.nvim_buf_call(buffer_id, function() vim.cmd("w") end)
   end
 end

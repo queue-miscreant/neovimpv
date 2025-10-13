@@ -573,7 +573,7 @@ function MpvCallbacks:update_playlist(data, new_buffer_callback)
   local end_ = start + data.new.playlist_insert_num_entries
   local new_playlist_items = {}
   for _, i in ipairs(data.playlist) do
-    if i.id > start and i.id < end_ then
+    if i.id >= start and i.id < end_ then
       table.insert(new_playlist_items, i)
     end
   end
@@ -636,14 +636,10 @@ function MpvCallbacks:set_current_by_playlist_extmark(socket, extmark_id)
   local playlist_id
   for i, mpv_item in pairs(self.playlist_id_to_item) do
     if mpv_item.extmark_id == try_remap then
-      playlist_id = i
+      -- adjust for updated playlists
+      playlist_id = self._updated_indices[i] or i
       break
     end
-  end
-
-  -- adjustment for updated playlists
-  if self._updated_indices[playlist_id] ~= nil then
-    playlist_id = self._updated_indices[playlist_id]
   end
 
   -- then index into the current playlist
@@ -664,7 +660,7 @@ function MpvCallbacks:set_current_by_playlist_extmark(socket, extmark_id)
   local playlist_index
   for index, item in ipairs(playlist) do
     if item.id == playlist_id then
-      playlist_index = index
+      playlist_index = index - 1 -- Lua offset
       break
     end
   end

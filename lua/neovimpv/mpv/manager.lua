@@ -291,7 +291,6 @@ function MpvManager:toggle_pause()
 end
 
 ---Close mpv, then reopen with the same playlist and with video
----@async
 function MpvManager:toggle_video()
   coroutine.wrap(function()
     if self._transitioning_players then
@@ -345,6 +344,7 @@ function MpvManager:toggle_video()
 end
 
 ---Set the current file to the mpv file specified by the extmark `playlist_item`
+---@param extmark_id ExtmarkId
 function MpvManager:set_current_by_playlist_extmark(extmark_id)
   coroutine.wrap(function()
     self:_maybe_wait_transition()

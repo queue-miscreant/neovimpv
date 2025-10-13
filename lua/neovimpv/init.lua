@@ -175,7 +175,7 @@ function neovimpv.setup(opts)
       vim.fn.getline(a.line1, a.line2) --[[@as string[] ]],
       a.line1,
       a.line2,
-      args or {}
+      a.fargs or {}
     )
   end, { nargs = "*", range = true})
 
@@ -187,11 +187,10 @@ function neovimpv.setup(opts)
       { "" },
       a.line1,
       a.line2,
-      args or {}
+      a.fargs or {}
     )
   end, { nargs = "*", range = true})
 
-  -- TODO
   vim.api.nvim_create_user_command("MpvPause", function(a)
     do_managers(a.fargs, a.line1, function(managers)
       if #managers == 1 then

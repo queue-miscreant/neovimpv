@@ -49,7 +49,7 @@ end
 ---@class MpvExtmarks
 ---@field buffer_id integer Buffer in which the extmarks controlled by this table live.
 ---@field player_id integer Extmark ID of the player.
----@field playlist_ids integer[] Extmark ID of the player.
+---@field playlist_ids integer[] Playlist extmarks which have been created by the player
 local MpvExtmarks = {}
 MpvExtmarks.__index = MpvExtmarks
 
@@ -187,7 +187,7 @@ function MpvExtmarks:show_currently_playing(playlist_id, virt_text)
   if loc ~= nil then
     vim.api.nvim_buf_set_extmark(
       self.buffer_id,
-      helpers.playlist_namespace,
+      PLAYLIST_NAMESPACE,
       loc[1],
       loc[2],
       {
@@ -212,7 +212,7 @@ function MpvExtmarks:paste_line(playlist_id, line_content)
 
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     self.buffer_id,
-    helpers.playlist_namespace,
+    PLAYLIST_NAMESPACE,
     playlist_id,
     {}
   )
@@ -237,13 +237,14 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
   -- get the old location of the playlist item
   local loc = vim.api.nvim_buf_get_extmark_by_id(
     self.buffer_id,
-    helpers.playlist_namespace,
+    PLAYLIST_NAMESPACE,
     old_playlist_id,
     {}
   )
 
   -- replace the playlist and add new lines afterward
   vim.fn.setbufline(self.buffer_id, loc[1] + 1, new_playlist[1])
+  ---@diagnostic disable-next-line No need to warn about appendbufline not working for tables
   vim.fn.appendbufline(self.buffer_id, loc[1] + 1, list_slice(new_playlist, 2))
   helpers.try_write_buffer(self.buffer_id)
 
@@ -252,7 +253,7 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
     -- And create a playlist extmark for it
     local extmark_id = vim.api.nvim_buf_set_extmark(
       self.buffer_id,
-      helpers.playlist_namespace,
+      PLAYLIST_NAMESPACE,
       loc[1] + 1,
       0,
       {}
@@ -265,16 +266,19 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
   for i = 1, #save_extmarks do
     local playlist_item = save_extmarks[i]
     -- Set the extmarks in the same manner as create_player
-    vim.api.nvim_buf_set_extmark(
-      self.buffer_id,
-      helpers.playlist_namespace,
-      playlist_item[1],
-      0,
-      {
-        id = playlist_item[2],
-        sign_text = "|",
-        sign_hl_group = "MpvPlaylistSign"
-      }
+    table.insert(
+      self.playlist_ids,
+      vim.api.nvim_buf_set_extmark(
+        self.buffer_id,
+        PLAYLIST_NAMESPACE,
+        playlist_item[1],
+        0,
+        {
+          id = playlist_item[2],
+          sign_text = "|",
+          sign_hl_group = "MpvPlaylistSign"
+        }
+      )
     )
     -- move the player just in case
     if i == current_index then
