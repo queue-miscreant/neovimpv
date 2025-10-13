@@ -22,14 +22,6 @@ local list_extend = vim.list_extend
 ---@field show_currently_playing boolean
 ---Local representation of an item from an mpv playlist
 
----@class MpvPlaylistData
----@field current boolean
----@field filename string
----@field id integer
----@field playing boolean
----@field title string?
----Raw mpv playlist entry from the socket
-
 ---@class MpvCallbacks
 ---@field no_draw boolean
 ---@field update_action UpdateAction
@@ -494,8 +486,8 @@ end
 ---TODO: user chooses open in split, open in vert split, open in new tab
 ---@param new_playlist table
 ---@param playlist_id MpvPlaylistId
----@return boolean?
-function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
+---@param new_extmarks_callback fun()
+function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id, new_extmarks_callback)
   assert(not vim.in_fast_event())
 
   log.log{
@@ -527,21 +519,18 @@ function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
   vim.bo[new_buffer].bufhidden = "wipe"
   vim.bo[new_buffer].filetype = old_filetype
 
-  -- "Move" player extmark between buffers.
-  self.extmarks:remove()
-
   local lines = {}
   for i = 1, vim.fn.line("$") do
     table.insert(lines, i)
   end
-  local new_player = MpvExtmarks.new(new_buffer, lines)
-  self.extmarks = new_player
 
-  -- TODO
-  -- vim.api.nvim_buf_call(new_buffer, function()
-  --   bind_forward_deletions(true)
-  -- end)
-  --
+  -- "Move" player extmark between buffers.
+  local new_player = MpvExtmarks.new(new_buffer, lines)
+  self.extmarks:remove()
+  self.extmarks = new_player
+  error("")
+  new_extmarks_callback()
+
   log.log{
     "Got new playlist buffer",
     new_player = new_player,
@@ -558,8 +547,6 @@ function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id)
       show_currently_playing = false,
     }
   end
-
-  return true
 end
 
 ---Update state after playlist loaded.
@@ -612,14 +599,13 @@ function MpvCallbacks:update_playlist(data, new_buffer_callback)
     self.no_draw = true
     self._debounce_playlist = true
     vim.defer_fn(function()
-      local success = self:_new_playlist_buffer(
+      self:_new_playlist_buffer(
         new_playlist_items,
-        original_entry
+        original_entry,
+        new_buffer_callback
       )
       self.no_draw = false
       self._debounce_playlist = false
-
-      if success then new_buffer_callback() end
     end, 0)
   end
 end
@@ -701,16 +687,18 @@ end
 ---Forward deletions to mpv.
 ---Used when deletions or changes occur in the buffer.
 ---@param socket MpvSocket
----@param removed_items integer[]
+---@param removed_items ExtmarkId[]
 function MpvCallbacks:forward_deletions(socket, removed_items)
+  ---@type integer[]
   local playlist_ids = {}
   for i, mpv_item in pairs(self.playlist_id_to_item) do
-    if list_contains(removed_items, mpv_item) then
+    if list_contains(removed_items, mpv_item.extmark_id) then
       table.insert(playlist_ids, i)
     end
   end
 
   -- reverse-lookup for remapped extmarks
+  ---@type integer[]
   local static_deletions = {}
   for _, i in ipairs(removed_items) do
     for j, k in pairs(self._playlist_id_remap) do
@@ -727,13 +715,14 @@ function MpvCallbacks:forward_deletions(socket, removed_items)
   local removed_indices = {}
   for index, item in ipairs(playlist) do
     if list_contains(playlist_ids, item.id) then
-      table.insert(removed_indices, index)
+      table.insert(removed_indices, index - 1)
     end
   end
 
   log.log{
     "Removing mpv ids!",
     playlist_ids = playlist_ids,
+    removed_indices = removed_indices,
     playlist = playlist,
   }
 

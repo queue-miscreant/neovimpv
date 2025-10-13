@@ -21,6 +21,14 @@ local MPV_GET = 1
 --- - the property name, and
 --- - a coroutine to resume when we have a property value
 
+---@class MpvPlaylistData
+---@field current boolean
+---@field filename string
+---@field id integer
+---@field playing boolean
+---@field title string?
+---Raw mpv playlist entry from the socket
+
 ---@class MpvPlaylistIds
 ---@field playlist_entry_id integer
 ---@field playlist_insert_id integer
@@ -218,7 +226,8 @@ end
 --
 -- Public Methods
 
----Add event handler. All mpv event names are valid, as are "connected", "close", and "error"
+---Add event handler.
+---All mpv event names are valid, as are "connected", "close", and "error"
 ---@param event_name string
 ---@param callback MpvEventCallback
 function MpvSocket:add_event(event_name, callback)
@@ -244,7 +253,7 @@ function MpvSocket:send_command(args, request_id, ignore_error)
     request_id = request_id or 0,
   }
   if ignore_error then
-    self._ignore_errors[request_id] = true
+    self._ignore_errors[command.request_id] = true
   end
 
   log:log{"Sent command", command = command}
@@ -301,15 +310,12 @@ function MpvSocket:next_event(event_name)
   return coroutine.yield()
 end
 
-
-
 ---Fetch all properties we've sent a request for, if we've gotten desynced
 function MpvSocket:fetch_subscribed()
   for prop, _ in pairs(self._properties) do
     self:get_property(prop, nil, true)
   end
 end
-
 
 ---Send a command to set a property on the mpv instance.
 ---@param property_name string
@@ -351,7 +357,6 @@ function MpvSocket:observe_property(property_name, ignore_error)
     ignore_error
   )
 end
-
 
 ---Create a new socket listening to the Unix-domain socket at `socket_file`.
 ---Does not return the socket.

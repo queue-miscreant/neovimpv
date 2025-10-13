@@ -161,21 +161,6 @@ function neovimpv.setup(opts)
       callback = youtube_interact.bind_buffer_playlist,
     }
   )
-  vim.api.nvim_create_autocmd(
-    {"BufUnload", "VimLeavePre"},
-    {
-      callback = function(ev)
-        local players = registry.query_mpvs(
-          ev.event == "BufUnload"
-          and ev.buf
-          or "all"
-        )
-        for _, player in ipairs(players) do
-          player:close()
-        end
-      end
-    }
-  )
 
   --  _   _                ___                              _
   -- | | | |___ ___ _ _   / __|___ _ __  _ __  __ _ _ _  __| |___
@@ -281,26 +266,6 @@ function neovimpv.setup(opts)
     range = true,
     complete = completion.mpv_command,
   })
-
-  -- TODO
-  --[[
-    @pynvim.function("MpvForwardDeletions", sync=True)
-    def mpv_forward_deletions(self, args):
-        """Receive updated playlist extmark positions from nvim"""
-        if len(args) == 1:
-            (updated_playlists,) = args
-        else:
-            raise TypeError(f"Expected 1 argument, got {len(args)}")
-
-        for player, removed_items in updated_playlists.items():
-            mpv_instance = self._mpv_instances.get(
-                (self.nvim.current.buffer.number, int(player))
-            )
-            if mpv_instance is not None:
-                self.nvim.loop.create_task(
-                    mpv_instance.forward_deletions(removed_items)
-                )
-  ]]
 
   if vim.list_contains(config.smart_filetypes, vim.bo.filetype) then
     keys.bind_smart_local()

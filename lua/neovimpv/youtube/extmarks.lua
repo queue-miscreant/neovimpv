@@ -4,7 +4,7 @@
 
 local helpers = require "neovimpv.helpers"
 local config = require "neovimpv.config"
-local bind_forward_deletions = require "neovimpv.extmarks.forward_deletions"
+local registry = require "neovimpv.mpv.registry"
 
 local download = {}
 local download_next_extmark
@@ -269,16 +269,12 @@ end
 ---
 ---@param buffer integer?
 function download.start_downloader(buffer)
-  if vim.b[buffer or 0].mpv_downloader_running then return end
-
   local current_buffer = vim.api.nvim_get_current_buf()
-  buffer = buffer == 0 and current_buffer or buffer
+  buffer = buffer and (buffer == 0 and current_buffer) or current_buffer
+  if vim.b[buffer].mpv_downloader_running then return end
 
-  vim.api.nvim_buf_call(buffer or current_buffer, function()
-    bind_forward_deletions()
-  end)
-
-  download_next_extmark(buffer or current_buffer)
+  registry.try_bind_autocmds(buffer)
+  download_next_extmark(buffer)
 end
 
 return download

@@ -23,7 +23,7 @@ local function create_playlist(buffer_id, lines, contents)
   local extmark_ids = {}
   local extmark = {
     sign_text = contents,
-    sign_hl_group = "MpvPlaylistSign"
+    sign_hl_group = "MpvPlaylistSign",
   }
   local rule = config.draw_playlist_extmarks
   if rule == "never" or (rule == "multiple" and #lines == 1) then
@@ -36,7 +36,7 @@ local function create_playlist(buffer_id, lines, contents)
       buffer_id,
       PLAYLIST_NAMESPACE,
       j - 1,
-      0,
+      1,
       extmark
     )
     extmark_ids[i] = extmark_id
@@ -239,6 +239,7 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
     old_playlist_id,
     {}
   )
+  if loc[1] == nil then return {} end
 
   -- replace the playlist and add new lines afterward
   vim.fn.setbufline(self.buffer_id, loc[1] + 1, new_playlist[1])
@@ -248,41 +249,26 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
 
   local save_extmarks = {{loc[1], old_playlist_id}}
   for i = 2, #new_playlist do
-    -- And create a playlist extmark for it
+    -- Create new playlist extmarks in the same manner as create_player
     local extmark_id = vim.api.nvim_buf_set_extmark(
       self.buffer_id,
       PLAYLIST_NAMESPACE,
       loc[1] + 1,
-      0,
-      {}
+      1,
+      {
+        sign_text = "|",
+        sign_hl_group = "MpvPlaylistSign",
+      }
     )
+    table.insert(self.playlist_ids, extmark_id)
 
     save_extmarks[i] = {loc[1] + i - 1, extmark_id}
   end
 
-  -- TODO: remember playlist items created!
-  for i = 1, #save_extmarks do
-    local playlist_item = save_extmarks[i]
-    -- Set the extmarks in the same manner as create_player
-    table.insert(
-      self.playlist_ids,
-      vim.api.nvim_buf_set_extmark(
-        self.buffer_id,
-        PLAYLIST_NAMESPACE,
-        playlist_item[1],
-        0,
-        {
-          id = playlist_item[2],
-          sign_text = "|",
-          sign_hl_group = "MpvPlaylistSign"
-        }
-      )
-    )
-    -- move the player just in case
-    if i == current_index then
-      self:move(playlist_item[2])
-    end
-  end
+  -- TODO: indexing seems wrong. Why do we need to save the location number?
+  -- move the player just in case
+  local current_item = save_extmarks[current_index]
+  self:move(current_item[2])
 
   -- only return extmark ids
   return tbl_map(function(i) return i[2] end, save_extmarks)
