@@ -7,12 +7,12 @@ local list_contains = vim.list_contains
 local list_slice = vim.list_slice
 local list_extend = vim.list_extend
 
----@alias BufferIdStr string
----@alias ExtmarkIdStr string
+---@alias BufferId integer
+---@alias ExtmarkId integer
 
 local M = {
   ---@private
-  ---@type table<string, table<string, MpvManager>>
+  ---@type table<BufferId, table<ExtmarkId, MpvManager>>
   _players = {},
 }
 
@@ -20,7 +20,7 @@ local M = {
 ---@return boolean
 function M.register(manager)
   local extmarks = manager.callbacks.extmarks
-  local buffer_id, player_id = tostring(extmarks.buffer_id), tostring(extmarks.player_id)
+  local buffer_id, player_id = extmarks.buffer_id, extmarks.player_id
   local players_in_buffer = M._players[buffer_id] or {}
 
   if players_in_buffer[player_id] then
@@ -49,8 +49,8 @@ function M.deregister(manager)
   end)
   if not success then
     vim.notify(
-      "Unknown error occurred: could not delete player .. "
-      .. tostring(extmarks.buffer_id) .. "." .. tostring(extmarks.player_id),
+      "Unknown error occurred: could not delete player "
+      .. ("%d.%d"):format(extmarks.buffer_id, extmarks.player_id),
       vim.log.levels.ERROR,
       {}
     )
@@ -65,7 +65,7 @@ end
 ---@param old_extmarks MpvExtmarks
 ---@return boolean
 function M.reregister(manager, old_extmarks)
-  local old_buffer, old_extmark = tostring(old_extmarks.buffer_id), tostring(old_extmarks.player_id);
+  local old_buffer, old_extmark = old_extmarks.buffer_id, old_extmarks.player_id;
   (M._players[old_buffer] or {})[old_extmark] = nil
 
   return M.register(manager)
@@ -73,7 +73,7 @@ end
 
 
 ---Get mpv instances that we currently know about for a given buffer
----@param buffer_id BufferIdStr
+---@param buffer_id BufferId
 ---@return MpvManager[]
 function M.get_mpvs_in_buffer(buffer_id)
   -- Shallow copy
@@ -99,22 +99,22 @@ function M.query_mpvs(arg)
   if arg == "buffer" or arg == "0" or arg == 0 then
     buffer_id = vim.fn.bufnr()
   end
-
-  return M.get_mpvs_in_buffer(tostring(buffer_id))
+  ---@cast buffer_id integer
+  return M.get_mpvs_in_buffer(buffer_id)
 end
 
 ---Get the mpv instance matching the buffer extmark ids, if such an
 ---instance exists.
----@param buffer_id BufferIdStr
----@param extmark_id ExtmarkIdStr
+---@param buffer_id BufferId
+---@param extmark_id ExtmarkId
 ---@return MpvManager?
 function M.get(buffer_id, extmark_id)
-  return (M._players[tostring(buffer_id)] or {})[tostring(extmark_id)]
+  return (M._players[buffer_id] or {})[extmark_id]
 end
 
 
 ---Try to get the playlist extmarks from `start` to `end` in a `buffer`.
----@param buffer_id integer
+---@param buffer_id BufferId
 ---@param start_line integer
 ---@param end_line? integer
 ---@param show_message? boolean
@@ -132,7 +132,7 @@ function M.get_player_by_line(buffer_id, start_line, end_line, show_message)
   )[1] or {}
 
   local found_player
-  for _, player in pairs(M._players[tostring(buffer_id)] or {}) do
+  for _, player in pairs(M._players[buffer_id] or {}) do
     if list_contains(player.callbacks.extmarks.playlist_ids, playlist_item[1]) then
       found_player = player
       break

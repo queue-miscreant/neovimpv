@@ -11,7 +11,7 @@ local list_contains = vim.list_contains
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 
 ---@alias VisualMode "visual" | "vline" | "vblock" | "ignore" | nil
----@alias LineNumber string
+---@alias LineNumber integer
 
 ---@class MpvLocalArgs
 ---@field mpv_args string[]
@@ -138,8 +138,9 @@ end
 ---@param mode VisualMode?
 ---@return table<LineNumber, [string[], boolean]>
 local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
-  ---@type table<string, [string[], boolean]>
+  ---@type table<LineNumber, [string[], boolean]>
   local ret = {}
+
   for offset, line in ipairs(lines) do
     local line_number = offset + start_line - 1
     if line_number == end_line then
@@ -148,7 +149,7 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
 
     local path = try_path_and_markdown(line)
     if path then
-      ret[tostring(line_number)] = { {path}, true }
+      ret[line_number] = { {path}, true }
       goto continue
     end
 
@@ -171,7 +172,7 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
     end
 
     if links[1]:len() ~= 0 then
-      ret[tostring(line_number)] = { links, markdownable }
+      ret[line_number] = { links, markdownable }
     end
     ::continue::
   end
@@ -295,7 +296,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
         local single_file = try_path_and_markdown(lines[1])
         if single_file ~= nil then
           return {
-            [tostring(start_line)] = { {single_file}, true }
+            [start_line] = { {single_file}, true }
           }
         end
         log.log{
@@ -306,7 +307,7 @@ local function construct_playlist_items(lines, start_line, end_line, mode)
         local closest_link, only_link_on_line = find_closest_link(lines[1], start_col)
         if closest_link ~= nil then
           return {
-            [tostring(start_line)] = {{closest_link}, only_link_on_line}
+            [start_line] = {{closest_link}, only_link_on_line}
           }
         end
         log.log{"No results found from default action"}

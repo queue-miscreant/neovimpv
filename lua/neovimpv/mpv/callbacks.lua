@@ -12,7 +12,7 @@ local tbl_keys = vim.tbl_keys
 local list_contains = vim.list_contains
 local list_extend = vim.list_extend
 
----@alias MpvPlaylistId string
+---@alias MpvPlaylistId integer
 ---@alias ExtmarkId integer
 
 ---@class MpvItem
@@ -68,7 +68,7 @@ function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
     local extmark_id = extmarks.playlist_ids[i]
     local files, rewritable_line = unpack(lines_to_links[line])
     for _, file in ipairs(files or {}) do
-      playlist_id_to_item[tostring(file_index)] = {
+      playlist_id_to_item[file_index] = {
         filename = file,
         extmark_id = extmark_id,
         update_markdown = rewritable_line,
@@ -98,8 +98,6 @@ function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
     _debounce_playlist = false,
   }
   setmetatable(ret, MpvCallbacks)
-
-  log.log(ret)
 
   return ret
 end
@@ -132,9 +130,8 @@ function MpvCallbacks:on_file_loaded(socket)
   self.no_draw = false
   -- Have enough information to update with video title
   local current_playlist_id = socket.last_playlist_entry_id
-  local s_current_playlist_id = tostring(current_playlist_id)
-  local playlist_item = self.playlist_id_to_item[s_current_playlist_id]
-  local redirected_playlist_id = self._playlist_id_remap[s_current_playlist_id]
+  local playlist_item = self.playlist_id_to_item[current_playlist_id]
+  local redirected_playlist_id = self._playlist_id_remap[current_playlist_id]
 
   if (
       playlist_item ~= nil
@@ -144,7 +141,7 @@ function MpvCallbacks:on_file_loaded(socket)
     vim.defer_fn(function()
       self:_update_currently_playing(
         socket,
-        s_current_playlist_id,
+        current_playlist_id,
         redirected_playlist_id
       )
     end, 0)
@@ -168,12 +165,11 @@ function MpvCallbacks:on_start_file(socket, arg)
   -- Starting the file is enough information to move the player, but not enough
   -- to update the title of the video.
   self.no_draw = true
-  local current_playlist_id = tostring(arg["playlist_entry_id"])
+  local current_playlist_id = arg["playlist_entry_id"]
 
   if (
       socket.playlist_new ~= nil
-      and current_playlist_id
-      == socket.playlist_new["playlist_insert_id"]
+      and current_playlist_id == socket.playlist_new["playlist_insert_id"]
   ) or self._debounce_playlist then
     return
   end
@@ -218,7 +214,7 @@ end
 function MpvCallbacks:_try_update_markdown(media_title, new_filename, playlist_id)
   assert(not vim.in_fast_event())
 
-  local mpv_item = self.playlist_id_to_item[tostring(playlist_id)]
+  local mpv_item = self.playlist_id_to_item[playlist_id]
   if mpv_item == nil then
     vim.notify(
       "Playlist transition failed!",
@@ -259,7 +255,7 @@ function MpvCallbacks:_update_currently_playing(
   ---@type string?
   local current_title
   for _, item in ipairs(playlist_from_mpv) do
-    if tostring(item.id) == current_playlist_id then
+    if item.id == current_playlist_id then
       current_title = item.title
       break
     end
@@ -377,14 +373,14 @@ function MpvCallbacks:reorder_by_index(old_playlist)
   local mapped = {}
 
   for i, item in ipairs(old_playlist) do
-    local playlist_id = tostring(item.id)
+    local playlist_id = item.id
     if self._playlist_id_remap[playlist_id] ~= nil then
-      new_remap[tostring(i + 1)] = self._playlist_id_remap[playlist_id]
+      new_remap[i + 1] = self._playlist_id_remap[playlist_id]
       mapped[self._playlist_id_remap[playlist_id]] = true
     end
     -- Create a new MpvItem instance
     -- No effect if the lookup fails
-    new_items[tostring(i + 1)] = self.playlist_id_to_item[playlist_id]
+    new_items[i + 1] = self.playlist_id_to_item[playlist_id]
   end
 
   for extmark_id, _ in pairs(mapped) do
@@ -590,12 +586,12 @@ function MpvCallbacks:update_playlist(data, new_buffer_callback)
   )
 
   -- map the old playlist id to the first item in the new one
-  self._updated_indices[tostring(original_entry)] = start
+  self._updated_indices[original_entry] = start
 
   if do_stay then
     -- add remaps (i.e., old playlist id to new playlist id)
     for i = start, (end_ - 1) do
-      self._playlist_id_remap[tostring(i)] = tostring(original_entry)
+      self._playlist_id_remap[i] = original_entry
     end
   elseif list_contains({"paste", "paste_one"}, self.update_action) then
     self.no_draw = true
@@ -627,22 +623,19 @@ end
 ---@param extmark_id ExtmarkId
 function MpvCallbacks:set_current_by_playlist_extmark(socket, extmark_id)
   -- try to remap the extmark to the one it came from
-  local s_extmark_id = tostring(extmark_id)
-  ---@type string?
-  local try_remap = s_extmark_id
+  local try_remap = extmark_id
   for _, remapped_id in pairs(self._playlist_id_remap) do
-    if remapped_id == s_extmark_id then
+    if remapped_id == extmark_id then
       try_remap = remapped_id
       break
     end
   end
 
   -- then get the mpv id from it
-  local n_try_remap = tonumber(try_remap)
-  ---@type string?
+  ---@type integer?
   local playlist_id
   for i, mpv_item in pairs(self.playlist_id_to_item) do
-    if mpv_item.extmark_id == n_try_remap then
+    if mpv_item.extmark_id == try_remap then
       playlist_id = i
       break
     end
@@ -718,9 +711,8 @@ function MpvCallbacks:forward_deletions(socket, removed_items)
   -- reverse-lookup for remapped extmarks
   local static_deletions = {}
   for _, i in ipairs(removed_items) do
-    local s_i = tostring(i)
     for j, k in pairs(self._playlist_id_remap) do
-      if k == s_i then
+      if k == i then
         table.insert(static_deletions, j)
       end
     end

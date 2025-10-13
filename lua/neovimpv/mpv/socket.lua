@@ -14,7 +14,7 @@ local uv = vim.uv or vim.loop
 local MPV_SET = 0
 local MPV_GET = 1
 
----@alias MpvRequestId string Aliased request ID, for use as a key in tables
+---@alias MpvRequestId integer Aliased request ID, for use as a key in tables
 ---@alias MpvWaitingProperties [integer, string, thread]
 --- 3-tuple of:
 --- - whether we retrieved a property or set one,
@@ -100,7 +100,7 @@ local function data_received(self, data)
     end
     -- parse response
     local datum = json_decode(json_datum)
-    local request_id = datum.request_id and tostring(datum.request_id)
+    local request_id = datum.request_id
     local consumed_error = false
     -- pop request id from error list
     if self._ignore_errors[request_id] then
@@ -128,7 +128,7 @@ local function data_received(self, data)
       local property_name = self._reverse_properties[request_id]
       self.data[property_name] = datum.data
       log:log{"Got property", [property_name] = datum}
-    elseif request_id ~= nil and datum.request_id == self._playlist_request then
+    elseif request_id ~= nil and request_id == self._playlist_request then
       try_handle_event(
         self,
         "got-playlist",
@@ -166,7 +166,7 @@ local function property_id(self, property_name)
   local prop_id = self._properties[property_name] or self._last_property
   if prop_id == self._last_property then
     self._properties[property_name] = prop_id
-    self._reverse_properties[tostring(prop_id)] = property_name
+    self._reverse_properties[prop_id] = property_name
     self._last_property = self._last_property + 1
   end
   return prop_id
@@ -177,7 +177,7 @@ end
 ---@param self MpvSocket
 ---@param json_data table<string, any>
 local function property_change(self, json_data)
-  local property_name = self._reverse_properties[tostring(json_data.id)]
+  local property_name = self._reverse_properties[json_data.id]
   local data = json_data.data
   if property_name ~= nil then
       self.data[property_name] = data
@@ -244,7 +244,7 @@ function MpvSocket:send_command(args, request_id, ignore_error)
     request_id = request_id or 0,
   }
   if ignore_error then
-    self._ignore_errors[tostring(request_id)] = true
+    self._ignore_errors[request_id] = true
   end
 
   log:log{"Sent command", command = command}
@@ -273,7 +273,7 @@ end
 ---@param property_name string
 ---@param ignore_error boolean?
 function MpvSocket:wait_property(property_name, ignore_error)
-    self._waiting_properties[tostring(self._last_property)] = {
+    self._waiting_properties[self._last_property] = {
         MPV_GET,
         property_name,
         coroutine.running(),
