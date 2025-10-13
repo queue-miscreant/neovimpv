@@ -5,6 +5,7 @@
 -- manipulations, such as setting buffer contents or getting/setting extmarks.
 
 local config = require "neovimpv.config"
+local completion = require "neovimpv.completion"
 local actions = require "neovimpv.actions"
 local keys = require "neovimpv.keys"
 local formatting = require "neovimpv.formatting"
@@ -205,7 +206,7 @@ function neovimpv.setup(opts)
   end, {
     nargs = "?",
     range = true,
-    complete="customlist,neovimpv#complete#mpv_close_pause",
+    complete = completion.mpv_close_pause,
   })
 
   vim.api.nvim_create_user_command("MpvClose", function(a)
@@ -217,7 +218,7 @@ function neovimpv.setup(opts)
   end, {
     nargs = "?",
     range = true,
-    complete="customlist,neovimpv#complete#mpv_close_pause",
+    complete = completion.mpv_close_pause,
   })
 
   vim.api.nvim_create_user_command("MpvSetProperty", function(a)
@@ -229,7 +230,7 @@ function neovimpv.setup(opts)
   end, {
     nargs = "+",
     range = true,
-    complete = "customlist,neovimpv#complete#mpv_set_property",
+    complete = completion.mpv_set_property,
   })
 
   vim.api.nvim_create_user_command("MpvGetProperty", function(a)
@@ -251,7 +252,7 @@ function neovimpv.setup(opts)
   end, {
     nargs = 1,
     range = true,
-    complete = "customlist,neovimpv#complete#mpv_get_property",
+    complete = completion.mpv_get_property,
   })
 
   vim.api.nvim_create_user_command("MpvSend", function(a)
@@ -262,7 +263,7 @@ function neovimpv.setup(opts)
   end, {
     nargs = "+",
     range = true,
-    complete = "customlist,neovimpv#complete#mpv_command",
+    complete = completion.mpv_command,
   })
 
   -- TODO
