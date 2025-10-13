@@ -126,6 +126,14 @@ local function links_by_line(line, start_col, end_col)
   return ret, (match_count == 1 and first_start == 1)
 end
 
+-- Example behavior of multiline playlist:
+--
+-- (link without markdown 1)   ---->     Try markdown, no "currently playing"
+-- (link 2) (link 3)           --|->     No markdown, currently playing
+--                               |->     No markdown, currently playing
+-- (playlist 4, ...)           ---->     No markdown, no "currently playing"
+--                                       Player arrives, sees playlist, updates "currently playing"
+--                                       Item 5 has markdown, "currently playing" if "stay" mode
 
 ---Construct a dictionary from line numbers to a tuple of a list of files
 ---and whether or not this is the only openable item on its line

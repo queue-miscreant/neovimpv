@@ -271,25 +271,6 @@ i                       Download the thumbnail of the video and display it with
 q                       Exit the split.
 
 --------------------------------------------------------------------------------
-FUNCTIONS                                               *neovimpv-function*
-
-MpvSendNvimKeys({extmark_id}, {keypress_string})        *MpvSendNvimKeys()*
-
-        Send {keypress_string}, a string signifying a nvim keypress event, to
-        the mpv instance identified by {extmark_id}.
-
-        The plugin is able to translate SOME of these into mpv equivalents,
-        but not all. You should not rely on proper handling of modifier keys
-        (Ctrl, Alt, Shift, Super).
-
-MpvUpdatePlaylists({updated_playlists})                 *MpvUpdatePlaylists()*
-
-        Update player's playlists on the Python side. {updated_playlists} is a
-        dictionary where the keys are playlist ids and values are a list of
-        playlist items. This function does NOT change extmarks, but it will
-        modify the mpv playlist.
-
---------------------------------------------------------------------------------
 CONFIGURATION                                           *neovimpv-configuration*
 
 The following configuration options may be specified in your lazy.nvim.

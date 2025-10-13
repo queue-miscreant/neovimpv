@@ -68,7 +68,7 @@ local function create_managed_mpv(
       start_line == end_line
       and get_mpv_by_line(current_buffer, start_line)
     then
-      error("Mpv is already open on this line!")
+      error("Mpv is already open on this line!", 0)
     end
 
     local lines_to_links = helpers.construct_playlist_items(
@@ -81,7 +81,8 @@ local function create_managed_mpv(
     if tbl_count(lines_to_links) == 0 then
       error(
         (start_line == end_line and "Line does" or "Lines do")
-        .. " not contain a file path or valid URL"
+        .. " not contain a file path or valid URL",
+        0
       )
     end
 
@@ -158,6 +159,21 @@ function neovimpv.setup(opts)
     {
       pattern = "youtube_playlist",
       callback = youtube_interact.bind_buffer_playlist,
+    }
+  )
+  vim.api.nvim_create_autocmd(
+    {"BufUnload", "VimLeavePre"},
+    {
+      callback = function(ev)
+        local players = registry.query_mpvs(
+          ev.event == "BufUnload"
+          and ev.buf
+          or "all"
+        )
+        for _, player in ipairs(players) do
+          player:close()
+        end
+      end
     }
   )
 

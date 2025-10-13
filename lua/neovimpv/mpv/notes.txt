@@ -1,11 +1,5 @@
 It is no longer necessary to remember `do_markdown` -- this can be done on-demand now
   Check whether a line is _only_ a line empty, or can be replaced with its markdown equivalent
 
-Player vanishes when opening playlist
-
-cleanup on MpvOpen failure
-
-cleanup on buffer close
-
 cleanup player extmarks if registry lookup fails by playlist id(?)
-  Mostly occurs on failed transitions
+  Mostly occurs on failed transitions? Add error to Extmarks:paste_playlist

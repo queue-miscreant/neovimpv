@@ -23,15 +23,6 @@ vim.fn.mkdir(mpv_socket_dir, "p")
 local KEYPRESS_DELAY_MS = 50
 local DEFAULT_MPV_ARGS = {"--no-video"}
 
--- Example behavior of multiline playlist:
---
--- (link without markdown 1)   ---->     Try markdown, no "currently playing"
--- (link 2) (link 3)           --|->     No markdown, currently playing
---                               |->     No markdown, currently playing
--- (playlist 4, ...)           ---->     No markdown, no "currently playing"
---                                       Player arrives, sees playlist, updates "currently playing"
---                                       Item 5 has markdown, "currently playing" if "stay" mode
-
 ---Event callback for reporting error contents to nvim.
 ---First argument consumes the mpv socket instance.
 ---@param err {property-name: string?, error: string?}
@@ -105,6 +96,7 @@ function MpvManager:spawn(timeout_duration_ms)
       if not success then
         vim.defer_fn(function()
           vim.notify(mpv_socket --[[@as string]], vim.log.levels.ERROR, {})
+          registry.deregister(self)
         end, 0)
         self.socket = nil
         return

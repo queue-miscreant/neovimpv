@@ -84,7 +84,7 @@ function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
       update_action = helpers.try_smart_youtube(playlist_id_to_item[1].filename)
     end
   elseif update_action == "new_one" then
-    error("`new_one` is only valid for a single filename!")
+    error("`new_one` is only valid for a single filename!", 0)
   end
 
   local ret = {
@@ -192,7 +192,7 @@ end
 ---@param arg table<string, any>
 function MpvCallbacks:on_end_file(socket, arg)
   self.no_draw = true
-  self:draw_update(socket.data, "")
+  self:draw_update(socket.data, config.loading)
 
   local err = arg["file_error"]
   if arg.reason == "error" and err then
