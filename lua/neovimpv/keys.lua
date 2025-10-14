@@ -5,6 +5,9 @@ local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
 local download_tracker = require "neovimpv.youtube.extmarks"
 local registry = require "neovimpv.mpv.registry"
+local mpv = require "neovimpv.mpv"
+
+local list_contains = vim.list_contains
 
 local keys = {}
 
@@ -14,13 +17,13 @@ local function exit_mode()
   end, 0)
 end
 
----@param extra_args string?
+---@param extra_args MpvLocalArgs?
 local function omnikey(extra_args)
-  if extra_args == nil then extra_args = "" end
+  if extra_args == nil then extra_args = { mpv_args = {} } end
 
   local is_visual = vim.fn.mode():sub(1,1):lower() == "v"
   if is_visual then
-    extra_args = "vline" .. (extra_args:find("%-%- ") and " " or " -- ") .. extra_args
+    extra_args.visual = "vline"
   end
 
   local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
@@ -29,11 +32,17 @@ local function omnikey(extra_args)
   if not player then
     -- no playlist on that line found, trying to open
     if config.omni_open_new_if_empty then
-      vim.cmd((":%d,%dMpvOpen %s"):format(first_line, last_line, extra_args))
+      mpv.new_from_buffer(
+        vim.fn.bufnr(),
+        vim.fn.getline(first_line, last_line) --[[@as string[] ]],
+        first_line,
+        last_line,
+        extra_args
+      )
     end
   elseif not is_visual then
     ---@cast playlist_item integer
-    if extra_args:find("--video=auto") then
+    if list_contains(extra_args.mpv_args, "--video=auto") then
       player:toggle_video()
       exit_mode()
       return
@@ -143,7 +152,7 @@ function keys.bind_base()
   local vks = vim.keymap.set
 
   vks({"n", "v"}, "<Plug>(mpv_omnikey)", function() omnikey() end)
-  vks({"n", "v"}, "<Plug>(mpv_omnikey_video)", function() omnikey("-- --video=auto") end)
+  vks({"n", "v"}, "<Plug>(mpv_omnikey_video)", function() omnikey({ mpv_args = {"-- --video=auto"}}) end)
 
   vks("n", "<Plug>(mpv_goto_earlier)", function() goto_relative_mpv(-1) end)
   vks("n", "<Plug>(mpv_goto_later)", function() goto_relative_mpv(1) end)

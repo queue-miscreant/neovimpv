@@ -12,8 +12,7 @@ local formatting = require "neovimpv.formatting"
 local youtube_push_results = require "neovimpv.youtube.push_results"
 local youtube_interact = require "neovimpv.youtube.interact"
 local registry = require "neovimpv.mpv.registry"
-local MpvManager = require "neovimpv.mpv.manager"
-local MpvCallbacks = require "neovimpv.mpv.callbacks"
+local mpv = require "neovimpv.mpv"
 local helpers = require "neovimpv.helpers"
 
 local neovimpv = {
@@ -23,7 +22,6 @@ local neovimpv = {
 }
 
 local get_mpv_by_line = registry.get_player_by_line
-local tbl_count = vim.tbl_count
 
 
 ---Interpret each item in `args` as a JSON string.
@@ -36,73 +34,6 @@ local function try_json(args)
     table.insert(command, success and val or arg)
   end
   return command
-end
-
-
--- Create a MpvManager instance from line data and ranges from nvim
--- This also spawns a task for creating an mpv subprocess and opening a communication channel.
----@param line_data string[]
----@param start_line integer
----@param end_line integer
----@param extra_args string[]?
----@param ignore_mode boolean?
----@return MpvManager?
-local function create_managed_mpv(
-    line_data,
-    start_line,
-    end_line,
-    extra_args,
-    ignore_mode
-)
-  local current_buffer = vim.fn.bufnr()
-  local local_args = helpers.parse_mpvopen_args(extra_args or {})
-
-  -- Update actions and "smart youtube"-ness
-  local update_action = config.on_playlist_update
-
-  update_action = local_args.update_action or update_action
-
-  local success, maybe_buffer_actions = pcall(function()
-
-    if
-      start_line == end_line
-      and get_mpv_by_line(current_buffer, start_line)
-    then
-      error("Mpv is already open on this line!", 0)
-    end
-
-    local lines_to_links = helpers.construct_playlist_items(
-      line_data,
-      start_line,
-      end_line,
-      ignore_mode and "ignore" or local_args.visual
-    )
-
-    if tbl_count(lines_to_links) == 0 then
-      error(
-        (start_line == end_line and "Line does" or "Lines do")
-        .. " not contain a file path or valid URL",
-        0
-      )
-    end
-
-    return MpvCallbacks.new(current_buffer, lines_to_links, update_action)
-  end)
-
-  if not success then
-    vim.notify(maybe_buffer_actions --[[@as string]], vim.log.levels.ERROR, {})
-    return
-  end
-
-  ---@cast maybe_buffer_actions MpvCallbacks
-
-  local target = MpvManager.new(
-      maybe_buffer_actions,
-      local_args.mpv_args
-  ):spawn()
-
-  registry.register(target)
-  return target
 end
 
 
@@ -173,11 +104,13 @@ function neovimpv.setup(opts)
     -- TODO: lexical shell parsing
     -- local args = shlex.split(a.args)
 
-    create_managed_mpv(
+    -- TODO: why is this required?
+    mpv.new_from_buffer(
+      vim.fn.bufnr(),
       vim.fn.getline(a.line1, a.line2) --[[@as string[] ]],
       a.line1,
       a.line2,
-      a.fargs or {}
+      helpers.parse_mpvopen_args(a.fargs or {})
     )
   end, { nargs = "*", range = true})
 
@@ -185,11 +118,12 @@ function neovimpv.setup(opts)
     -- TODO: lexical shell parsing
     -- local args = shlex.split(a.args)
 
-    create_managed_mpv(
+    mpv.new_from_buffer(
+      vim.fn.bufnr(),
       { "" },
       a.line1,
       a.line2,
-      a.fargs or {}
+      helpers.parse_mpvopen_args(a.fargs or {})
     )
   end, { nargs = "*", range = true})
 

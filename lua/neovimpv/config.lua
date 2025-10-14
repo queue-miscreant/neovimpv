@@ -54,7 +54,7 @@ local default_config = {
 }
 
 -- Configuration settings which can be partially updated from user config
-local table_configs = {}
+local table_configs = { youtube_dl = "youtube_dl" }
 local GLOBAL_PREFIX = "mpv_"
 
 -- Start with defaults
@@ -120,7 +120,7 @@ function config.load_globals(opts)
   end
 
   -- Load tableized options
-  for _, option in ipairs(table_configs) do
+  for _, option in pairs(table_configs) do
     ---@diagnostic disable-next-line
     for suboption, _ in pairs(default_config[option] or {}) do
       local global_value = vim.g[GLOBAL_PREFIX .. option .. "_" .. suboption]
