@@ -278,7 +278,7 @@ end
 ---Also clears up playlist information in the buffer.
 function MpvExtmarks:remove()
   -- Buffer already deleted
-  if #vim.fn.getbufinfo(buffer) == 0 then return end
+  if #vim.fn.getbufinfo(self.buffer_id) == 0 then return end
 
   vim.api.nvim_buf_del_extmark(
     self.buffer_id,

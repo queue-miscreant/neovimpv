@@ -22,7 +22,7 @@ function Log.log(self, tab)
   tab = vim.deepcopy(tab)
   local lines = ""
   for i, line in ipairs(tab) do
-    lines = lines .. line .. "\n"
+    lines = lines .. tostring(line) .. "\n"
     table.remove(tab, i)
   end
   log_handle:write(lines .. vim.inspect(tab) .. "\n")
