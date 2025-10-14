@@ -10,12 +10,11 @@ local list_contains = vim.list_contains
 
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 
----@alias VisualMode "visual" | "vline" | "vblock" | "ignore" | nil
+---@alias VisualMode "visual" | "vline" | "vblock"
 ---@alias LineNumber integer
 
 ---@class MpvLocalArgs
 ---@field mpv_args string[]
----@field visual VisualMode
 ---@field update_action? UpdateAction
 
 -- Convert a title and URL pair to a markdown string
@@ -140,18 +139,21 @@ end
 ---(in other words, whether overwriting it with markdown is acceptable).
 ---@param lines string[]
 ---@param start_line integer
----@param start_col integer
+---@param start_col integer?
 ---@param end_line integer
 ---@param end_col integer?
 ---@param mode VisualMode?
 ---@return table<LineNumber, [string[], boolean]>
 local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
+  start_col = start_col or 0
+
   ---@type table<LineNumber, [string[], boolean]>
   local ret = {}
 
+  -- If somehow we were given a range without the cursor actually being there,
   for offset, line in ipairs(lines) do
     local line_number = offset + start_line - 1
-    if line_number == end_line then
+    if line_number == end_line + 1 then
       break
     end
 
@@ -166,17 +168,24 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
     local markdownable = false
 
     if mode == "visual" then  -- visual range
-      if start_line == end_line then
-        links, markdownable = links_by_line(line, start_col, end_col)
-      elseif line_number == start_line then
-        links, markdownable = links_by_line(line, start_col, nil)
-      elseif line_number == end_line then
-        links, markdownable = links_by_line(line, 0, end_col)
-      end
+      links, markdownable = links_by_line(
+        line,
+        line_number == start_line and start_col or 0,
+        line_number == end_line and end_col or nil
+      )
     elseif mode == "vblock" then
       links, markdownable = links_by_line(line, start_col, end_col)
-    else
+    elseif mode == "vline" then
       links, markdownable = links_by_line(line, 0, nil)
+    else
+      log.log{
+        "Finding closest link",
+        line = lines[1],
+        start_col = start_col,
+      }
+      local link
+      link, markdownable = find_closest_link(line, start_col)
+      links = { link }
     end
 
     if links[1]:len() ~= 0 then
@@ -200,8 +209,6 @@ local function parse_mpvopen_args(args)
 
   ---@type UpdateAction?
   local update_action = nil
-  ---@type VisualMode
-  local visual = nil
 
   local local_flag = true
   local video_flag = false
@@ -216,10 +223,6 @@ local function parse_mpvopen_args(args)
         update_action = "paste"
       elseif arg == "new" then
         update_action = "new_one"
-      end
-      -- Visual modes
-      if list_contains({"visual", "vline", "vblock"}, arg) then
-        visual = arg
       end
 
       if arg == "video" then
@@ -248,7 +251,6 @@ local function parse_mpvopen_args(args)
   return {
     mpv_args = mpv_args,
     update_action = update_action,
-    visual = visual,
   }
 end
 
@@ -267,70 +269,35 @@ local function try_write_buffer(buffer_id)
   end
 end
 
----Read over the list of lines, skipping those which are not files or URLs.
----Make note of which need to be turned into markdown.
----@param lines string[]
----@param start_line integer
----@param end_line integer
----@param mode VisualMode
----@return table<LineNumber, [string[], boolean]>
-local function construct_playlist_items(lines, start_line, end_line, mode)
-  if mode == "visual" or mode == "vblock" then
-    -- Block or visual block modes
-    -- TODO: note that we disassemble `getpos` tables here instead of using them directly
-    local _, new_start_line, start_col = unpack(vim.fn.getpos("<"))
-    local _, new_end_line, end_col = unpack(vim.fn.getpos(">"))
-    log.log{
-      "Creating playlist from visual selection",
-      lines = lines,
-      start = {new_start_line, start_col},
-      ["end"] = {new_end_line, end_col},
-      mode = mode,
-    }
-    return multi_line(lines, new_start_line, start_col, new_end_line, end_col, mode)
+---Get buffer contents as a playlist for calling `mpv.new`
+---@param last? boolean
+local function get_visual_playlist(last)
+  -- Block or visual block modes
+  -- TODO: note that we disassemble `getpos` tables here instead of using them directly
+  local _, start_line, start_col = unpack(vim.fn.getpos(last and "<" or "v"))
+  local _, end_line, end_col = unpack(vim.fn.getpos(last and ">" or "."))
+
+  local vim_mode = vim.fn.mode()
+  local mode = (vim_mode:find("^\x16") and "vblock") --ctrl-v
+    or (vim_mode:find("^V") and "vline" ) -- V (uppercase)
+    or (vim_mode:find("^v") and "visual" ) -- v (lowercase)
+    or nil
+
+  if not mode then
+    start_line, start_col = end_line, end_col
   end
 
+  local lines = vim.fn.getline(start_line, end_line) --[[@as string[] ]]
+
   log.log{
-    "Not in visual or visual block mode.",
+    "Creating playlist from visual selection",
+    lines = lines,
+    start = {start_line, start_col},
+    ["end"] = {end_line, end_col},
     mode = mode,
   }
-  if mode ~= "ignore" and mode ~= "vline" then
-    if start_line == end_line then
-      local _, new_start_line, start_col = unpack(vim.fn.getpos("."))
-      -- If somehow we were given a range without the cursor actually being there,
-      -- assume the start of the line
-      if start_line == new_start_line then
-        log.log{"Trying path/markdown"}
-        local single_file = try_path_and_markdown(lines[1])
-        if single_file ~= nil then
-          return {
-            [start_line] = { {single_file}, true }
-          }
-        end
-        log.log{
-          "Finding closest link",
-          line = lines[1],
-          start_col = start_col,
-        }
-        local closest_link, only_link_on_line = find_closest_link(lines[1], start_col)
-        if closest_link ~= nil then
-          return {
-            [start_line] = {{closest_link}, only_link_on_line}
-          }
-        end
-        log.log{"No results found from default action"}
-        return {}
-      end
-    end
-  end
 
-  log.log{
-    "Creating playlist as default",
-    lines = lines,
-    start = start_line,
-    ["end"] = end_line,
-  }
-  return multi_line(lines, start_line, 0, end_line, nil, nil)
+  return multi_line(lines, start_line, start_col, end_line, end_col, mode)
 end
 
 return {
@@ -350,5 +317,5 @@ return {
 
   -- Impure
   try_write_buffer = try_write_buffer,
-  construct_playlist_items = construct_playlist_items,
+  get_visual_playlist = get_visual_playlist,
 }

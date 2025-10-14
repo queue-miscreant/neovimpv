@@ -7,6 +7,7 @@ local helpers = require "neovimpv.helpers"
 local list_contains = vim.list_contains
 local list_slice = vim.list_slice
 local list_extend = vim.list_extend
+local tbl_filter  = vim.tbl_filter
 
 ---@alias BufferId integer
 ---@alias ExtmarkId integer
@@ -136,22 +137,25 @@ function M.get(buffer_id, extmark_id)
 end
 
 
----Try to get the playlist extmarks from `start` to `end` in a `buffer`.
+---Try to get the playlist extmarks from a line number (or list thereof) in buffer `buffer_id`.
 ---@param buffer_id BufferId
----@param start_line integer
----@param end_line? integer
+---@param line_numbers integer|integer[]
 ---@param show_message? boolean
 ---@return MpvManager?, integer?
-function M.get_player_by_line(buffer_id, start_line, end_line, show_message)
+function M.get_player_by_line(buffer_id, line_numbers, show_message)
   if buffer_id == 0 then buffer_id = vim.fn.bufnr() end
-  if end_line == nil then end_line = start_line end
+  if type(line_numbers) == "number" then line_numbers = { line_numbers } end
+  ---@cast line_numbers integer[]
 
-  local playlist_item = vim.api.nvim_buf_get_extmarks(
-    buffer_id,
-    helpers.playlist_namespace,
-    {start_line - 1, 0},
-    {end_line - 1, -1},
-    {}
+  local playlist_item = tbl_filter(
+    function(val) return list_contains(line_numbers, val[2] + 1) end,
+    vim.api.nvim_buf_get_extmarks(
+      buffer_id,
+      helpers.playlist_namespace,
+      0,
+      -1,
+      {}
+    )
   )[1]
 
   local found_player

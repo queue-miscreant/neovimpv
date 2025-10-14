@@ -7,6 +7,7 @@ local download_tracker = require "neovimpv.youtube.extmarks"
 local registry = require "neovimpv.mpv.registry"
 local mpv = require "neovimpv.mpv"
 
+local tbl_keys = vim.tbl_keys
 local list_contains = vim.list_contains
 
 local keys = {}
@@ -22,23 +23,14 @@ local function omnikey(extra_args)
   if extra_args == nil then extra_args = { mpv_args = {} } end
 
   local is_visual = vim.fn.mode():sub(1,1):lower() == "v"
-  if is_visual then
-    extra_args.visual = "vline"
-  end
 
-  local first_line, last_line = vim.fn.line("v"), vim.fn.line(".")
-  local player, playlist_item = registry.get_player_by_line(0, first_line, last_line)
+  local maybe_playlist = helpers.get_visual_playlist()
+  local player, playlist_item = registry.get_player_by_line(0, tbl_keys(maybe_playlist))
 
   if not player then
     -- no playlist on that line found, trying to open
     if config.omni_open_new_if_empty then
-      mpv.new_from_buffer(
-        vim.fn.bufnr(),
-        vim.fn.getline(first_line, last_line) --[[@as string[] ]],
-        first_line,
-        last_line,
-        extra_args
-      )
+      mpv.new(vim.fn.bufnr(), maybe_playlist, extra_args)
     end
   elseif not is_visual then
     ---@cast playlist_item integer

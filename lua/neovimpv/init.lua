@@ -21,8 +21,6 @@ local neovimpv = {
   paste_and_play = actions.paste_and_play,
 }
 
-local get_mpv_by_line = registry.get_player_by_line
-
 
 ---Interpret each item in `args` as a JSON string.
 ---In other words, convert quoted strings to strings and digit literals to numbers.
@@ -48,7 +46,7 @@ local function do_managers(args, line, callback)
     return
   end
 
-  local target = get_mpv_by_line(vim.fn.bufnr(), line)
+  local target = registry.get_player_by_line(vim.fn.bufnr(), line)
   if target then
     callback{ target }
   end
@@ -104,28 +102,32 @@ function neovimpv.setup(opts)
     -- TODO: lexical shell parsing
     -- local args = shlex.split(a.args)
 
-    -- TODO: why is this required?
-    mpv.new_from_buffer(
-      vim.fn.bufnr(),
+    local local_args = helpers.parse_mpvopen_args(a.fargs or {})
+
+    local lines_to_links = helpers.multi_line(
       vim.fn.getline(a.line1, a.line2) --[[@as string[] ]],
       a.line1,
+      nil,
       a.line2,
-      helpers.parse_mpvopen_args(a.fargs or {})
+      nil,
+      "vline"
     )
+
+    mpv.new(vim.fn.bufnr(), lines_to_links, local_args)
   end, { nargs = "*", range = true})
 
-  vim.api.nvim_create_user_command("MpvNewAtLine", function(a)
-    -- TODO: lexical shell parsing
-    -- local args = shlex.split(a.args)
-
-    mpv.new_from_buffer(
-      vim.fn.bufnr(),
-      { "" },
-      a.line1,
-      a.line2,
-      helpers.parse_mpvopen_args(a.fargs or {})
-    )
-  end, { nargs = "*", range = true})
+  -- vim.api.nvim_create_user_command("MpvNewAtLine", function(a)
+  --   -- TODO: lexical shell parsing
+  --   -- local args = shlex.split(a.args)
+  --
+  --   mpv.new_from_buffer(
+  --     vim.fn.bufnr(),
+  --     { "" },
+  --     a.line1,
+  --     a.line2,
+  --     helpers.parse_mpvopen_args(a.fargs or {})
+  --   )
+  -- end, { nargs = "*", range = true})
 
   vim.api.nvim_create_user_command("MpvPause", function(a)
     do_managers(a.fargs, a.line1, function(managers)
@@ -157,7 +159,7 @@ function neovimpv.setup(opts)
   })
 
   vim.api.nvim_create_user_command("MpvSetProperty", function(a)
-    local target = get_mpv_by_line(vim.fn.bufnr(), a.line1)
+    local target = registry.get_player_by_line(vim.fn.bufnr(), a.line1)
     if target then
       local args = try_json(a.fargs)
       target:set_property(args[1], args[2])
@@ -174,7 +176,7 @@ function neovimpv.setup(opts)
     end
 
     local property_name = a.fargs[1]
-    local target = get_mpv_by_line(vim.fn.bufnr(), a.line1)
+    local target = registry.get_player_by_line(vim.fn.bufnr(), a.line1)
     if target == nil then return end
 
     coroutine.wrap(function()
@@ -191,7 +193,7 @@ function neovimpv.setup(opts)
   })
 
   vim.api.nvim_create_user_command("MpvSend", function(a)
-    local target = get_mpv_by_line(vim.fn.bufnr(), a.line1)
+    local target = registry.get_player_by_line(vim.fn.bufnr(), a.line1)
     if target then
       target:send_command(try_json(a.fargs))
     end
