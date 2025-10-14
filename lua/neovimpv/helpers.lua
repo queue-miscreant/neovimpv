@@ -6,7 +6,6 @@ local log = require "neovimpv.log"
 
 local expand = vim.fn.expand
 local filereadable = vim.fn.filereadable
-local list_contains = vim.list_contains
 
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 

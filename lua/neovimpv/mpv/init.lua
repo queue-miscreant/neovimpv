@@ -1,5 +1,4 @@
 local config = require "neovimpv.config"
-local helpers = require "neovimpv.helpers"
 local registry = require "neovimpv.mpv.registry"
 local MpvManager = require "neovimpv.mpv.manager"
 local MpvCallbacks = require "neovimpv.mpv.callbacks"
@@ -16,13 +15,11 @@ local M = {}
 ---@param buffer_id BufferId
 ---@param lines_to_links MpvOpenLines
 ---@param local_args MpvLocalArgs
----@param ignore_mode? boolean
 ---@return MpvManager?
 function M.new(
   buffer_id,
   lines_to_links,
-  local_args,
-  ignore_mode
+  local_args
 )
   -- Update actions and "smart youtube"-ness
   local update_action = local_args.update_action or config.on_playlist_update
@@ -30,17 +27,17 @@ function M.new(
 
   local success, maybe_buffer_actions = pcall(function()
 
-    if
-      multiple_lines
-      and registry.get_player_by_line(buffer_id, tbl_keys(lines_to_links))
-    then
-      error("Mpv is already open on this line!", 0)
-    end
-
     if tbl_count(lines_to_links) == 0 then
       error(
-        (multiple_lines and "Line does" or "Lines do")
-        .. " not contain a file path or valid URL",
+        "Cannot open mpv: no file paths or URLs found",
+        0
+      )
+    end
+
+    if registry.get_player_by_line(buffer_id, tbl_keys(lines_to_links)) then
+      error(
+        "Mpv is already open on"
+        .. (multiple_lines and "one of these lines!" or "this line!"),
         0
       )
     end
