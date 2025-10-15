@@ -290,6 +290,10 @@ local function find_and_forward_deletions()
   local new_line_count = vim.fn.line("$")
   -- let new_cursor = vim.fn.line(".")
   -- local new_range = { vim.fn.line("'["), vim.fn.line("']") }
+  if vim.b.mpv_no_undo then
+    vim.b.mpv_no_undo = nil
+    return
+  end
 
   -- Lazy redrawing on
   vim.o.lz = true

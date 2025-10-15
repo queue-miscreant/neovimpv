@@ -36,7 +36,7 @@ local function create_playlist(buffer_id, lines, contents)
       buffer_id,
       PLAYLIST_NAMESPACE,
       j - 1,
-      1,
+      0,
       extmark
     )
     extmark_ids[i] = extmark_id
@@ -246,32 +246,34 @@ function MpvExtmarks:paste_playlist(old_playlist_id, new_playlist, current_index
   ---@diagnostic disable-next-line No need to warn about appendbufline not working for tables
   vim.fn.appendbufline(self.buffer_id, loc[1] + 1, list_slice(new_playlist, 2))
   helpers.try_write_buffer(self.buffer_id)
+  vim.b.mpv_no_undo = true
 
-  local save_extmarks = {{loc[1], old_playlist_id}}
-  for i = 2, #new_playlist do
+  local save_extmarks = {}
+  for i = 1, #new_playlist do
     -- Create new playlist extmarks in the same manner as create_player
     local extmark_id = vim.api.nvim_buf_set_extmark(
       self.buffer_id,
       PLAYLIST_NAMESPACE,
-      loc[1] + 1,
-      1,
+      loc[1] + i - 1,
+      0,
       {
+        id = i == 1 and old_playlist_id or nil,
         sign_text = "|",
         sign_hl_group = "MpvPlaylistSign",
       }
     )
-    table.insert(self.playlist_ids, extmark_id)
-
-    save_extmarks[i] = {loc[1] + i - 1, extmark_id}
+    vim.print(loc[1] + i - 1)
+    if i > 1 then
+      table.insert(self.playlist_ids, extmark_id)
+    end
+    table.insert(save_extmarks, extmark_id)
   end
 
-  -- TODO: indexing seems wrong. Why do we need to save the location number?
   -- move the player just in case
-  local current_item = save_extmarks[current_index]
-  self:move(current_item[2])
+  self:move(save_extmarks[current_index])
 
   -- only return extmark ids
-  return tbl_map(function(i) return i[2] end, save_extmarks)
+  return save_extmarks
 end
 
 ---Delete extmarks in the displays and playlists namespace.

@@ -453,8 +453,6 @@ function MpvCallbacks:_paste_playlist(new_playlist, playlist_id)
     return
   end
 
-  -- TODO: check markdown writeable
-  -- list_contains(config.markdown_writable, current_filetype)
   local write_lines = get_write_lines(new_playlist, mpv_item.update_markdown)
   local new_extmarks = self.extmarks:paste_playlist(
     mpv_item.extmark_id,
