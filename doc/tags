@@ -1,13 +1,10 @@
 MpvClose	neovimpv.txt	/*MpvClose*
 MpvGetProperty	neovimpv.txt	/*MpvGetProperty*
-MpvLogLevel	neovimpv.txt	/*MpvLogLevel*
 MpvNewAtLine	neovimpv.txt	/*MpvNewAtLine*
 MpvOpen	neovimpv.txt	/*MpvOpen*
 MpvPause	neovimpv.txt	/*MpvPause*
 MpvSend	neovimpv.txt	/*MpvSend*
-MpvSendNvimKeys()	neovimpv.txt	/*MpvSendNvimKeys()*
 MpvSetProperty	neovimpv.txt	/*MpvSetProperty*
-MpvUpdatePlaylists()	neovimpv.txt	/*MpvUpdatePlaylists()*
 MpvYoutubeSearch	neovimpv.txt	/*MpvYoutubeSearch*
 g:mpv_default_args	neovimpv.txt	/*g:mpv_default_args*
 g:mpv_draw_playlist_extmarks	neovimpv.txt	/*g:mpv_draw_playlist_extmarks*
@@ -24,7 +21,6 @@ g:mpv_smart_youtube_playlist	neovimpv.txt	/*g:mpv_smart_youtube_playlist*
 g:mpv_style	neovimpv.txt	/*g:mpv_style*
 neovimpv-command	neovimpv.txt	/*neovimpv-command*
 neovimpv-configuration	neovimpv.txt	/*neovimpv-configuration*
-neovimpv-function	neovimpv.txt	/*neovimpv-function*
 neovimpv-highlights	neovimpv.txt	/*neovimpv-highlights*
 neovimpv-introduction	neovimpv.txt	/*neovimpv-introduction*
 neovimpv-keys	neovimpv.txt	/*neovimpv-keys*

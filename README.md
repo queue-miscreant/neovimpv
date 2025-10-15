@@ -247,33 +247,6 @@ As a !-command (`MpvYoutubeSearch!`), retrieves the first result and pastes it
 in the current window.
 
 
-### `:MpvLogLevel {logger} {level}`
-
-Set the logging level for a Python logger.
-`{logger}` should be one of `mpv`, `protocol`, `youtube`, or `all`.
-`{level}` should be a valid Python `logging` level.
-
-
-Functions
----------
-
-### `MpvSendNvimKeys(extmark_id, keypress_string)`
-
-Send `keypress_string`, a string signifying a nvim keypress event, to
-the mpv instance identified by `extmark_id`.
-
-The plugin is able to translate SOME of these into mpv equivalents,
-but not all. You should not rely on proper handling of modifier keys
-(Ctrl, Alt, Shift, Super).
-
-### `MpvUpdatePlaylists(updated_playlists)`
-
-Update player's playlists on the Python side. `updated_playlists` is a
-dictionary where the keys are playlist ids and values are a list of
-playlist items. This function does NOT change extmarks, but it will
-modify the mpv playlist.
-
-
 Keys
 ----
 
@@ -598,11 +571,8 @@ TODOs
 
 - Improve sending keys to mpv
     - Floating window getcharstr for no redraw issues
+- Dynamic markdown updates
 - Floating windows containing playback information
 - Play by searching selection (or line) for URL
-- Close invisible players
-    - MpvClose tolerates None `target.protocol`
-    - omnikey-q forces extmark cleanup
-- yt-dlp downloading (and file management?)
-    - Perhaps separate plugin for searching downloaded library
+- Perhaps separate plugin for building playlist buffers (Oil integration? Recursive dirs?)
 - Folds?

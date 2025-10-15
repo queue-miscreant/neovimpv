@@ -166,12 +166,6 @@ COMMANDS                                                *neovimpv-command*
         As a !-command (|MpvYoutubeSearch!|), retrieves the first result and
         pastes it in the current window.
 
-:MpvLogLevel {logger} {level}                           *MpvLogLevel*
-
-        Set the logging level for a Python logger.
-        {logger} should be one of `mpv`, `protocol`, `youtube`, or `all`.
-        {level} should be a valid Python `logging` level
-
 --------------------------------------------------------------------------------
 KEYS                                                    *neovimpv-keys*
 
