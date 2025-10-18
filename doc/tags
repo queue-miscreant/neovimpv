@@ -1,6 +1,5 @@
 MpvClose	neovimpv.txt	/*MpvClose*
 MpvGetProperty	neovimpv.txt	/*MpvGetProperty*
-MpvNewAtLine	neovimpv.txt	/*MpvNewAtLine*
 MpvOpen	neovimpv.txt	/*MpvOpen*
 MpvPause	neovimpv.txt	/*MpvPause*
 MpvSend	neovimpv.txt	/*MpvSend*
@@ -15,7 +14,6 @@ g:mpv_markdown_writable	neovimpv.txt	/*g:mpv_markdown_writable*
 g:mpv_on_playlist_update	neovimpv.txt	/*g:mpv_on_playlist_update*
 g:mpv_playlist_key	neovimpv.txt	/*g:mpv_playlist_key*
 g:mpv_playlist_key_video	neovimpv.txt	/*g:mpv_playlist_key_video*
-g:mpv_property_thresholds	neovimpv.txt	/*g:mpv_property_thresholds*
 g:mpv_smart_filetypes	neovimpv.txt	/*g:mpv_smart_filetypes*
 g:mpv_smart_youtube_playlist	neovimpv.txt	/*g:mpv_smart_youtube_playlist*
 g:mpv_style	neovimpv.txt	/*g:mpv_style*
@@ -25,6 +23,7 @@ neovimpv-highlights	neovimpv.txt	/*neovimpv-highlights*
 neovimpv-introduction	neovimpv.txt	/*neovimpv-introduction*
 neovimpv-keys	neovimpv.txt	/*neovimpv-keys*
 neovimpv-playlist	neovimpv.txt	/*neovimpv-playlist*
+neovimpv-rendering	neovimpv.txt	/*neovimpv-rendering*
 neovimpv-youtube-keys	neovimpv.txt	/*neovimpv-youtube-keys*
 neovimpv-youtube-splits	neovimpv.txt	/*neovimpv-youtube-splits*
 neovimpv.config.default_args	neovimpv.txt	/*neovimpv.config.default_args*
@@ -36,7 +35,6 @@ neovimpv.config.markdown_writable	neovimpv.txt	/*neovimpv.config.markdown_writab
 neovimpv.config.on_playlist_update	neovimpv.txt	/*neovimpv.config.on_playlist_update*
 neovimpv.config.playlist_key	neovimpv.txt	/*neovimpv.config.playlist_key*
 neovimpv.config.playlist_key_video	neovimpv.txt	/*neovimpv.config.playlist_key_video*
-neovimpv.config.property_thresholds	neovimpv.txt	/*neovimpv.config.property_thresholds*
 neovimpv.config.smart_filetypes	neovimpv.txt	/*neovimpv.config.smart_filetypes*
 neovimpv.config.smart_youtube_playlist	neovimpv.txt	/*neovimpv.config.smart_youtube_playlist*
 neovimpv.config.style	neovimpv.txt	/*neovimpv.config.style*

@@ -48,6 +48,12 @@ FEATURES
 - Dynamic playlist updates (e.g., YouTube playlists when using mpv's YouTube plugin).
     - Several options available, see |on_playlist_update|
 
+DEPENDENCIES
+
+- mpv (other media players not supported, nor planned to be supported)
+- (Optional) youtube-dl or yt-dlp
+- (Optional) pynvim and lxml, for YouTube results
+
 --------------------------------------------------------------------------------
 COMMANDS                                                *neovimpv-command*
 
@@ -70,7 +76,7 @@ COMMANDS                                                *neovimpv-command*
 
         Optionally {mpv-args} may be given, which are passed as command line
         arguments. This can be used to override `--no-video`, for example, by
-        calling `:MpvOpen --video=auto`
+        calling `:MpvOpen -- --video=auto`
 
         If {mpv-args} overrides the default `--no-video` flag (i.e., if a
         window is anticipated to open), the media data will NOT be rendered in
@@ -88,13 +94,6 @@ COMMANDS                                                *neovimpv-command*
         `new`                   Override |on_playlist_update| to `new_one`
                               for this player. If the initial playlist is
                               longer than one entry, an error is thrown.
-
-:MpvNewAtLine file [{mpv-args}]                         *MpvNewAtLine*
-:MpvNewAtLine file [{local-args}] [-- {mpv-args}]
-
-        Similar to |MpvOpen|, but the file is specified as part of the command.
-        The Mpv instance is opened at the current line of the cursor, and
-        {mpv-args} and {local-args} behave the same as |MpvOpen|.
 
 :MpvClose [{buffer}]                                    *MpvClose*
 
@@ -287,26 +286,26 @@ format                                                  *neovimpv.config.format*
         field which is intended to represent an mpv property must be
         surrounded by curly braces ({}).
 
-        Some formats are drawn internally to the plugin:
+        The plugin uses some defaults:
+
             `duration` and `playback-time` will both render in a familiar time
-            format, and will be |highlight|ed as `"Conceal"` by default.
+            format.
 
             `pause` will render using typical pause and play symbols, instead of
-            the string representations "True" and "False". It also uses the
-            |highlight|s `"Conceal"` and `"Title"` when `True` and `False`,
-            respectively.
+            the string representations "True" and "False".
 
         The default value is `"[ {pause} {playback-time} / {duration} {loop} ]"`
 
 style                                                   *neovimpv.config.style*
                                                         *g:mpv_style*
 
-        Style to use when drawing pictographic fields. Possible values are
-        `"unicode"`, `"ligature"`, and `"emoji"`.
-
-        Currently, the only pictographic field is "pause".
+        Either a style string to use when drawing certain fields or a table controlling
+        how to draw properties in `format`.
+        Possible string values are `"unicode"`, `"ligature"`, and `"emoji"`.
 
         The default value is `"unicode"`
+
+        See the |neovimpv-rendering| for more information.
 
 markdown_writable                                       *neovimpv.config.markdown_writable*
                                                         *g:mpv_markdown_writable*
@@ -324,21 +323,6 @@ default_args                                            *neovimpv.config.default
         List of arguments to be supplied to mpv when an instance is opened
         with |:MpvOpen|. Note that `--no-video` is always implied, unless it
         is overridden by `--video=auto`.
-
-property_thresholds                                     *neovimpv.config.property_thresholds*
-                                                        *g:mpv_property_thresholds*
-
-        Dictionary where the keys are mpv properties. The values are lists of
-        numbers which control which highlight will be used when rendering the
-        property.
-
-        If the list contains one entry, the highlight is partitioned into "Low"
-        and "High", which are appended to the usual name (e.g., "MpvPlaybackTime"
-        becomes "MpvPlaybackTimeLow" and "...High"). Values less than the entry
-        are given "Low" while values greater than it are given "High".
-
-        If the list contains two entries, the value is partitioned into "Low",
-        "Middle", and "High" instead.
 
 draw_playlist_extmarks                                  *neovimpv.config.draw_playlist_extmarks*
                                                         *g:mpv_draw_playlist_extmarks*
@@ -431,6 +415,52 @@ smart_youtube_playlist                                  *neovimpv.config.smart_y
         Other single-item playlists are opened as `new_one`.
 
 --------------------------------------------------------------------------------
+RENDERING                                               *neovimpv-rendering*
+
+The plugin should be fairly configurable when it comes to displaying data
+from a player.
+When using a Lua config, |neovimpv.config.style| may also be a table.
+The below example demonstrates the available options:
+
+>lua
+  style = {
+      -- Use default according to pictographic style.
+      -- Currently, the only pictographic field is "pause".
+      ["pause"] = "unicode",
+      -- Use defaults regardless of pictographic style.
+      -- "unicode" would have the same effect, since there is no "unicode"
+      -- renderer for "duration", but there is a default one.
+      ["duration"] = "any",
+      -- User-defined renderer with automatic highlight binding (see next section).
+      -- Thresholds are absolute, _strictly numeric_, and can contain one or two values.
+      ["volume"] = {
+          formatter = function(value) return tostring(value) .. "%" end,
+          threshold = { 80 },
+      },
+      -- Lookup table based on property value.
+      -- Values (in the key-value sense) must be 2-tuples of the display string and highlight name.
+      -- Distinguished by the plugin from the prior item by the `formatter` field.
+      ["loop"] = {
+          ["inf"] = { "oo", "MpvLoopInfinite" }
+      },
+      -- Manual user-defined renderer.
+      -- No binding of highlights is done, but the user is free to dynamically adjust
+      -- both color and display at their leisure.
+      ["playback-time"] = function(value)
+          return { tostring(value), "MpvPlaybackTime" }
+      end,
+  }
+>
+
+In the event that a renderer cannot be found in this table, the default is:
+
+>lua
+  function default_renderer(value)
+      -- See next section for more information about highlights
+      return { tostring(value), "MpvPropertyName" }
+  end
+>
+
 HIGHLIGHTS                                              *neovimpv-highlights*
 
 General-purpose highlight groups defined by this plugin are `MpvDefault` and
@@ -438,34 +468,45 @@ General-purpose highlight groups defined by this plugin are `MpvDefault` and
 for extmarks in the plugin. The latter is the default choice for playlist
 extmarks in the sign column.
 
-The highlight used to draw an mpv property is user-controllable. All
-highlights begin with "Mpv", followed by the property name. Properties in mpv
+When the style implies automatic highlight binding, the name of the highlight
+is with "Mpv", followed by the property name. Properties in mpv
 are given in kebab-case, but the corresponding highlights in Vim will be in
-CamelCase. For example, the property "playback-time" becomes the highlight
-"MpvPlaybackTime".
+CamelCase. For example, the property `playback-time` becomes the highlight
+`MpvPlaybackTime`.
 
-All properties which occur in |neovimpv.config.format| are given highlights that link
-to bound to the plugin default highlight `MpvDefault`, unless they have
-already been defaulted in the plugin. The following defaults additional
-defaults exist:
+All properties which occur in |neovimpv.config.format| are given highlights that
+link to bound to the plugin default highlight `MpvDefault`,
+unless they have already been defaulted in the plugin.
+The following defaults additional defaults exist:
 
 - MpvPauseTrue -> Conceal
 - MpvPauseFalse -> Title
 - MpvPlaybackTime -> Conceal
 - MpvDuration -> Conceal
 
-When using |neovimpv.config.property_thresholds|, the original highlight for the
-property will not be used. Instead, only the partitioned highlights will exist
-(with defaults appropriately defined).
+When using a custom formatter with thresholds, the original highlight name for
+the property will not be used. Instead, partitioned highlight names are used:
+"Low", "Middle", and "High" for two-valued thresholds;
+and "Low" and "High" for one-valued thresholds.
 
 For example, the following will cause the first 10 seconds of playback time to
-be drawn with the highlight "ErrorMsg", while the remaining time will be drawn
-with "MpvDefault" (instead of "MpvPlaybackTime"):
+be drawn with the highlight `ErrorMsg`, while the remaining time will be drawn
+with `MpvPlaybackTimeHigh (-> MpvDefault)` (instead of `MpvPlaybackTime`):
 
-  `let g:mpv_property_thresholds = { "playback-time": [10] }`
-  `hi! link MpvPlaybackTimeLow ErrorMsg`
+>lua
+  config = {
+      -- ...
+      style = {
+          -- ...
+          ["playback-time"] = { formatter = tostring, threshold = {10} }
+      }
+  }
 
-The following highlights are used for extra video info in YouTube results:
+  vim.cmd[[hi! link MpvPlaybackTimeLow ErrorMsg]]
+>
+
+Finally, the following highlights are used for extra video info in
+YouTube results:
 
 PROPERTY NAME | HIGHLIGHT NAME        | EXPLANATION
 _____________________________________________________________________
@@ -480,16 +521,15 @@ It's possible to configure [vimwiki](https://github.com/vimwiki/vimwiki) to
 open YouTube links (assuming you have a youtube-dl equivalent that works with
 mpv). Add the following to your `.vimrc` if you want <Enter> to run |MpvOpen|:
 
-
-```vim
-" Open vimwiki links to youtube in Mpv
-function! VimwikiLinkHandler(link)
-  if a:link =~ "\\mhttps\\?://\\(www\\.\\)\\?youtu\\(\\.be/\\|be\\.com/\\)"
-    execute "MpvOpen video --"
-    return 1
-  endif
-endfunction
-```
+>vim
+  " Open vimwiki links to youtube in Mpv
+  function! VimwikiLinkHandler(link)
+    if a:link =~ "\\mhttps\\?://\\(www\\.\\)\\?youtu\\(\\.be/\\|be\\.com/\\)"
+      execute "MpvOpen video --"
+      return 1
+    endif
+  endfunction
+>
 
 ================================================================================
 vim:tw=80:nosta:ft=help:fen:
