@@ -1,37 +1,44 @@
--- neovimpv/formatting.lua
+-- neovimpv/formatter.lua
 --
 -- Features for converting mpv data into highlight string pairs, drawable in extmarks.
 
-local config = require "neovimpv.config"
+local tbl_map = vim.tbl_map
 
-local formatting = {}
+-- To format text, we need to know a few things:
+-- - The properties from mpv
+-- - How to draw the property as a string (e.g., converting `100` to "1:40" for times)
+-- - What highlight to use when drawing the property
+--
+-- To be configurable, the user should be able to provide:
+-- - A `tostring`-like function to convert the value to a string
+-- - A threshold value (or two), to control the highlight used
+-- - Whether or not to use the default value
 
----@type DisplayStyle
-local DEFAULT_STYLE = "unicode"
+---@alias MpvProperty string
 
---- Dict of static display styles.
---- Exact values (as table entries) are converted to a string-highlight pair
----@type table<DisplayStyle, table<string, table<any, [string, Highlight]>>>
-local DISPLAY_STYLES = {
-  ligature = {
-    pause = {
-      [true] = {"||", "MpvPauseTrue"},
-      [false] = {"|>", "MpvPauseFalse"},
-    }
-  },
-  unicode = {
-    pause = {
-      [true] = {"⏸", "MpvPauseTrue"},
-      [false] = {"►", "MpvPauseFalse"},
-    }
-  },
-  emoji = {
-    pause = {
-      [true] = {"⏸️", "MpvPauseTrue"},
-      [false] = {"▶️", "MpvPauseFalse"},
-    }
-  },
-}
+---Least "high" value (1-tuple form) or least "mid" and "high" values (2-tuple form).
+---@alias PropertyThresholds [integer]|[integer, integer]
+---`tostring`-like function
+---@alias PropertyStringifier (fun(value: any): string)
+---Formatter function, with automatic highlight binding
+---@alias PropertyFormatter {formatter: PropertyStringifier, threshold?: PropertyThresholds}
+---Formatter lookup, with "manual" highlight names, but automatic binding
+---@alias PropertyFormatterLookup table<any, VirtText>
+---Formatter function, with manual highlight and highlight binding
+---@alias PropertyFormatterFunction fun(value: any): VirtText
+
+---Any user-provided configuration, minus default lookups
+---@alias NondefaultedFormatter (PropertyFormatterLookup | PropertyFormatter | PropertyFormatterFunction)?
+---Formatter configuration, as supplied as by a user in their config
+---@alias FormatterConfig table<MpvProperty, string | NondefaultedFormatter>
+
+---"Cooked" table consisting only of maps to functions suitable for rendering
+---@alias RendererPropertyLookup table<MpvProperty, PropertyFormatterFunction>
+
+---Wrapper object for the name of the mpv property to extract and the handler function to draw it
+---@alias RendererItem {name: MpvProperty, handler: PropertyFormatterFunction}
+---Map from mpv fields to either static values or stringifying function on the value.
+---@alias RendererList (VirtText|RendererItem)[]
 
 --- Convert a number to decimal-coded sexagesimal (i.e., clock format)
 ---@param number integer
@@ -54,7 +61,6 @@ local function sexagesimalize(number)
   end
 end
 
-
 --- Convert numeric field to time string
 ---@param position number|nil
 ---@return string
@@ -70,19 +76,50 @@ local function format_loop(loop)
     or (loop and tostring(loop) or "")
 end
 
-local DEFAULT_HANDLERS = {
-  ["playback-time"] = format_time,
-  ["duration"] = format_time,
-  ["loop"] = format_loop,
+---@class Formatter
+---@field mpv_properties string[] List of strings to watch on mpv processes.
+---@field renderers RendererList List of renderers (VirtText or functions which produce them) for Formatter:render()
+local Formatter = {
+  ---@type table<DisplayStyle, table<MpvProperty, NondefaultedFormatter>>
+  DEFAULT_HANDLERS = {
+    --- Dicts of static display styles.
+    --- Exact values (as table entries) are converted to a string-highlight pair
+    ligature = {
+      pause = {
+        [true] = {"||", "MpvPauseTrue"},
+        [false] = {"|>", "MpvPauseFalse"},
+      }
+    },
+    unicode = {
+      pause = {
+        [true] = {"⏸", "MpvPauseTrue"},
+        [false] = {"►", "MpvPauseFalse"},
+      }
+    },
+    emoji = {
+      pause = {
+        [true] = {"⏸️", "MpvPauseTrue"},
+        [false] = {"▶️", "MpvPauseFalse"},
+      }
+    },
+    any = {
+      ["playback-time"] = { formatter = format_time },
+      ["duration"] = { formatter = format_time },
+      ["loop"] = { formatter = format_loop },
+--[[
+      ["mpv-property1"] = "default-name",     -- access DEFAULT_HANDLERS["default-name"] or DEFAULT_HANDLERS.any
+      ["mpv-property2"] = {
+        formatter = tostring,                 -- converter function with automatic highlight selection
+        threshold = { 0, 5 },                 -- optional automatic thresholds
+      },
+      ["mpv-property3"] = function(value)
+        return { tostring(value), "HighlightToUse" }  -- converter function with manual highlight
+      end,
+]]
+    },
+  }
 }
-
-
-local format_settings = {
-  display_style = DISPLAY_STYLES[DEFAULT_STYLE],
-  handlers = vim.deepcopy(DEFAULT_HANDLERS),
-  fields = {},
-}
-formatting.settings = format_settings
+Formatter.__index = Formatter
 
 --- kebab-case to CamelCase converter, for converting Mpv fields to highlight names
 ---@param str string
@@ -95,79 +132,109 @@ local function kebab_to_camel(str)
   return camel
 end
 
---- Bind new highlights, if necessary
----@param highlights Highlight[]
-local function bind_new_highlights(highlights)
-  for _, highlight in pairs(highlights) do
-    if vim.fn.hlexists(highlight) == 0 then
-      vim.cmd("highlight default link " .. highlight .. " MpvDefault")
-    end
+local function bind_highlight(highlight)
+  if vim.fn.hlexists(highlight) == 0 then
+    vim.cmd("highlight default link " .. highlight .. " MpvDefault")
   end
 end
 
----@param thresholds_table table<string, [any]|[any, any]>
-function formatting.compile_thresholds(thresholds_table)
-  local new_handlers = {}
+---@param highlight_name Highlight
+---@param config PropertyFormatter
+---@return PropertyFormatterFunction
+local function compile_threshold_property(highlight_name, config)
   local new_highlights = {}
+  local low_thresh, mid_thresh = unpack(config.threshold or {})
 
-  -- special properties first (like pause)
-  for _, field in pairs(format_settings.display_style) do
-    for _, formatter in pairs(field) do
-      new_highlights[formatter[2]] = true
+  ---@type fun(value?: any): Highlight
+  local highlighter = function() return highlight_name end
+
+  -- Create threshold functions
+  if low_thresh and mid_thresh then
+    highlighter = function(x)
+      return highlight_name .. (
+        (x > mid_thresh) and "High"
+        or ((x > low_thresh) and "Middle" or "Low")
+      )
     end
-  end
 
-  -- user thresholds
-  for property_name, thresh_list in pairs(thresholds_table) do
-    local camel = kebab_to_camel(property_name)
-    if #thresh_list == 1 then
-      local low_thresh = thresh_list[1]
-
-      -- TODO check whether binding thresh_list gives the proper value!
-      new_handlers[property_name] = function(x)
-          return (x > low_thresh) and "High" or "Low"
-      end
-
-      new_highlights["Mpv" .. property_name .. "Low"] = true
-      new_highlights["Mpv" .. property_name .. "High"] = true
-
-    elseif #thresh_list == 2 then
-      local low_thresh, mid_thresh = unpack(thresh_list) ---@diagnostic disable-line
-
-      -- TODO check whether binding thresh_list gives the proper value!
-      new_handlers[property_name] = function(x)
-        return (x > mid_thresh)
-          and "High"
-          or ((x > low_thresh) and "Middle" or "Low")
-      end
-
-      new_highlights["Mpv" .. camel .. "Low"] = true
-      new_highlights["Mpv" .. camel .. "Middle"] = true
-      new_highlights["Mpv" .. camel .. "High"] = true
-    else
-      error("Cannot interpret user threshold for property " .. property_name)
+    new_highlights[highlight_name .. "Low"] = true
+    new_highlights[highlight_name .. "Middle"] = true
+    new_highlights[highlight_name .. "High"] = true
+  elseif low_thresh then
+    highlighter = function(x)
+      return highlight_name .. ((x > low_thresh) and "High" or "Low")
     end
+
+    new_highlights[highlight_name .. "Low"] = true
+    new_highlights[highlight_name .. "High"] = true
   end
 
-  bind_new_highlights(vim.tbl_keys(new_highlights))
-
-  format_settings.handlers = vim.tbl_extend(
-    "keep",
-    vim.deepcopy(DEFAULT_HANDLERS),
-    new_handlers
-  )
-
-  local handler_highlights = {}
-  for field, _ in pairs(DEFAULT_HANDLERS) do
-    table.insert(handler_highlights, "Mpv" .. kebab_to_camel(field))
+  --- Bind new highlights, if necessary
+  for highlight, _ in pairs(new_highlights) do
+    bind_highlight(highlight)
   end
-  bind_new_highlights(handler_highlights)
+
+  local formatter = config.formatter
+  return function(value)
+    return { formatter(value), highlighter(value) }
+  end
 end
 
+---Compile a table of formatters into handlers for the mpv rendering
+---@param formatter_config FormatterConfig Formatting configuration
+---@return table<MpvProperty, PropertyFormatterFunction>
+local function compile_formatter_config(formatter_config)
+  ---@type table<MpvProperty, PropertyFormatterFunction>
+  local ret = {}
+
+  for mpv_property, config in pairs(formatter_config) do
+    local highlight_name = "Mpv" .. kebab_to_camel(mpv_property)
+
+    if type(config) == "string" then
+      config = (
+        (Formatter.DEFAULT_HANDLERS[config] or {})[mpv_property]
+        or (Formatter.DEFAULT_HANDLERS.any or {})[mpv_property]
+      ) --[[@as NondefaultedFormatter? ]]
+    end
+
+    if type(config) == "function" then
+      -- Raw formatter
+      ---@cast config PropertyFormatterFunction
+      ret[mpv_property] = config
+    elseif config and config.formatter then
+      -- Formatter with (maybe) threshold
+      ---@cast config PropertyFormatter
+      ret[mpv_property] = compile_threshold_property(highlight_name, config)
+    elseif type(config) == "table" then
+      -- Lookup table
+      ---@cast config PropertyFormatterLookup
+      ret[mpv_property] = function(value)
+        return config[value]
+      end
+    end
+  end
+
+  return ret
+end
+
+
+
+---@alias FormatterTable table<string, fun(value: any): string>
+---
+---@alias HighlightSuffixTable table<string, fun(value: number): string>
+
+
+---Compile a format string to a table that can be used for rendering.
+---@private
 ---@param format_string string
-function formatting.compile(format_string)
-  ---@type (FormatterField | [string, Highlight])[]
-  local fields = {}
+---@return RendererList, MpvProperty[]
+function Formatter.compile(format_string)
+  ---@type RendererList
+  local renderers = {}
+  ---@type table<Highlight, boolean>
+  local new_highlights = {}
+  ---@type MpvProperty[]
+  local mpv_properties = {}
 
   for match, post in format_string:gmatch("([^}]+)}([^{]*)") do
     -- vim.print{match, foo}
@@ -175,72 +242,94 @@ function formatting.compile(format_string)
 
       if pre ~= "" then
         table.insert(
-          fields,
+          renderers,
           { pre, "MpvDefault" }
         )
       end
 
-      local default_handler = tostring
-      local try_styled = format_settings.display_style[field_name]
-      if format_settings.display_style[field_name] then
-        default_handler = function(val) return try_styled[val] or "" end
-      end
+      local highlight_name = "Mpv" .. kebab_to_camel(field_name)
+      new_highlights[highlight_name] = true
 
-      local try_handler = format_settings.handlers[field_name]
-      local camel_field = "Mpv" .. kebab_to_camel(field_name)
-      table.insert(
-        fields,
-        {
-          name = field_name,
-          handler = try_handler and function(val)
-            return { try_handler(val), camel_field }
-          end or default_handler,
-        } --[[@as FormatterField]]
-      )
+      table.insert(renderers, {
+        name = field_name,
+        handler = function(value)
+          return { tostring(value), highlight_name }
+        end,
+      })
+      table.insert(mpv_properties, field_name)
 
       if post ~= "" then
         table.insert(
-          fields,
+          renderers,
           { post, "MpvDefault" }
         )
       end
     end
   end
 
-  format_settings.fields = fields
+  --- Bind new highlights, if necessary
+  for highlight, _ in pairs(new_highlights) do
+    bind_highlight(highlight)
+  end
 
   -- mpv groups to be aware of
-  formatting.mpv_properties = vim.tbl_values(
-    vim.tbl_map(
-      function(field) return field.name end,
-      fields
-    )
-  )
+  return renderers, mpv_properties
 end
 
-function formatting.parse_user_settings()
-  formatting.settings.display_style = DISPLAY_STYLES[
-    config.style or DEFAULT_STYLE
-  ]
-  formatting.compile_thresholds(config.property_thresholds)
-  formatting.compile(config.format)
+---@param format_string string
+---@param extra_format? FormatterConfig | DisplayStyle
+---@return Formatter
+function Formatter.new(format_string, extra_format)
+
+  -- Extract mpv properties and build default renderers
+  local renderers, mpv_properties = Formatter.compile(format_string)
+
+  ---@type FormatterConfig
+  local formatter_config = {}
+  if type(extra_format) == "string" then
+    for _, mpv_property in ipairs(mpv_properties) do
+      formatter_config[mpv_property] = extra_format --[[@as DisplayStyle]]
+    end
+  else
+    formatter_config = extra_format --[[@as FormatterConfig]]
+  end
+  local handlers = compile_formatter_config(formatter_config)
+
+  -- Update renderers, if we can
+  for _, renderer in ipairs(renderers) do
+    local maybe_handler = handlers[renderer.name]
+    if maybe_handler then
+      ---@cast renderer RendererItem
+      renderer.handler = maybe_handler
+    end
+  end
+
+  local ret = {
+    mpv_properties = mpv_properties,
+    renderers = renderers,
+  }
+  setmetatable(ret, Formatter)
+
+  return ret
 end
 
----@param input_dict table<string, any>
----@return VirtText
-function formatting.render(input_dict)
+---@param input_dict table<MpvProperty, any>
+---@return VirtText[]
+function Formatter:render(input_dict)
 
   if input_dict["video-format"] ~= nil then
     return {{"[ Window ]", "MpvDefault"}}
   end
 
-  return vim.tbl_map(
+  return tbl_map(
+    ---@param field VirtText | RendererItem
+    ---@return VirtText
     function(field)
       if field.handler == nil then return field end
       return field.handler(input_dict[field.name]) or { "", "MpvDefault" }
     end,
-    format_settings.fields
+    self.renderers
   )
 end
 
-return formatting
+return Formatter

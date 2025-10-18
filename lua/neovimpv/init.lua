@@ -54,9 +54,7 @@ end
 
 function neovimpv.setup(opts)
   config.load_globals(opts)
-  formatting.parse_user_settings()
   keys.bind_base()
-
 
   --    _       _                    _
   --   /_\ _  _| |_ ___  __ _ __  __| |___

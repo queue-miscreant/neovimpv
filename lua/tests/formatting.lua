@@ -1,3 +1,5 @@
+local Formatter = require "neovimpv.formatting"
+
 local format_example = "[ {pause} {playback-time} / {duration} {loop} ]"
 local dict_example = {
   duration = 207.772154,
@@ -18,3 +20,4 @@ local dict_example = {
   ["video-format"] = nil
 }
 
+vim.print( Formatter.new(format_example, "ligature"):render(dict_example) )

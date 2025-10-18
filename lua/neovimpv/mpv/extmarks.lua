@@ -6,7 +6,6 @@ local helpers = require "neovimpv.helpers"
 
 local list_contains = vim.list_contains
 local list_slice = vim.list_slice
-local tbl_map = vim.tbl_map
 
 local DISPLAY_NAMESPACE = helpers.display_namespace
 local PLAYLIST_NAMESPACE = helpers.playlist_namespace
@@ -79,7 +78,7 @@ function MpvExtmarks.new(buffer_id, lines)
 end
 
 ---Push an update from an mpv property table
----@param virt_text VirtText?
+---@param virt_text VirtText[]?
 function MpvExtmarks:update(virt_text)
   if virt_text == nil then
     virt_text = {{config.loading, "MpvDefault"}}
@@ -193,7 +192,7 @@ function MpvExtmarks:show_currently_playing(playlist_id, virt_text)
         virt_lines = {{
           {"Currently playing: ", "MpvDefault"},
           {virt_text, "MpvTitle"},
-        }} --[[@as VirtText[] ]],
+        }} --[[@as VirtText[][] ]],
         sign_text = "|",
         sign_hl_group = "MpvPlaylistSign"
       }

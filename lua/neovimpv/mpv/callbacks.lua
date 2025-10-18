@@ -2,7 +2,6 @@
 -- Class for managing buffer callbacks.
 
 local log = require "neovimpv.log"
-local formatting = require "neovimpv.formatting"
 local helpers = require "neovimpv.helpers"
 local config = require "neovimpv.config"
 local MpvExtmarks = require "neovimpv.mpv.extmarks"
@@ -30,6 +29,8 @@ local list_extend = vim.list_extend
 ---Map from mpv playlist ids to cached items.
 ---Unless transitioning, should be valid for spawning an MpvManager.
 ---@field playlist_id_to_item table<MpvPlaylistId, MpvItem>
+---Formatter to use when drawing the player
+---@field formatter Formatter
 ---Remaps from one mpv id to another.
 ---@field _playlist_id_remap table<MpvPlaylistId, MpvPlaylistId>
 ---For "stay" mode, map the old playlist id to first new item.
@@ -47,8 +48,9 @@ MpvCallbacks.__index = MpvCallbacks
 ---@param buffer_id integer
 ---@param lines_to_links table<LineNumber, [string[], boolean]>
 ---@param update_action UpdateAction
+---@param formatter Formatter
 ---@return MpvCallbacks
-function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
+function MpvCallbacks.new(buffer_id, lines_to_links, update_action, formatter)
   local playlist_lines = tbl_keys(lines_to_links)
   table.sort(playlist_lines)
 
@@ -84,6 +86,7 @@ function MpvCallbacks.new(buffer_id, lines_to_links, update_action)
     update_action = update_action,
     extmarks = extmarks,
     playlist_id_to_item = playlist_id_to_item,
+    formatter = formatter,
     _playlist_id_remap = {},
     _updated_indices = {},
     _new_items = nil,
@@ -339,13 +342,13 @@ end
 ---@param data table<string, any>
 ---@param force_text? string
 function MpvCallbacks:draw_update(data, force_text)
-  ---@type VirtText?
+  ---@type VirtText[]?
   local virt_text
   if force_text then
     virt_text = {{force_text, "MpvDefault"}}
   else
     if self.no_draw then return end
-    virt_text = formatting.render(data)
+    virt_text = self.formatter:render(data)
   end
 
   -- draw_update can be called asynchronously

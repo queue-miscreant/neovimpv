@@ -1,4 +1,5 @@
 local config = require "neovimpv.config"
+local Formatter = require "neovimpv.formatting"
 local registry = require "neovimpv.mpv.registry"
 local MpvManager = require "neovimpv.mpv.manager"
 local MpvCallbacks = require "neovimpv.mpv.callbacks"
@@ -15,11 +16,13 @@ local M = {}
 ---@param buffer_id BufferId
 ---@param lines_to_links MpvOpenLines
 ---@param local_args MpvLocalArgs
+---@param formatter? Formatter
 ---@return MpvManager?
 function M.new(
   buffer_id,
   lines_to_links,
-  local_args
+  local_args,
+  formatter
 )
   -- Update actions and "smart youtube"-ness
   local update_action = local_args.update_action or config.on_playlist_update
@@ -42,7 +45,12 @@ function M.new(
       )
     end
 
-    return MpvCallbacks.new(buffer_id, lines_to_links, update_action)
+    return MpvCallbacks.new(
+      buffer_id,
+      lines_to_links,
+      update_action,
+      formatter or Formatter.new(config.format, config.style)
+    )
   end)
 
   if not success then

@@ -3,9 +3,9 @@ local default_config = {
   -- These ones are settable from vimrc and have no special interpretation
   loading = "[ ... ]",
   format = "[ {pause} {playback-time} / {duration} {loop} ]",
-  ---@type DisplayStyle
+  ---@type FormatterConfig | DisplayStyle
   style = "unicode",
-  property_thresholds = {},
+
   omni_open_new_if_empty = true,
 
   -- Markdown-writable filetypes

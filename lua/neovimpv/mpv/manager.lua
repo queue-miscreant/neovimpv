@@ -137,7 +137,7 @@ function MpvManager:spawn(timeout_duration_ms)
       -- for drawing [Window] instead, toggling video
       mpv_socket:observe_property("video-format")
       -- observe everything we need to draw the format string
-      for _, i in ipairs(formatting.mpv_properties or {}) do
+      for _, i in ipairs(self.callbacks.formatter.mpv_properties or {}) do
         mpv_socket:observe_property(i)
       end
 
