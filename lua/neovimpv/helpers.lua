@@ -13,7 +13,8 @@ local LINK_RE = "()(https?://.-%.[^`%s]+)()"
 ---@alias LineNumber integer
 
 ---@class MpvLocalArgs
----@field mpv_args string[]
+---@field mpv_args? string[]
+---@field is_video? boolean
 ---@field update_action? UpdateAction
 
 -- Convert a title and URL pair to a markdown string
@@ -234,21 +235,9 @@ local function parse_mpvopen_args(args)
     end
   end
 
-  if video_flag then
-    local i = 1
-    while i <= #mpv_args do
-      local arg = mpv_args[i]
-      if arg:find("^--vid") or arg == "--no-video" then
-        table.remove(mpv_args, i)
-      else
-        i = i + 1
-      end
-    end
-    table.insert(mpv_args, "--video=auto")
-  end
-
   return {
     mpv_args = mpv_args,
+    is_video = video_flag,
     update_action = update_action,
   }
 end

@@ -60,9 +60,25 @@ function M.new(
 
   ---@cast maybe_buffer_actions MpvCallbacks
 
+  -- "Cook" local arguments into actual command-line arguments
+  local mpv_args = local_args.mpv_args or {}
+  local is_video = local_args.is_video
+  if is_video ~= nil then
+    local i = 1
+    while i <= #mpv_args do
+      local arg = mpv_args[i]
+      if arg:find("^--vid") or arg == "--no-video" then
+        table.remove(mpv_args, i)
+      else
+        i = i + 1
+      end
+    end
+    table.insert(mpv_args, is_video and "--video=auto" or "--no-video")
+  end
+
   local target = MpvManager.new(
     maybe_buffer_actions,
-    local_args.mpv_args
+    mpv_args
   ):spawn()
 
   registry.register(target)

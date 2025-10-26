@@ -8,7 +8,6 @@ local registry = require "neovimpv.mpv.registry"
 local mpv = require "neovimpv.mpv"
 
 local tbl_keys = vim.tbl_keys
-local list_contains = vim.list_contains
 
 local keys = {}
 
@@ -34,7 +33,7 @@ local function omnikey(extra_args)
     end
   elseif not is_visual then
     ---@cast playlist_item integer
-    if list_contains(extra_args.mpv_args, "--video=auto") then
+    if extra_args.is_video then
       player:toggle_video()
       exit_mode()
       return
@@ -144,7 +143,7 @@ function keys.bind_base()
   local vks = vim.keymap.set
 
   vks({"n", "v"}, "<Plug>(mpv_omnikey)", function() omnikey() end)
-  vks({"n", "v"}, "<Plug>(mpv_omnikey_video)", function() omnikey({ mpv_args = {"-- --video=auto"}}) end)
+  vks({"n", "v"}, "<Plug>(mpv_omnikey_video)", function() omnikey({ is_video = true }) end)
 
   vks("n", "<Plug>(mpv_goto_earlier)", function() goto_relative_mpv(-1) end)
   vks("n", "<Plug>(mpv_goto_later)", function() goto_relative_mpv(1) end)

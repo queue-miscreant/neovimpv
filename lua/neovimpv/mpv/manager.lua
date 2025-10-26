@@ -2,7 +2,6 @@
 -- A container class for forwarding plugin commands to the correct MpvSocket
 
 local config = require "neovimpv.config"
-local formatting = require "neovimpv.formatting"
 local MpvSocket = require "neovimpv.mpv.socket"
 local registry = require "neovimpv.mpv.registry"
 local log = require "neovimpv.log"
