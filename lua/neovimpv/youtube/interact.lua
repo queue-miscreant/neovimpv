@@ -135,7 +135,7 @@ local function add_keybinds()
     {
       "<cr>",
       function()
-        do_result(false, actions.paste_and_play, "")
+        do_result(false, actions.paste_and_play)
       end,
       desc = "Open result",
       mode = {"n", "v"},
@@ -143,28 +143,50 @@ local function add_keybinds()
     {
       "p",
       function()
-        do_result(false, actions.paste_and_play, "paste --")
+        do_result(
+          false,
+          actions.paste_and_play,
+          { update_action = "paste" } --[[@as MpvLocalArgs ]]
+        )
       end,
       desc = "Open result (paste playlist in-place)",
     },
     {
       "P",
       function()
-        do_result(false, actions.paste_and_play, "paste -- --video=auto")
+        do_result(
+          false,
+          actions.paste_and_play,
+          {
+            update_action = "paste",
+            is_video = true,
+          } --[[@as MpvLocalArgs ]]
+        )
       end,
       desc = "Open result (video, paste playlist in-place)",
     },
     {
       "n",
       function()
-        do_result(false, actions.paste_and_play, "new --")
+        do_result(
+          false,
+          actions.paste_and_play,
+          { update_action = "new_one" } --[[@as MpvLocalArgs ]]
+        )
       end,
       desc = "Open result (in new split)",
     },
     {
       "N",
       function()
-        do_result(false, actions.paste_and_play, "new -- --video=auto")
+        do_result(
+          false,
+          actions.paste_and_play,
+          {
+            update_action = "new_one",
+            is_video = true,
+          } --[[@as MpvLocalArgs ]]
+        )
       end,
       desc = "Open result (video, in new split)",
     },
@@ -186,7 +208,11 @@ local function add_keybinds()
     table.insert(specs, {
       video_binding,
       function()
-        do_result(false, actions.paste_and_play, "--video=auto")
+        do_result(
+          false,
+          actions.paste_and_play,
+          { is_video = true } --[[@as MpvLocalArgs ]]
+        )
       end,
       desc = "Open result (video)",
     })

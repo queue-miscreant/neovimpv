@@ -1,6 +1,7 @@
 local config = require "neovimpv.config"
 local helpers = require "neovimpv.helpers"
 local download_tracker = require "neovimpv.youtube.extmarks"
+local mpv = require "neovimpv.mpv"
 
 local actions = {}
 
@@ -82,7 +83,7 @@ end
 -- Writes markdown if the buffer's filetype supports markdown.
 --
 ---@param files PasteContent|PasteContent[]
----@param extra string
+---@param extra? MpvLocalArgs
 ---@param window? integer
 ---@param line_number? integer
 function actions.paste_and_play(files, extra, window, line_number)
@@ -91,9 +92,16 @@ function actions.paste_and_play(files, extra, window, line_number)
 
     -- MpvOpen on the inserted line(s)
     if start and end_ then
-      vim.cmd(
-        (":%s,%sMpvOpen %s"):format(start, end_, extra)
+      local lines_to_links = helpers.multi_line(
+        vim.fn.getline(start, end_) --[[@as string[] ]],
+        start,
+        nil,
+        end_,
+        nil,
+        "vline"
       )
+
+      mpv.new(vim.fn.bufnr(), lines_to_links, extra or {})
     end
   end)
 end
