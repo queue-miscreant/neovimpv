@@ -32,6 +32,8 @@ class Neovimpv:
             )
             return
 
+        self.nvim.api.notify("Searching YouTube...", 1, {})
+
         if bang:
             self.nvim.loop.create_task(
                 open_first_result(self.nvim, args[0], self.nvim.current.window)

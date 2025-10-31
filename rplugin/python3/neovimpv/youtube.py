@@ -335,7 +335,6 @@ async def open_first_result(nvim, youtube_query, old_window):
             old_window,
             True,
         )
-        nvim.api.command("MpvOpen")
 
     nvim.async_call(open_result)
 

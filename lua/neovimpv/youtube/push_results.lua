@@ -93,8 +93,8 @@ end
 
 ---@param text string The line to paste as.
 ---@param window_number integer The window to paste the result into.
----@param move_cursor? boolean Whether to attempt moving the cursor after pasting.
-function push_results.paste_result(text, window_number, move_cursor)
+---@param no_move_cursor? boolean Whether to attempt moving the cursor after pasting.
+function push_results.paste_result(text, window_number, no_move_cursor)
   -- Insert `value` at the line of the current cursor, if it's empty.
   -- Otherwise, insert it a line below the current line.
   local buffer = vim.fn.winbufnr(window_number)
@@ -110,7 +110,7 @@ function push_results.paste_result(text, window_number, move_cursor)
 
   if append_line then
     vim.fn.appendbufline(buffer, cursor_row, text)
-    if move_cursor == nil then
+    if not no_move_cursor then
       vim.cmd("normal j")
     end
   else
@@ -118,6 +118,9 @@ function push_results.paste_result(text, window_number, move_cursor)
   end
 
   helpers.try_write_buffer(buffer)
+  if no_move_cursor then
+    vim.cmd(("%dMpvOpen"):format(cursor_row))
+  end
 end
 
 return push_results
