@@ -188,7 +188,7 @@ local function multi_line(lines, start_line, start_col, end_line, end_col, mode)
       links = { link }
     end
 
-    if links[1]:len() ~= 0 then
+    if #links > 0 then
       ret[line_number] = { links, markdownable }
     end
     ::continue::
