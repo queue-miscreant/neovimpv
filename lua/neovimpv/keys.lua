@@ -115,8 +115,9 @@ local function download_callback(with_video)
     end_ = vim.fn.line(".")
   end
 
-  download_tracker.tag_extmark(start, end_, with_video or false)
-  download_tracker.start_downloader()
+  local buffer_id = vim.fn.bufnr()
+  download_tracker.tag_extmark(buffer_id, start, end_, with_video or false)
+  download_tracker.start_downloader(buffer_id)
 end
 
 -- Open search prompt

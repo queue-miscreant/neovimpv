@@ -73,8 +73,11 @@ function actions.paste_and_download(files, with_video, window, line_number)
     local start, end_ = paste_links(files, window, line_number)
 
     if start and end_ then
-      download_tracker.tag_extmark(start, end_, with_video)
-      download_tracker.start_downloader()
+      local buffer_id = vim.fn.bufnr()
+      vim.defer_fn(function()
+        download_tracker.tag_extmark(buffer_id, start, end_, with_video)
+        download_tracker.start_downloader(buffer_id)
+      end, 0)
     end
   end)
 end
@@ -101,7 +104,10 @@ function actions.paste_and_play(files, extra, window, line_number)
         "vline"
       )
 
-      mpv.new(vim.fn.bufnr(), lines_to_links, extra or {})
+      local buffer_id = vim.fn.bufnr()
+      vim.defer_fn(function()
+        mpv.new(buffer_id, lines_to_links, extra or {})
+      end, 0)
     end
   end)
 end

@@ -252,7 +252,11 @@ end
 -- Try writing the buffer, if the `save_on_modify` configuration is enabled
 ---@param buffer_id integer
 local function try_write_buffer(buffer_id)
-  if config.save_on_modify and not (vim.bo[buffer_id].readonly or not vim.bo[buffer_id].modifiable) then
+  if
+    config.save_on_modify
+    and not (vim.bo[buffer_id].readonly or not vim.bo[buffer_id].modifiable)
+    and vim.fn.expand("%") ~= ""
+  then
     vim.api.nvim_buf_call(buffer_id, function() vim.cmd("w") end)
   end
 end

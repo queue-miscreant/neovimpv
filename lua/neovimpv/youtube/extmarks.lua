@@ -153,17 +153,18 @@ end
 
 -- Add download extmarks to the current buffer for the line range given.
 --
+---@param buffer_id integer Buffer ID to place the extmark in
 ---@param start integer Start of range, 1-based
 ---@param end_ integer End of range, 1-based
 ---@param with_video boolean Download with video
-function download.tag_extmark(start, end_, with_video)
+function download.tag_extmark(buffer_id, start, end_, with_video)
   if start > end_ then return end
   local lines = vim.fn.getline(start, end_) --[[@as string[] ]]
 
   for i, line in ipairs(lines) do
     if extract_url(line) then
       vim.api.nvim_buf_set_extmark(
-        0,
+        buffer_id,
         helpers.download_namespace,
         start + i - 1 - 1,
         0,
@@ -267,14 +268,14 @@ end
 ---If no buffer is given, starts it on the current one.
 ---Lines must be tagged with download extmarks using download.tag_extmark beforehand.
 ---
----@param buffer integer?
-function download.start_downloader(buffer)
+---@param buffer_id integer?
+function download.start_downloader(buffer_id)
   local current_buffer = vim.api.nvim_get_current_buf()
-  buffer = buffer and (buffer == 0 and current_buffer) or current_buffer
-  if vim.b[buffer].mpv_downloader_running then return end
+  buffer_id = buffer_id and (buffer_id == 0 and current_buffer) or current_buffer
+  if vim.b[buffer_id].mpv_downloader_running then return end
 
-  registry.try_bind_autocmds(buffer)
-  download_next_extmark(buffer)
+  registry.try_bind_autocmds(buffer_id)
+  download_next_extmark(buffer_id)
 end
 
 return download
