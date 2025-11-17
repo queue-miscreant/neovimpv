@@ -4,7 +4,7 @@
 local config = require "neovimpv.config"
 local log = require "neovimpv.log"
 
-local expand = vim.fn.expand
+local expandcmd = vim.fn.expandcmd
 local filereadable = vim.fn.filereadable
 
 local LINK_RE = "()(https?://.-%.[^`%s]+)()"
@@ -36,12 +36,12 @@ local function unmarkdownify(markdown)
 end
 
 ---Attempt to interpret the line as an (absolute) file path or as markdown.
----Paths are `expand()`ed before checking if the file exists.
+---Paths are `expandcmd()`ed before checking if the file exists.
 ---If the line is not a valid filename or the markdown match fails, return nil.
 ---@param line string
 ---@return string?
 local function try_path_and_markdown(line)
-  local file_link = expand(line)
+  local file_link = expandcmd(line)
   if file_link:find("/") == 1 and filereadable(file_link) == 1 then
     return file_link
   end
