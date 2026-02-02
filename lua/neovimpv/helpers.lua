@@ -282,7 +282,7 @@ local function get_visual_playlist(last)
   local lines = vim.fn.getline(start_line, end_line) --[[@as string[] ]]
 
   log.log{
-    "Creating playlist from visual selection",
+    "Got selection",
     lines = lines,
     start = {start_line, start_col},
     ["end"] = {end_line, end_col},

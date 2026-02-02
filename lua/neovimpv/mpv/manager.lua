@@ -298,7 +298,7 @@ function MpvManager:toggle_video()
       if track.type == "video" then
         log.log{"Player has video track. Cycling video instead."}
         self.socket:send_command{"cycle", "video"}
-        break
+        return
       end
     end
 
