@@ -487,7 +487,7 @@ end
 ---TODO: user chooses open in split, open in vert split, open in new tab
 ---@param new_playlist table
 ---@param playlist_id MpvPlaylistId
----@param new_extmarks_callback fun()
+---@param new_extmarks_callback fun(MpvExtmarks)
 function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id, new_extmarks_callback)
   assert(not vim.in_fast_event())
 
@@ -527,10 +527,10 @@ function MpvCallbacks:_new_playlist_buffer(new_playlist, playlist_id, new_extmar
 
   -- "Move" player extmark between buffers.
   local new_player = MpvExtmarks.new(new_buffer, lines)
-  self.extmarks:remove()
+  local old_extmarks = self.extmarks
   self.extmarks = new_player
-  error("")
-  new_extmarks_callback()
+  old_extmarks:remove()
+  new_extmarks_callback(old_extmarks)
 
   log.log{
     "Got new playlist buffer",
@@ -553,7 +553,7 @@ end
 ---Update state after playlist loaded.
 ---The playlist retrieved from MpvSocket is raw, so we need to do a bit of extra processing.
 ---@param data table
----@param new_buffer_callback fun()
+---@param new_buffer_callback fun(MpvExtmarks)
 function MpvCallbacks:update_playlist(data, new_buffer_callback)
   log.log{
     "Got updated playlist!",
